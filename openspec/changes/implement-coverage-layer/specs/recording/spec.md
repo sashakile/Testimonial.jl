@@ -2,7 +2,8 @@
 
 ### Requirement: @testitem discovery
 The system SHALL discover all `@testitem` blocks in a monorepo by scanning
-source files matching the configured `test_directories` glob patterns.
+source files matching the `test_directories` glob patterns (Phase 1 hardcoded
+default: `["**/test"]`; configurable in Phase 3).
 
 For each discovered item the system SHALL produce a `TestItemRef` with the
 absolute file path, item name, declared tags, and file content hash.
@@ -53,10 +54,13 @@ by name, against a dedicated runner environment
 - **WHEN** a subprocess exceeds `timeout_per_item_seconds` (default 300 s)
 - **THEN** it is killed and treated as a failure
 - **AND** the failure is logged with the item name, file, and timeout duration
+- **AND** all `.jl.cov` sidecar files written by the timed-out subprocess are
+  deleted before recording continues, preventing partial coverage data from
+  being attributed to that item
 
 ### Requirement: Per-item cache
 The system SHALL skip re-recording a test item when a cached record exists
-for its cache key (`file_hash + "_" + item_name`) in `.testimonial/items/`.
+for its cache key (`file_hash * "_" * item_name`) in `.testimonial/items/`.
 
 #### Scenario: Cache hit
 - **WHEN** `record_all` is invoked and a valid cache record exists for an item
@@ -67,6 +71,12 @@ for its cache key (`file_hash + "_" + item_name`) in `.testimonial/items/`.
 - **WHEN** a test file's content changes between recording runs
 - **THEN** all items in that file have new cache keys (new `file_hash`)
 - **AND** those items are re-recorded
+
+#### Scenario: Atomic per-item cache write
+- **WHEN** a per-item record is written to `.testimonial/items/<key>.jls`
+- **THEN** it is written to a temporary file first and then atomically renamed
+  to the final path, preventing partial writes from corrupting the cache if
+  two concurrent `record_all` runs collide on the same item
 
 ### Requirement: Parallel recording
 The system SHALL record multiple test items concurrently using
@@ -122,3 +132,53 @@ for single-item recording, primarily for debugging and interactive use.
 - **WHEN** `record_item("/abs/path/test.jl", "My test")` is called
 - **THEN** exactly one subprocess is spawned for that item
 - **AND** the result is an `ItemCoverage` struct with the item's coverage data
+
+### Requirement: ItemCoverage per-item record
+The system SHALL define an `ItemCoverage` struct representing the coverage
+data recorded for one `@testitem` in a single subprocess run.
+
+Fields:
+- `ref::TestItemRef` — identifies the test item
+- `coverage::Dict{String, Set{Int}}` — maps absolute source file paths to the
+  set of line numbers executed by this item (lines with `count > 0` in the
+  `.jl.cov` sidecar)
+
+`ItemCoverage` is the unit of per-item cache persistence: serialized to
+`.testimonial/items/<key>.jls` after recording and deserialized during index
+construction. It is an **internal type** and is NOT part of the public API.
+
+#### Scenario: Coverage population
+- **WHEN** a subprocess's `.jl.cov` sidecar files are parsed
+- **THEN** the `coverage` dict contains exactly the files and lines where
+  `count > 0` in the sidecar output
+
+#### Scenario: Round-trip persistence
+- **WHEN** an `ItemCoverage` is serialized and then deserialized
+- **THEN** the result has identical `ref` and `coverage` fields
+
+### Requirement: TestimonialRunner workspace member
+The system SHALL provide `scripts/TestimonialRunner/` as a separate Julia
+workspace member — a minimal environment containing only the dependencies
+needed for subprocess recording, isolated from the main package dependencies
+(particularly important because `JuliaInterpreter.jl`, used by JET via
+SnoopCompile, sometimes conflicts with `Revise.jl`).
+
+`scripts/TestimonialRunner/Project.toml` SHALL declare direct dependencies on:
+- `Testimonial` (the package under test)
+- `ReTestItems` (for running individual test items)
+- `Coverage` (for parsing `.jl.cov` sidecar files)
+
+`scripts/TestimonialRunner/driver.jl` is the subprocess entry point. It SHALL:
+1. Accept the target item name via the environment variable `TESTIMONIAL_ITEM`.
+2. Call `ReTestItems.runtests` with a name filter matching exactly `TESTIMONIAL_ITEM`.
+3. Exit with a non-zero status code when the test item fails or errors.
+
+#### Scenario: Driver invocation
+- **WHEN** a subprocess is launched with `TESTIMONIAL_ITEM="Black-Scholes call pricing"`
+- **THEN** `driver.jl` runs only that named item and exits zero on success
+
+#### Scenario: Driver on failure
+- **WHEN** the test item raises an error or assertion fails
+- **THEN** `driver.jl` exits with a non-zero status code
+- **AND** the recording layer logs the failure and does not include this item
+  in the index

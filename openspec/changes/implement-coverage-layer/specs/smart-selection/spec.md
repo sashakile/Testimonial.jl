@@ -11,6 +11,15 @@ Only lines in the diff context that are additions or modifications (prefixed
 Paths in the diff output are resolved to absolute form relative to the
 repository root before insertion into the map.
 
+Files with extensions other than `.jl` SHALL be excluded from the changed set
+and do not contribute to coverage gap detection.
+
+#### Scenario: Non-Julia files in diff
+- **WHEN** a diff includes changes to `README.md`, `Project.toml`, or other
+  non-Julia files alongside `.jl` changes
+- **THEN** only the `.jl` files appear in the returned map
+- **AND** the non-`.jl` files do not trigger coverage gap warnings
+
 #### Scenario: Simple diff
 - **WHEN** a unified diff adds lines 10–12 in `src/foo.jl` and modifies line
   47 in `src/bar.jl`
@@ -58,6 +67,12 @@ changed lines, its `ImpactResult` accumulates all reasons.
 - **THEN** all `@testitem`s defined in that file are included in the result
   with `kind = TEST_FILE_CHANGED`, regardless of which lines changed
 
+#### Scenario: Dual selection — test file changed and line covered
+- **WHEN** an item's test file is in the changed set AND the item also covers
+  a changed source line in a different file
+- **THEN** the item is selected once (deduplicated) with both reasons present
+  in `ImpactResult.reasons`: one `TEST_FILE_CHANGED` and one `COVERED_LINE`
+
 ### Requirement: File-level coarse query
 The system SHALL implement `Testimonial.query_files(changed_files::Vector{String})`
 that selects any test item that covered any line of the given files.
@@ -86,16 +101,28 @@ The system SHALL implement `Testimonial.smart_run(; base_ref="origin/main", stri
 
 1. Loads the `CoverageIndex` from `.testimonial/index.jls`.
 2. Runs `git diff --unified=0 <base_ref>...HEAD` and parses the result.
-3. Calls `query` to get impacted test items.
-4. Checks for coverage gaps via `coverage_gaps`.
-5. Handles gaps per `on_coverage_gap` policy:
-   - `"fallback_fast"` (default): adds items tagged `:fast` to the selected set.
-   - `"fail"`: raises an error listing uncovered files and lines.
-   - `"warn"`: logs a warning but proceeds with the selected set only.
-6. If `dry_run=true`: prints selected items with their reasons and returns
+3. If the diff is empty (no changed `.jl` files), logs a message and returns
+   successfully without invoking `runtests`.
+4. Calls `query` to get impacted test items.
+5. Checks for coverage gaps via `coverage_gaps`.
+6. Handles gaps per Phase 1 hardcoded policy (configurable in Phase 3 via
+   `on_coverage_gap` config key):
+   - Default (`strict_coverage=false`): adds items tagged `:fast` to the
+     selected set (equivalent to `on_coverage_gap = "fallback_fast"` in Phase 3).
+   - Strict (`strict_coverage=true`): raises an error listing uncovered files
+     and lines (equivalent to `on_coverage_gap = "fail"` in Phase 3).
+7. If the number of selected items exceeds 200 (Phase 1 hardcoded cap;
+   configurable as `max_selected_items` in Phase 3), logs the reason and
+   falls through to running the full test suite.
+8. If `dry_run=true`: prints selected items with their reasons and returns
    without executing tests.
-7. Otherwise: invokes `ReTestItems.runtests` with `name` filter set to the
-   selected item names.
+9. Otherwise: invokes `ReTestItems.runtests` with `name` filter set to the
+   selected item names. When multiple items share the same name across
+   different test files, both are run; this minor over-selection is acceptable
+   in Phase 1.
+
+`strict_coverage=true` is equivalent to `on_coverage_gap = "fail"`;
+`strict_coverage=false` (default) is equivalent to `on_coverage_gap = "fallback_fast"`.
 
 The system SHALL warn (but not fail) when the loaded index is more than
 24 hours old, to alert developers that selections may be based on stale data.
@@ -111,7 +138,7 @@ The system SHALL warn (but not fail) when the loaded index is more than
 - **AND** no tests are executed
 
 #### Scenario: Coverage gap, fallback_fast policy
-- **WHEN** changed lines have no coverage and `on_coverage_gap = "fallback_fast"`
+- **WHEN** changed lines have no coverage and `strict_coverage=false` (default)
 - **THEN** all items tagged `:fast` are added to the selected set
 - **AND** a warning is logged identifying the uncovered files
 
@@ -130,8 +157,14 @@ The system SHALL warn (but not fail) when the loaded index is more than
 - **THEN** a warning is printed indicating the index age
 - **AND** smart_run proceeds normally
 
+#### Scenario: Empty diff (no changed Julia files)
+- **WHEN** `git diff` returns no changed `.jl` files (branch is clean or all
+  changes are in non-Julia files)
+- **THEN** `smart_run` completes successfully without invoking `runtests`
+- **AND** a message is logged indicating that no Julia changes were detected
+
 #### Scenario: Max selection cap
-- **WHEN** the number of selected items exceeds `max_selected_items` (default 200)
+- **WHEN** the number of selected items exceeds 200 (Phase 1 hardcoded cap)
 - **THEN** `smart_run` logs the reason and falls through to running the full
   test suite instead of the selected subset
 

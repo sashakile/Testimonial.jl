@@ -13,7 +13,8 @@
 - [ ] 2.2 Define `ImpactReasonKind` enum and `ImpactReason` struct
 - [ ] 2.3 Define `ImpactResult` struct
 - [ ] 2.4 Define `CoverageGap` struct
-- [ ] 2.5 Define `ItemCoverage` struct (per-item record: `ref + coverage Dict`)
+- [ ] 2.5 Define `ItemCoverage` struct (internal: `ref::TestItemRef` +
+      `coverage::Dict{String, Set{Int}}`; NOT re-exported in public API)
 - [ ] 2.6 Define `CoverageIndex` struct with all fields from spec
 - [ ] 2.7 Implement `save_index` / `load_index` using `Serialization` with
       atomic write (write to `.tmp` then `mv`)
@@ -44,8 +45,9 @@
       — spawns subprocess, returns `ItemCoverage` or `nothing` on failure
 - [ ] 5.2 Implement subprocess command construction
       (`julia --code-coverage=user --project=<runner> driver.jl`)
-- [ ] 5.3 Implement `driver.jl` in `scripts/TestimonialRunner/` — runs
-      `ReTestItems.runtests` filtered to one item
+- [ ] 5.3 Implement `driver.jl` in `scripts/TestimonialRunner/` — reads
+      `TESTIMONIAL_ITEM` env var, calls `ReTestItems.runtests` with name
+      filter, exits non-zero on failure (see recording spec: TestimonialRunner)
 - [ ] 5.4 Implement `.jl.cov` sidecar parsing via `Coverage.process_file`
 - [ ] 5.5 Implement timeout handling (kill subprocess if exceeded)
 - [ ] 5.6 Implement per-item cache read/write (`.testimonial/items/<key>.jls`)
@@ -100,5 +102,6 @@
 - [ ] 10.2 Re-export public types:
       `CoverageIndex`, `TestItemRef`, `ImpactResult`, `ImpactReason`,
       `ImpactReasonKind`, `CoverageGap`
+      (Note: `ItemCoverage` is internal — do NOT re-export)
 - [ ] 10.3 Verify `just test` passes the full unit + integration test suite
 - [ ] 10.4 Verify `openspec validate implement-coverage-layer --strict` passes

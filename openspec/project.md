@@ -46,14 +46,6 @@ Three analysis layers stack for complete coverage:
 | `configuration` | `Testimonial.toml` parsing, entrypoints, tag overrides, selection caps |
 | `ci-integration` | Two-workflow pattern (recording + PR), index artifact handling |
 
-## Requirement ID Scheme
-
-| Prefix | Category |
-|---|---|
-| `REQ-TST-NNN` | Core requirements |
-| `ARCH-NNN` | Architectural decisions |
-| `PERF-NNN` | Performance constraints |
-
 ## Implementation Phases
 
 Per the specification:

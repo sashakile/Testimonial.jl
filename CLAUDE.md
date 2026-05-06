@@ -1,3 +1,4 @@
+<!-- Managed: kept in sync with AGENTS.md by wai and bd. Edit via managed blocks only. -->
 <!-- OPENSPEC:START -->
 # OpenSpec Instructions
 

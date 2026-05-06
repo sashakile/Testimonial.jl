@@ -19,6 +19,10 @@ Fields:
 - `built_at::DateTime` — UTC timestamp of index construction
 - `schema_version::Int` — bumped on breaking struct changes; current value is 1
 
+The constant `Testimonial.SCHEMA_VERSION::Int` SHALL be set to `1` and
+incremented on any breaking change to `CoverageIndex`. It is the source of
+truth for the schema check on index load.
+
 #### Scenario: Forward query
 - **WHEN** a source file and line number are looked up in `line_to_tests`
 - **THEN** the result is a `Vector{TestItemRef}` of all items that executed that line
@@ -88,7 +92,9 @@ lines with no recorded coverage in any layer.
 Fields:
 - `source_file::String` — absolute path
 - `uncovered_lines::Vector{Int}` — changed lines with no coverage entry
-- `nearest_covered_lines::Vector{Int}` — up to 5 adjacent covered lines for context
+- `nearest_covered_lines::Vector{Int}` — up to 5 covered lines nearest (by
+  line number distance) to the uncovered lines in the same source file, for
+  context
 
 #### Scenario: Gap detection
 - **WHEN** a changed line has no entry in `line_to_tests`, `inference_edges`,
@@ -108,3 +114,12 @@ Julia's `Serialization` module, and per-item records at
 - **WHEN** the index is written to disk
 - **THEN** it is written to a temporary file first and then renamed to the
   final path, preventing partial writes from corrupting a valid index
+
+#### Scenario: Corrupted index
+- **WHEN** loading `.testimonial/index.jls` raises a deserialization error
+  that is not a schema mismatch (e.g., truncated file from a previous
+  interrupted write, disk full during write)
+- **THEN** the error is caught and a human-readable message is emitted
+  explaining the index is corrupt and `record_all` must be re-run
+- **AND** `smart_run` raises an informative error rather than propagating a
+  raw Julia exception

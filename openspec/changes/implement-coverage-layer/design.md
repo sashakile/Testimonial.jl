@@ -61,17 +61,17 @@ list with `nthreads = CPU_THREADS ÷ 2` to leave headroom for the spawned
 subprocesses. This avoids needing an external job scheduler.
 
 ### Decision: Per-item cache keyed on test file hash
-Cache key = `sha256(test_file_contents)[:12] + item_name`. If the key is in
+Cache key = `sha256(test_file_contents)[:12] * "_" * item_name`. If the key is in
 `.testimonial/items/`, recording is skipped. This is the incremental recording
 mechanism for Phase 1. (Finer-grained source-file invalidation is a Phase 2
 concern.)
 
-### Decision: `on_coverage_gap` policy
+### Decision: Coverage gap policy
 When changed lines have no recorded coverage in any layer, `smart_run` falls
-back to running the `:fast` tag suite by default (`on_coverage_gap =
-"fallback_fast"`). With `strict_coverage=true`, it fails with an explanatory
-message. This gives teams control over CI policy without Testimonial making
-the choice for them.
+back to running the `:fast` tag suite by default (`strict_coverage=false`).
+With `strict_coverage=true`, it fails with an explanatory message. Phase 1
+hardcodes these two behaviors; Phase 3 will generalize them into the
+`on_coverage_gap` config key (`"fallback_fast"` / `"fail"` / `"warn"`).
 
 ## Risks / Trade-offs
 
