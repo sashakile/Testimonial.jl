@@ -1,6 +1,6 @@
 ## ADDED Requirements
 
-### [CI-001] Requirement: CoverageIndex data model
+### Requirement: [CI-001] CoverageIndex data model
 The system SHALL define a `CoverageIndex` struct that stores the mapping
 between source lines and test items in both directions, along with metadata
 for cache invalidation.
@@ -45,7 +45,7 @@ and used by `smart_run` to determine when to fall back to a full test run.
 - **WHEN** a persisted index is loaded and `julia_version != string(VERSION)`
 - **THEN** the index is treated as stale and recording is re-triggered
 
-### [CI-002] Requirement: TestItemRef identity type
+### Requirement: [CI-002] TestItemRef identity type
 The system SHALL define a `TestItemRef` struct that uniquely identifies a
 `@testitem` within the monorepo.
 
@@ -70,7 +70,7 @@ content or tags change.
 - **WHEN** a cache key is computed for a test item
 - **THEN** the key is `file_hash * "_" * item_name` (hex prefix concatenated with name)
 
-### [CI-003] Requirement: ImpactResult and ImpactReason types
+### Requirement: [CI-003] ImpactResult and ImpactReason types
 The system SHALL define `ImpactResult` and `ImpactReason` types that explain
 why a test item was selected, enabling developer inspection and debugging.
 
@@ -93,7 +93,7 @@ why a test item was selected, enabling developer inspection and debugging.
 - **WHEN** a test file itself is in the changed set
 - **THEN** all `@testitem`s in that file are selected with `kind = TEST_FILE_CHANGED`
 
-### [CI-004] Requirement: CoverageGap type
+### Requirement: [CI-004] CoverageGap type
 The system SHALL define a `CoverageGap` struct that identifies changed source
 lines with no recorded coverage in any layer.
 
@@ -109,7 +109,7 @@ Fields:
   or `static_edges`
 - **THEN** it appears in the `uncovered_lines` of a `CoverageGap` for that file
 
-### [CI-005] Requirement: Index persistence
+### Requirement: [CI-005] Index persistence
 The system SHALL persist the `CoverageIndex` at `.testimonial/index.jls` using
 Julia's `Serialization` module, and per-item records at
 `.testimonial/items/<key>.jls`.

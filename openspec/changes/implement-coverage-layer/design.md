@@ -15,6 +15,25 @@ that shapes the entire architecture.
 - **Non-Goals:** Inference layer (`@snoopi_deep`), static layer (JET), CLI
   binary, CI workflow files. Those are Phases 2–4.
 
+## Module Architecture
+
+To prevent the emergence of God Modules and maintain a clean dependency graph (DAG), the implementation is structured into focused modules:
+
+| Module | Responsibility | Primary Dependencies |
+|---|---|---|
+| `src/Types.jl` | Core data structures and enums (`TestItemRef`, `CoverageIndex`, `ImpactResult`). | None (Stable foundation) |
+| `src/Persistence.jl` | Serialization and atomic disk I/O for index and records. | `Types.jl`, `Serialization` |
+| `src/ASTParser.jl` | Static discovery of `@testitem` blocks and metadata extraction. | `Types.jl` |
+| `src/GitDiff.jl` | Git command execution and unified diff parsing. | None |
+| `src/CoverageLayer.jl`| Subprocess recording orchestration and `.jl.cov` parsing. | `Types.jl` |
+| `src/Query.jl` | Impact analysis and coverage gap detection logic. | `Types.jl` |
+| `src/IndexBuilder.jl` | High-level `record_all` orchestration and index construction. | `Types.jl`, `Persistence.jl`, `ASTParser.jl`, `CoverageLayer.jl` |
+| `src/Orchestrator.jl` | `smart_run` pipeline (diff → query → policy → execution). | `Types.jl`, `GitDiff.jl`, `Query.jl`, `Persistence.jl` |
+| `src/Inspector.jl` | Public inspection APIs (`explain`, `index_info`). | `Types.jl`, `Persistence.jl` |
+| `src/Testimonial.jl` | Main entry point; re-exports public API. | All modules |
+
+This structure ensures that the data model is isolated from recording logic, and the orchestration pipeline is separated from inspection tools, allowing for independent testing and evolution of each component.
+
 ## Decisions
 
 ### Decision: Per-item subprocess isolation

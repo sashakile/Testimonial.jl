@@ -7,19 +7,17 @@
 - [ ] 1.4 Create `scripts/TestimonialRunner/Project.toml` — the isolated runner
       environment with `Testimonial`, `ReTestItems`, `Coverage` as deps
 
-## 2. Data Model (`src/Index.jl`)
+## 2. Data Model & Persistence (`src/Types.jl`, `src/Persistence.jl`)
 
-- [ ] 2.1 Define `TestItemRef` struct with `==` / `hash` implementation (ensure `realpath` normalization)
-- [ ] 2.2 Define `ImpactReasonKind` enum and `ImpactReason` struct
-- [ ] 2.3 Define `ImpactResult` struct
-- [ ] 2.4 Define `CoverageGap` struct
-- [ ] 2.5 Define `ItemCoverage` struct (internal: `ref::TestItemRef` +
-      `coverage::Dict{String, Set{Int}}`; NOT re-exported in public API)
-- [ ] 2.6 Define `CoverageIndex` struct with all fields from spec
-- [ ] 2.7 Implement `save_index` / `load_index` using `Serialization` with
-      atomic write (write to `.tmp` then `mv`)
-- [ ] 2.8 Implement schema version check on load
-- [ ] 2.9 Write unit tests for struct equality, hash, round-trip persistence,
+- [ ] 2.1 Define enums and structs in `src/Types.jl`:
+      `TestItemRef`, `ImpactReasonKind`, `ImpactReason`, `ImpactResult`,
+      `CoverageGap`, `ItemCoverage`, and `CoverageIndex`
+- [ ] 2.2 Implement `==` / `hash` for `TestItemRef` (exclude `file_hash` and `tags`)
+- [ ] 2.3 Implement `save_index`, `load_index`, `save_item_record`, `load_item_record`
+      in `src/Persistence.jl` using `Serialization`
+- [ ] 2.4 Implement atomic write (write to `.tmp` then `mv`) in `Persistence.jl`
+- [ ] 2.5 Implement schema and Julia version checks on load
+- [ ] 2.6 Write unit tests for struct equality, hash, round-trip persistence,
       schema mismatch rejection
 
 ## 3. AST Parser (`src/ASTParser.jl`)
@@ -53,15 +51,16 @@
 - [ ] 5.7 Write integration test: record a simple `@testitem` in a scratch
       package and verify the correct lines appear in `ItemCoverage`
 
-## 6. Index Builder (`src/Index.jl` — continued)
+## 6. Index Builder (`src/IndexBuilder.jl`)
 
 - [ ] 6.1 Implement `build_index(items_dir::String) -> CoverageIndex`
-      from per-item records
+      from per-item records in `src/IndexBuilder.jl`
 - [ ] 6.2 Implement `record_all(; incremental=true, force=false)` with
       parallel recording via `Threads.@threads`
 - [ ] 6.3 Implement `record_item(test_file, item_name)` for single-item
       debugging
-- [ ] 6.4 Write integration test: record two items in a scratch monorepo
+- [ ] 6.4 Implement cache cleanup (orphaned record deletion) in `IndexBuilder.jl`
+- [ ] 6.5 Write integration test: record two items in a scratch monorepo
       and verify the resulting `CoverageIndex` is correct
 
 ## 7. Query Engine (`src/Query.jl`)
@@ -76,9 +75,9 @@
 - [ ] 7.5 Write unit tests with a synthetic `CoverageIndex` covering:
       single hit, multi-line hit, gap detection, test-file-changed
 
-## 8. Smart Runner (`src/Runner.jl`)
+## 8. Smart Runner (`src/Orchestrator.jl`)
 
-- [ ] 8.1 Implement `smart_run(; base_ref, strict_coverage, dry_run)`
+- [ ] 8.1 Implement `smart_run(; base_ref, strict_coverage, dry_run)` in `src/Orchestrator.jl`
 - [ ] 8.2 Integrate index load, git diff parse, query, gap handling (include Project/Manifest change detection)
 - [ ] 8.3 Implement `on_coverage_gap` policy dispatch
       (`fallback_fast`, `fail`, `warn`)
@@ -87,20 +86,20 @@
 - [ ] 8.6 Implement dry-run output (selected items + reasons, no test execution)
 - [ ] 8.7 Write unit tests for each coverage-gap policy branch
 
-## 9. Inspection APIs (`src/Runner.jl` — continued)
+## 9. Inspection APIs (`src/Inspector.jl`)
 
-- [ ] 9.1 Implement `explain(test_file, item_name) -> Vector{String}`
-- [ ] 9.2 Implement `index_info() -> NamedTuple`
+- [ ] 9.1 Implement `explain(test_file, item_name) -> Vector{String}` in `src/Inspector.jl`
+- [ ] 9.2 Implement `index_info() -> NamedTuple` in `src/Inspector.jl`
 - [ ] 9.3 Write tests for both functions
 
 ## 10. Public API Surface (`src/Testimonial.jl`)
 
-- [ ] 10.1 Re-export all public functions:
+- [ ] 10.1 Include all sub-modules in `src/Testimonial.jl`
+- [ ] 10.2 Re-export all public functions:
       `record_all`, `record_item`, `query`, `query_files`,
       `smart_run`, `explain`, `coverage_gaps`, `index_info`
-- [ ] 10.2 Re-export public types:
+- [ ] 10.3 Re-export public types:
       `CoverageIndex`, `TestItemRef`, `ImpactResult`, `ImpactReason`,
       `ImpactReasonKind`, `CoverageGap`
-      (Note: `ItemCoverage` is internal — do NOT re-export)
-- [ ] 10.3 Verify `just test` passes the full unit + integration test suite
-- [ ] 10.4 Verify `openspec validate implement-coverage-layer --strict` passes
+- [ ] 10.4 Verify `just test` passes the full unit + integration test suite
+- [ ] 10.5 Verify `openspec validate implement-coverage-layer --strict` passes

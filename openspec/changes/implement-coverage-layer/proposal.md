@@ -11,20 +11,19 @@ and static layers will extend in later phases.
 ## What Changes
 
 - Add the `CoverageIndex` and `TestItemRef` data model with Serialization-based
-  persistence at `.testimonial/index.jls`.
+  persistence. Logic split across `Types.jl` (data), `Persistence.jl` (disk),
+  and `IndexBuilder.jl` (construction).
 - Add `ImpactResult` / `ImpactReason` (why a test was selected) and
-  `CoverageGap` (uncovered changed lines) value types.
+  `CoverageGap` (uncovered changed lines) value types in `Types.jl`.
 - Add `ASTParser` to discover `@testitem` blocks in Julia source files.
 - Add `GitDiff` to parse unified diffs into `Dict{String, Set{Int}}` (file →
   changed lines).
 - Add `CoverageLayer` to drive per-item subprocess recording
   (`--code-coverage=user`) and parse `.jl.cov` sidecar files.
-- Add `Index` to build and persist the `CoverageIndex` from per-item records.
 - Add `Query` to look up impacted test items and detect coverage gaps.
-- Add `Runner` (`smart_run`) to orchestrate git diff → query → test execution.
-- Expose the public API (`record_all`, `record_item`, `query`, `query_files`,
-  `smart_run`, `explain`, `coverage_gaps`, `index_info`) in `Testimonial.jl`.
-
+- Add `Orchestrator` (`smart_run`) to orchestrate git diff → query → test execution.
+- Add `Inspector` for diagnostic APIs (`explain`, `index_info`).
+- Expose the public API in the main `Testimonial.jl` module.
 ## Impact
 
 - Affected specs: `coverage-index` (new), `recording` (new), `smart-selection` (new)
