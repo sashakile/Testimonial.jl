@@ -46,10 +46,11 @@ test file path and the item name, against a dedicated runner environment
 
 #### Scenario: Coverage sidecar parsing
 - **WHEN** the subprocess exits successfully
-- **THEN** `.jl.cov` sidecar files produced by the subprocess are parsed via
+- **THEN** `.jl.cov` sidecar files produced by the subprocess are validated for well-formedness and parsed via
   `Coverage.process_file`
 - **AND** only lines with `count > 0` are recorded as hit lines
 - **AND** the sidecar files are removed after parsing
+- **AND** if a sidecar file is unreadable or malformed, a warning is logged and the corrupted file is ignored
 
 #### Scenario: Subprocess infrastructure failure
 - **WHEN** the subprocess exits with an infrastructure error code (2 or 3)
@@ -63,7 +64,7 @@ test file path and the item name, against a dedicated runner environment
 
 #### Scenario: Subprocess timeout
 - **WHEN** a subprocess exceeds `timeout_per_item_seconds` (default 300 s)
-- **THEN** it is killed, and the recording layer SHALL retry the subprocess up to a maximum of 2 attempts, doubling the timeout on retry
+- **THEN** it is killed, and the recording layer SHALL retry the subprocess up to a maximum of 2 attempts, doubling the timeout on retry (capped at a maximum of `max_timeout_per_item_seconds`, default 600 s)
 - **AND** if it times out after all retries, the failure is logged and all `.jl.cov` sidecar files for that item are deleted before recording continues
 
 ### Requirement: [REC-003] Per-item cache
@@ -119,6 +120,8 @@ currently discovered `TestItemRef` SHALL be ignored during construction.
 ### Requirement: [REC-006] record_all public API
 The system SHALL expose `Testimonial.record_all(; incremental=true, force=false)`
 as the primary entry point for building or updating the coverage index.
+
+Before beginning the recording process, the system SHALL acquire an exclusive, non-blocking file lock on `.testimonial/index.lock`. If the lock cannot be acquired, `record_all` SHALL throw an error indicating another recording process is active.
 
 Before beginning the recording process, the system SHALL check for uncommitted changes in the git repository. If the workspace is dirty, a warning SHALL be logged and the recorded `git_sha` in the resulting index SHALL have a `-dirty` suffix appended.
 
