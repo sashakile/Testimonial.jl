@@ -27,15 +27,21 @@ The system SHALL record each `@testitem` in an isolated subprocess using
 `julia --code-coverage=user` so that coverage counters are attributed to
 exactly that item and are not contaminated by other items.
 
-Each subprocess MUST run `ReTestItems.runtests` filtered to a single item
-by name, against a dedicated runner environment
+To prevent `.jl.cov` file contention during parallel recording, each
+subprocess SHALL run within a unique temporary directory. The system SHALL
+ensure the subprocess can resolve source file paths (e.g., by setting the
+current working directory to the project root and configuring coverage
+output paths if supported, or by executing in a symlinked shadow tree).
+
+Each subprocess MUST run `ReTestItems.runtests` filtered by BOTH the
+test file path and the item name, against a dedicated runner environment
 (`scripts/TestimonialRunner/Project.toml`).
 
 #### Scenario: Subprocess invocation
 - **WHEN** `record_item(test_file, item_name)` is called
 - **THEN** a subprocess is launched with `--code-coverage=user` and
   `--project=scripts/TestimonialRunner`
-- **AND** only the named item is executed in that subprocess
+- **AND** ONLY the specific `@testitem` in `test_file` matching `item_name` is executed
 
 #### Scenario: Coverage sidecar parsing
 - **WHEN** the subprocess exits successfully
@@ -91,8 +97,10 @@ for the spawned subprocesses.
   same item set
 
 ### Requirement: Index construction from per-item records
-The system SHALL construct a `CoverageIndex` by loading all per-item records
-from `.testimonial/items/` and building the dual-direction index.
+The system SHALL construct a `CoverageIndex` by loading per-item records
+from `.testimonial/items/` that correspond to items discovered in the
+current `record_all` run. Records in the cache that do not match a
+currently discovered `TestItemRef` SHALL be ignored during construction.
 
 #### Scenario: Index construction
 - **WHEN** all per-item records are loaded
@@ -169,9 +177,11 @@ SnoopCompile, sometimes conflicts with `Revise.jl`).
 - `Coverage` (for parsing `.jl.cov` sidecar files)
 
 `scripts/TestimonialRunner/driver.jl` is the subprocess entry point. It SHALL:
-1. Accept the target item name via the environment variable `TESTIMONIAL_ITEM`.
-2. Call `ReTestItems.runtests` with a name filter matching exactly `TESTIMONIAL_ITEM`.
-3. Exit with a non-zero status code when the test item fails or errors.
+1. Accept the target item name via `TESTIMONIAL_ITEM`.
+2. Accept the target test file via `TESTIMONIAL_FILE`.
+3. Call `ReTestItems.runtests` with filters for both `TESTIMONIAL_FILE`
+   and `TESTIMONIAL_ITEM`.
+4. Exit with a non-zero status code when the test item fails or errors.
 
 #### Scenario: Driver invocation
 - **WHEN** a subprocess is launched with `TESTIMONIAL_ITEM="Black-Scholes call pricing"`

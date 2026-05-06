@@ -9,7 +9,7 @@
 
 ## 2. Data Model (`src/Index.jl`)
 
-- [ ] 2.1 Define `TestItemRef` struct with `==` / `hash` implementation
+- [ ] 2.1 Define `TestItemRef` struct with `==` / `hash` implementation (ensure `realpath` normalization)
 - [ ] 2.2 Define `ImpactReasonKind` enum and `ImpactReason` struct
 - [ ] 2.3 Define `ImpactResult` struct
 - [ ] 2.4 Define `CoverageGap` struct
@@ -42,12 +42,11 @@
 ## 5. Coverage Layer (`src/CoverageLayer.jl`)
 
 - [ ] 5.1 Implement `record_item_subprocess(ref::TestItemRef, runner_project::String)`
-      — spawns subprocess, returns `ItemCoverage` or `nothing` on failure
+      — spawns subprocess in a unique `tempdir` to avoid `.cov` contention, returns `ItemCoverage` or `nothing` on failure
 - [ ] 5.2 Implement subprocess command construction
-      (`julia --code-coverage=user --project=<runner> driver.jl`)
+      (`julia --code-coverage=user --project=<runner> driver.jl`) with `TESTIMONIAL_ITEM` and `TESTIMONIAL_FILE` env vars
 - [ ] 5.3 Implement `driver.jl` in `scripts/TestimonialRunner/` — reads
-      `TESTIMONIAL_ITEM` env var, calls `ReTestItems.runtests` with name
-      filter, exits non-zero on failure (see recording spec: TestimonialRunner)
+      env vars, calls `ReTestItems.runtests` with file and name filters
 - [ ] 5.4 Implement `.jl.cov` sidecar parsing via `Coverage.process_file`
 - [ ] 5.5 Implement timeout handling (kill subprocess if exceeded)
 - [ ] 5.6 Implement per-item cache read/write (`.testimonial/items/<key>.jls`)
@@ -80,7 +79,7 @@
 ## 8. Smart Runner (`src/Runner.jl`)
 
 - [ ] 8.1 Implement `smart_run(; base_ref, strict_coverage, dry_run)`
-- [ ] 8.2 Integrate index load, git diff parse, query, gap handling
+- [ ] 8.2 Integrate index load, git diff parse, query, gap handling (include Project/Manifest change detection)
 - [ ] 8.3 Implement `on_coverage_gap` policy dispatch
       (`fallback_fast`, `fail`, `warn`)
 - [ ] 8.4 Implement stale index warning (> 24 h)

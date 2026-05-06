@@ -2,23 +2,21 @@
 
 ### Requirement: Unified diff parsing
 The system SHALL parse the output of `git diff --unified=0 <base>...HEAD` into
-a `Dict{String, Set{Int}}` mapping absolute source file paths to the set of
-changed line numbers.
+a `Dict{String, Set{Int}}` mapping absolute source file paths (normalized via
+`realpath`) to the set of changed line numbers.
 
 Only lines in the diff context that are additions or modifications (prefixed
 `+`) are counted as changed. Deletions and context lines are ignored.
 
 Paths in the diff output are resolved to absolute form relative to the
-repository root before insertion into the map.
+repository root and normalized via `realpath` before insertion into the map.
 
-Files with extensions other than `.jl` SHALL be excluded from the changed set
-and do not contribute to coverage gap detection.
+#### Scenario: Manifest or Project changes
+- **WHEN** a diff includes changes to `Project.toml` or `Manifest.toml`
+- **THEN** `smart_run` SHALL fall back to running the full test suite
+  (or the `:fast` suite if `strict_coverage=false`), as global environment
+  changes invalidate granular coverage analysis.
 
-#### Scenario: Non-Julia files in diff
-- **WHEN** a diff includes changes to `README.md`, `Project.toml`, or other
-  non-Julia files alongside `.jl` changes
-- **THEN** only the `.jl` files appear in the returned map
-- **AND** the non-`.jl` files do not trigger coverage gap warnings
 
 #### Scenario: Simple diff
 - **WHEN** a unified diff adds lines 10–12 in `src/foo.jl` and modifies line

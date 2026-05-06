@@ -7,9 +7,11 @@ for cache invalidation.
 
 Fields:
 - `line_to_tests::Dict{String, Dict{Int, Vector{TestItemRef}}}` — source file →
-  line → test items that executed that line (primary query direction)
+  line → test items that executed that line (primary query direction).
+  Keys MUST be normalized via `realpath`.
 - `test_to_lines::Dict{TestItemRef, Dict{String, Set{Int}}}` — test item →
-  source files → lines covered (reverse index for explain and incremental recording)
+  source files → lines covered (reverse index for explain and incremental recording).
+  Source file keys MUST be normalized via `realpath`.
 - `inference_edges::Dict{String, Set{TestItemRef}}` — reserved for Phase 2;
   initialized as empty dict in Phase 1
 - `static_edges::Dict{String, Set{TestItemRef}}` — reserved for Phase 3;
@@ -45,11 +47,11 @@ The system SHALL define a `TestItemRef` struct that uniquely identifies a
 `@testitem` within the monorepo.
 
 Fields:
-- `test_file::String` — absolute path to the test file
-- `item_name::String` — the string literal passed to `@testitem`
-- `tags::Vector{Symbol}` — the `tags=[...]` declaration (empty if omitted)
-- `file_hash::String` — SHA-256 prefix (12 hex chars) of test file content
-  at recording time; used for cache key computation
+- `test_file::String` — absolute path to the test file, normalized via `realpath`.
+- `item_name::String` — the string literal passed to `@testitem`.
+- `tags::Vector{Symbol}` — the `tags=[...]` declaration (empty if omitted).
+- `file_hash::String` — SHA-256 prefix (12 hex chars) of test file raw bytes
+  at recording time; used for cache key computation.
 
 `TestItemRef` SHALL implement `==` and `hash` so it can be used as a dict key.
 

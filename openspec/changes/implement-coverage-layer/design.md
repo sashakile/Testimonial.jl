@@ -19,25 +19,29 @@ that shapes the entire architecture.
 
 ### Decision: Per-item subprocess isolation
 Each `@testitem` is recorded in a separate `julia --code-coverage=user`
-subprocess. The subprocess runs `ReTestItems.runtests` filtered to exactly one
-item, producing `.jl.cov` sidecar files that are then parsed by `Coverage.jl`.
+subprocess. To avoid `.jl.cov` file contention during parallel recording,
+each subprocess runs in a unique temporary directory where the project
+root is symlinked (or used as a base). The subprocess runs `ReTestItems.runtests`
+filtered by BOTH file path and item name to avoid name collisions.
 
 **Alternatives considered:**
 - In-process coverage reset: not possible — LLVM counters are global and there
   is no Julia API to zero them mid-process.
 - Package-level coverage: too coarse; would force re-running every downstream
   test on any change.
+- Sequential recording: safe but too slow for large monorepos.
 
-### Decision: Dual-indexed `CoverageIndex`
+### Decision: Dual-indexed `CoverageIndex` with path normalization
 The index stores both `line_to_tests` (forward: source line → tests) and
-`test_to_lines` (reverse: test → source lines). The forward index answers
-impact queries in O(changed lines). The reverse index enables incremental
-re-recording (skip items whose covered files haven't changed) and the
-`explain` API.
+`test_to_lines` (reverse: test → source lines). All paths are normalized
+via `realpath` before storage to ensure consistency across different
+entry points and environments.
 
-**Alternatives considered:**
-- Forward-only index: faster to build, but `explain` and incremental recording
-  require a full scan. Rejected given the intended scale (~500 items).
+### Decision: Item identity and ghost record prevention
+A `TestItemRef` is uniquely identified by the pair `(realpath(test_file), item_name)`.
+During index construction, the system only loads per-item records that
+match items discovered in the current scan, preventing "ghost" records
+from renamed or deleted tests from polluting the index.
 
 ### Decision: Serialization format for persistence
 Index stored as `.testimonial/index.jls` using Julia's built-in `Serialization`
