@@ -6,7 +6,8 @@ source files matching the `test_directories` glob patterns (Phase 1 hardcoded
 default: `["**/test"]`; configurable in Phase 3).
 
 For each discovered item the system SHALL produce a `TestItemRef` with the
-absolute file path, item name, declared tags, and file content hash.
+absolute file path, item name, declared tags, and file content hash. To avoid
+identity collisions, `@testitem` names MUST be unique within a single test file.
 
 #### Scenario: Basic discovery
 - **WHEN** `record_all` is invoked in a monorepo with `@testitem` blocks

@@ -111,7 +111,9 @@ The system SHALL implement `Testimonial.smart_run(; base_ref="origin/main", stri
      and lines.
 7. If the number of selected items exceeds `DEFAULT_MAX_SELECTED_ITEMS` (defined
    in `CoverageIndex`), logs the reason and falls through to running the full
-   test suite.
+   test suite. The default limit of 200 is a heuristic: when too many tests are
+   impacted, the overhead of querying and running them individually outweighs
+   the wall-clock time of a full parallel run.
 8. If `dry_run=true`: prints selected items with their reasons and returns
    without executing tests.
 9. Otherwise: invokes `ReTestItems.runtests` with `name` filter set to the

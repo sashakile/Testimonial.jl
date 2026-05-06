@@ -22,8 +22,10 @@ and hundreds of `@testitem`s (e.g., SundaeVolatility scale).
 The core abstraction is the **`CoverageIndex`** — a dual-indexed artifact that
 maps source lines → test items (for fast impact queries) and test items →
 source lines (for incremental re-recording). Recording runs each `@testitem`
-in a **separate subprocess** because Julia coverage counters cannot be reset
-within a process and inference fires only on first invocation.
+in a **separate subprocess**. While Julia 1.11 introduced the ability to reset
+coverage counters (`Base.reset_coverage()`), isolation is still required because
+inference fires only on the first invocation, and separate processes ensure a
+pristine global state for each test.
 
 Three analysis layers stack for complete coverage:
 
@@ -95,8 +97,8 @@ Per the specification:
 
 ## Important Constraints
 
-- Per-item subprocess recording is the only correct approach for Julia coverage
-  and inference attribution — do not attempt in-process alternatives.
+- Per-item subprocess recording is the preferred approach for Julia coverage
+  and inference attribution. Although coverage can be reset in 1.11+, inference state cannot, making subprocess isolation mandatory for Phase 2.
 - The index is never checked into the repo; it lives in CI artifact storage.
 - The runner environment (`scripts/TestimonialRunner/`) must be a separate
   workspace member to avoid dependency conflicts with `JuliaInterpreter.jl`.
@@ -107,4 +109,11 @@ Per the specification:
 
 - GitHub for source hosting and CI artifact storage
 - `wai`, `bd`, and `openspec` CLIs in contributor environments
-- Julia 1.12+ (required for workspace `[sources]` support)
+- Julia 1.12+ (required for `[workspace]` monorepo support; `[sources]` is supported since 1.11)
+
+## References
+
+- [ReTestItems.jl](https://github.com/JuliaTesting/ReTestItems.jl)
+- [Coverage.jl](https://github.com/JuliaCI/Coverage.jl)
+- [SnoopCompile.jl](https://github.com/timholy/SnoopCompile.jl)
+- [JET.jl](https://github.com/aviatesk/JET.jl)
