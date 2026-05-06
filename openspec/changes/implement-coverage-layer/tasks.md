@@ -1,3 +1,10 @@
+## 0. Technical Spikes
+
+- [ ] 0.1 Benchmark subprocess overhead: Measure recording time for 1000+ items
+      on standard CI hardware to validate performance assumptions
+- [ ] 0.2 Validate coverage sidecar attribution: Confirm `Coverage.process_file`
+      correctly maps hits in a symlinked shadow tree back to source files
+
 ## 1. Project Scaffold
 
 - [ ] 1.1 Create `Project.toml` with package metadata and dependencies
@@ -39,17 +46,21 @@
 
 ## 5. Coverage Layer (`src/CoverageLayer.jl`)
 
-- [ ] 5.1 Implement `record_item_subprocess(ref::TestItemRef, runner_project::String)`
-      — spawns subprocess in a unique `tempdir` to avoid `.cov` contention, returns `ItemCoverage` or `nothing` on failure
-- [ ] 5.2 Implement subprocess command construction
+- [ ] 5.1 Define `abstract type AbstractRunner end` and `struct SubprocessRunner <: AbstractRunner`
+- [ ] 5.2 Implement `record_item(runner::AbstractRunner, ref::TestItemRef, ...)`
+- [ ] 5.3 Implement `record_item_subprocess` (logic in `SubprocessRunner`)
+      — spawns subprocess in a unique `tempdir` with a symlinked shadow tree, returns `ItemCoverage` or `nothing` on failure
+- [ ] 5.4 Implement subprocess command construction
       (`julia --code-coverage=user --project=<runner> driver.jl`) with `TESTIMONIAL_ITEM` and `TESTIMONIAL_FILE` env vars
-- [ ] 5.3 Implement `driver.jl` in `scripts/TestimonialRunner/` — reads
+- [ ] 5.5 Implement `driver.jl` in `scripts/TestimonialRunner/` — reads
       env vars, calls `ReTestItems.runtests` with file and name filters
-- [ ] 5.4 Implement `.jl.cov` sidecar parsing via `Coverage.process_file`
-- [ ] 5.5 Implement timeout handling (kill subprocess if exceeded)
-- [ ] 5.6 Implement per-item cache read/write (`.testimonial/items/<key>.jls`)
-- [ ] 5.7 Write integration test: record a simple `@testitem` in a scratch
+- [ ] 5.6 Implement `.jl.cov` sidecar parsing via `Coverage.process_file`
+- [ ] 5.7 Implement timeout handling (kill subprocess if exceeded)
+- [ ] 5.8 Implement per-item cache read/write (`.testimonial/items/<key>.jls`)
+- [ ] 5.9 Write integration test: record a simple `@testitem` in a scratch
       package and verify the correct lines appear in `ItemCoverage`
+- [ ] 5.10 Write unit test for `record_item` using a `MockRunner` to verify
+      command construction without spawning processes
 
 ## 6. Index Builder (`src/IndexBuilder.jl`)
 
@@ -103,4 +114,3 @@
       `ImpactReasonKind`, `CoverageGap`
 - [ ] 10.4 Verify `just test` passes the full unit + integration test suite
 - [ ] 10.5 Verify `openspec validate implement-coverage-layer --strict` passes
-

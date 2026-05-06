@@ -1,8 +1,8 @@
 ## ADDED Requirements
 
 ### Requirement: [SEL-001] Unified diff parsing
-The system SHALL parse the output of `git diff --unified=0 <base>...HEAD` into
-a `Dict{String, Set{Int}}` mapping absolute source file paths (normalized via
+Given a git reference range, the system SHALL parse the unified diff into a
+`Dict{String, Set{Int}}` mapping absolute source file paths (normalized via
 `realpath`) to the set of changed line numbers.
 
 Only lines in the diff context that are additions or modifications (prefixed
@@ -124,8 +124,9 @@ The system SHALL implement `Testimonial.smart_run(; base_ref="origin/main", stri
 `strict_coverage=true` is equivalent to `on_coverage_gap = "fail"`;
 `strict_coverage=false` (default) is equivalent to `on_coverage_gap = "fallback_fast"`.
 
-The system SHALL warn (but not fail) when the loaded index is more than
-24 hours old, to alert developers that selections may be based on stale data.
+The system SHALL log a warning to the standard error stream (but not fail)
+when the loaded index is more than 24 hours old, to alert developers that
+selections may be based on stale data.
 
 #### Scenario: Normal PR with coverage
 - **WHEN** `smart_run` is called on a branch with changes covered by the index

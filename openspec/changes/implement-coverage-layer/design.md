@@ -39,9 +39,26 @@ This structure ensures that the data model is isolated from recording logic, and
 ### Decision: Per-item subprocess isolation
 Each `@testitem` is recorded in a separate `julia --code-coverage=user`
 subprocess. To avoid `.jl.cov` file contention during parallel recording,
-each subprocess runs in a unique temporary directory where the project
-root is symlinked (or used as a base). The subprocess runs `ReTestItems.runtests`
-filtered by BOTH file path and item name to avoid name collisions.
+each subprocess SHALL run within a unique temporary directory containing a
+symlinked shadow tree of the repository. The system SHALL ensure that the
+subprocess working directory is the root of this shadow tree so that relative
+paths in the test environment resolve correctly.
+
+### Decision: Trait-based runner for testability
+The system SHALL decouple subprocess command construction from execution
+using a trait-based runner interface. This ensures the recording logic
+is testable via mock runners without spawning actual processes in unit tests.
+
+### Decision: Stale index warning via stderr
+The system SHALL log a warning to the standard error stream (but not fail)
+when the loaded index is more than 24 hours old. This ensures warnings are
+visible in CI logs even if stdout is redirected or captured by other tools.
+
+### Decision: TestimonialRunner as workspace member
+`scripts/TestimonialRunner/` is a separate Julia workspace member containing
+only the dependencies needed for recording. It depends on the root
+`Testimonial` package via `pkg"dev ."` to ensure it always uses the local
+source while maintaining environment isolation.
 
 **Alternatives considered:**
 - In-process coverage reset: not possible — LLVM counters are global and there

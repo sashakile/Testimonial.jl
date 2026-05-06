@@ -168,12 +168,10 @@ construction. It is an **internal type** and is NOT part of the public API.
 ### Requirement: [REC-009] TestimonialRunner workspace member
 The system SHALL provide `scripts/TestimonialRunner/` as a separate Julia
 workspace member — a minimal environment containing only the dependencies
-needed for subprocess recording, isolated from the main package dependencies
-(particularly important because `JuliaInterpreter.jl`, used by JET via
-SnoopCompile, sometimes conflicts with `Revise.jl`).
+needed for subprocess recording, isolated from the main package dependencies.
 
 `scripts/TestimonialRunner/Project.toml` SHALL declare direct dependencies on:
-- `Testimonial` (the package under test)
+- `Testimonial` (the root package, added via `pkg"dev ."`)
 - `ReTestItems` (for running individual test items)
 - `Coverage` (for parsing `.jl.cov` sidecar files)
 
@@ -205,3 +203,9 @@ not grow indefinitely with orphaned records from renamed or deleted tests.
   whose key does not match any `@testitem` found in the current run
 - **THEN** that file is deleted from disk
 - **AND** valid cache records used in the current index are preserved
+
+### Requirement: [REC-011] Runner decoupling
+The system SHALL decouple subprocess command construction from execution
+using a trait-based runner interface. This ensures the recording logic
+is testable via mock runners without spawning actual processes in unit tests.
+
