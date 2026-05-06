@@ -51,19 +51,20 @@ test file path and the item name, against a dedicated runner environment
 - **AND** only lines with `count > 0` are recorded as hit lines
 - **AND** the sidecar files are removed after parsing
 
-#### Scenario: Subprocess failure
-- **WHEN** the subprocess exits with a non-zero status code
+#### Scenario: Subprocess infrastructure failure
+- **WHEN** the subprocess exits with an infrastructure error code (2 or 3)
+- **THEN** the recording layer SHALL retry the subprocess up to a maximum of 2 attempts
+- **AND** if it fails after all retries, the failure is logged and the item is omitted from the index
+
+#### Scenario: Subprocess test failure
+- **WHEN** the subprocess exits with a test failure code (1)
 - **THEN** the failure is logged with the item name and file
-- **AND** recording continues for remaining items
-- **AND** the failed item is not included in the index
+- **AND** any generated `.jl.cov` files are still parsed and coverage is recorded (the item is treated as recorded but failing)
 
 #### Scenario: Subprocess timeout
 - **WHEN** a subprocess exceeds `timeout_per_item_seconds` (default 300 s)
-- **THEN** it is killed and treated as a failure
-- **AND** the failure is logged with the item name, file, and timeout duration
-- **AND** all `.jl.cov` sidecar files written by the timed-out subprocess are
-  deleted before recording continues, preventing partial coverage data from
-  being attributed to that item
+- **THEN** it is killed, and the recording layer SHALL retry the subprocess up to a maximum of 2 attempts, doubling the timeout on retry
+- **AND** if it times out after all retries, the failure is logged and all `.jl.cov` sidecar files for that item are deleted before recording continues
 
 ### Requirement: [REC-003] Per-item cache
 The system SHALL skip re-recording a test item when a cached record exists
@@ -118,6 +119,8 @@ currently discovered `TestItemRef` SHALL be ignored during construction.
 ### Requirement: [REC-006] record_all public API
 The system SHALL expose `Testimonial.record_all(; incremental=true, force=false)`
 as the primary entry point for building or updating the coverage index.
+
+Before beginning the recording process, the system SHALL check for uncommitted changes in the git repository. If the workspace is dirty, a warning SHALL be logged and the recorded `git_sha` in the resulting index SHALL have a `-dirty` suffix appended.
 
 - With `incremental=true` (default): only re-records items whose test files
   have changed since the last index build.
@@ -180,17 +183,23 @@ needed for subprocess recording, isolated from the main package dependencies.
 2. Accept the target test file via `TESTIMONIAL_FILE`.
 3. Call `ReTestItems.runtests` with filters for both `TESTIMONIAL_FILE`
    and `TESTIMONIAL_ITEM`.
-4. Exit with a non-zero status code when the test item fails or errors.
+4. Exit with specific status codes to classify the run outcome:
+   - `0`: Success
+   - `1`: Test Failed (logic error or assertion failure)
+   - `2`: Internal Error (unhandled exception in driver or runner)
+   - `3`: Setup Error (missing dependencies, file not found)
 
 #### Scenario: Driver invocation
 - **WHEN** a subprocess is launched with `TESTIMONIAL_ITEM="Black-Scholes call pricing"`
 - **THEN** `driver.jl` runs only that named item and exits zero on success
 
-#### Scenario: Driver on failure
+#### Scenario: Driver on test failure
 - **WHEN** the test item raises an error or assertion fails
-- **THEN** `driver.jl` exits with a non-zero status code
-- **AND** the recording layer logs the failure and does not include this item
-  in the index
+- **THEN** `driver.jl` exits with status code 1
+
+#### Scenario: Driver on infrastructure failure
+- **WHEN** the driver encounters an unhandled exception or cannot load the test file
+- **THEN** `driver.jl` exits with status code 2 or 3
 
 ### Requirement: [REC-010] Cache cleanup
 Upon successful completion of an index build, the system SHALL remove any

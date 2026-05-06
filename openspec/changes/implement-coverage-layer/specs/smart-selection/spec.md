@@ -194,8 +194,10 @@ The system SHALL implement `Testimonial.index_info()` that returns a
 `NamedTuple` with index metadata for inspection.
 
 Fields: `git_sha`, `julia_version`, `built_at`, `schema_version`,
-`item_count` (number of distinct `TestItemRef`s), `file_count` (number of
-source files with coverage entries), `age_hours` (hours since `built_at`).
+`item_count` (number of distinct `TestItemRef`s with successful coverage), `file_count` (number of
+source files with coverage entries), `age_hours` (hours since `built_at`),
+`total_discovered_items` (total `@testitem` blocks found), and `failed_item_count`
+(number of items that failed to record).
 
 #### Scenario: Index info report
 - **WHEN** `index_info()` is called with a valid index on disk

@@ -20,6 +20,8 @@ Fields:
 - `julia_version::String` — Julia version string; index treated as stale on mismatch
 - `built_at::DateTime` — UTC timestamp of index construction
 - `schema_version::Int` — bumped on breaking struct changes; current value is 1
+- `total_discovered_items::Int` — total number of `@testitem` blocks found during the scan
+- `failed_item_count::Int` — number of items that failed to record (due to crash or timeout)
 
 The constant `Testimonial.SCHEMA_VERSION::Int` SHALL be set to `1` and
 incremented on any breaking change to `CoverageIndex`. It is the source of
