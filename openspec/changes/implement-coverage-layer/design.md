@@ -89,12 +89,18 @@ Cache key = `sha256(test_file_contents)[:12] * "_" * item_name`. If the key is i
 mechanism for Phase 1. (Finer-grained source-file invalidation is a Phase 2
 concern.)
 
-### Decision: Coverage gap policy
-When changed lines have no recorded coverage in any layer, `smart_run` falls
-back to running the `:fast` tag suite by default (`strict_coverage=false`).
-With `strict_coverage=true`, it fails with an explanatory message. Phase 1
-hardcodes these two behaviors; Phase 3 will generalize them into the
-`on_coverage_gap` config key (`"fallback_fast"` / `"fail"` / `"warn"`).
+### Decision: Coverage gap policy via Strategy Pattern
+When changed lines have no recorded coverage in any layer, `smart_run` handles the gap
+using a `GapPolicy` strategy. We define `abstract type GapPolicy end` with concrete
+implementations like `FallbackFastPolicy` (default, runs `:fast` tag) and `FailPolicy`
+(raises an error with missing lines). This isolates policy logic from the orchestrator
+and allows easy injection of custom policies in Phase 3.
+
+### Decision: Extensible Query Pipeline via Composite Strategy
+The impact query engine and `CoverageIndex` are designed for extensibility to
+support Phase 2 (Inference) and Phase 3 (Static).
+- `CoverageIndex` stores layer-specific data in an extensible `layer_data::Dict{Symbol, Any}` map, avoiding a God Struct.
+- `Query.jl` acts as a composite that aggregates results from a list of `ImpactProvider`s. Phase 1 implements and registers only `CoverageProvider`.
 
 ## Risks / Trade-offs
 

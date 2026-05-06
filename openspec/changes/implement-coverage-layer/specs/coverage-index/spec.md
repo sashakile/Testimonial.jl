@@ -105,8 +105,8 @@ Fields:
   context
 
 #### Scenario: Gap detection
-- **WHEN** a changed line has no entry in `line_to_tests`, `inference_edges`,
-  or `static_edges`
+- **WHEN** a changed line has no coverage entry in `line_to_tests` or any other
+  analysis layer registered in `layer_data`
 - **THEN** it appears in the `uncovered_lines` of a `CoverageGap` for that file
 
 ### Requirement: [CI-005] Index persistence

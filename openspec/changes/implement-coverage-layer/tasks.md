@@ -65,8 +65,8 @@
 
 ## 7. Query Engine (`src/Query.jl`)
 
-- [ ] 7.1 Implement `query(index, changed) -> Vector{ImpactResult}`
-      with deduplication and reason accumulation
+- [ ] 7.1 Implement `query(providers::Vector{ImpactProvider}, index, changed) -> Vector{ImpactResult}`
+      with deduplication and reason accumulation. Implement `CoverageProvider <: ImpactProvider`.
 - [ ] 7.2 Implement test-file-changed detection (changed file under
       `test_directories` → select all items in file)
 - [ ] 7.3 Implement `query_files(index, files) -> Vector{ImpactResult}`
@@ -103,3 +103,4 @@
       `ImpactReasonKind`, `CoverageGap`
 - [ ] 10.4 Verify `just test` passes the full unit + integration test suite
 - [ ] 10.5 Verify `openspec validate implement-coverage-layer --strict` passes
+

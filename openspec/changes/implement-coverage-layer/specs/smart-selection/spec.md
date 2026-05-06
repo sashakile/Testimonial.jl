@@ -103,12 +103,12 @@ The system SHALL implement `Testimonial.smart_run(; base_ref="origin/main", stri
    successfully without invoking `runtests`.
 4. Calls `query` to get impacted test items.
 5. Checks for coverage gaps via `coverage_gaps`.
-6. Handles gaps per Phase 1 hardcoded policy (configurable in Phase 3 via
-   `on_coverage_gap` config key):
-   - Default (`strict_coverage=false`): adds items tagged `:fast` to the
-     selected set (equivalent to `on_coverage_gap = "fallback_fast"` in Phase 3).
-   - Strict (`strict_coverage=true`): raises an error listing uncovered files
-     and lines (equivalent to `on_coverage_gap = "fail"` in Phase 3).
+6. Handles gaps by dispatching to a `GapPolicy` (configurable in Phase 3 via
+   `on_coverage_gap` config key). Phase 1 provides two concrete policies:
+   - `FallbackFastPolicy` (default, `strict_coverage=false`): adds items tagged
+     `:fast` to the selected set.
+   - `FailPolicy` (`strict_coverage=true`): raises an error listing uncovered files
+     and lines.
 7. If the number of selected items exceeds `DEFAULT_MAX_SELECTED_ITEMS` (defined
    in `CoverageIndex`), logs the reason and falls through to running the full
    test suite.
@@ -197,3 +197,4 @@ source files with coverage entries), `age_hours` (hours since `built_at`).
 #### Scenario: Index info report
 - **WHEN** `index_info()` is called with a valid index on disk
 - **THEN** the returned named tuple contains correct values for all fields
+
