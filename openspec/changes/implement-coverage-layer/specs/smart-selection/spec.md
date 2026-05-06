@@ -1,6 +1,6 @@
 ## ADDED Requirements
 
-### Requirement: Unified diff parsing
+### [SEL-001] Requirement: Unified diff parsing
 The system SHALL parse the output of `git diff --unified=0 <base>...HEAD` into
 a `Dict{String, Set{Int}}` mapping absolute source file paths (normalized via
 `realpath`) to the set of changed line numbers.
@@ -31,7 +31,7 @@ repository root and normalized via `realpath` before insertion into the map.
 - **WHEN** a diff shows a file deletion
 - **THEN** the deleted file is not included in the changed set (no lines to query)
 
-### Requirement: Line-level impact query
+### [SEL-002] Requirement: Line-level impact query
 The system SHALL implement `Testimonial.query(changed::Dict{String, Set{Int}})`
 that returns `Vector{ImpactResult}` — the test items that cover at least one
 changed line.
@@ -71,7 +71,7 @@ changed lines, its `ImpactResult` accumulates all reasons.
 - **THEN** the item is selected once (deduplicated) with both reasons present
   in `ImpactResult.reasons`: one `TEST_FILE_CHANGED` and one `COVERED_LINE`
 
-### Requirement: File-level coarse query
+### [SEL-003] Requirement: File-level coarse query
 The system SHALL implement `Testimonial.query_files(changed_files::Vector{String})`
 that selects any test item that covered any line of the given files.
 
@@ -79,7 +79,7 @@ that selects any test item that covered any line of the given files.
 - **WHEN** `query_files(["src/foo.jl"])` is called
 - **THEN** every test item that covered at least one line in `foo.jl` is returned
 
-### Requirement: Coverage gap detection
+### [SEL-004] Requirement: Coverage gap detection
 The system SHALL implement `Testimonial.coverage_gaps(changed)` that returns
 `Vector{CoverageGap}` — files and lines in the changed set with no recorded
 coverage in any layer of the index.
@@ -94,7 +94,7 @@ coverage in any layer of the index.
 - **WHEN** every changed line has at least one test item in the index
 - **THEN** `coverage_gaps` returns an empty vector
 
-### Requirement: smart_run orchestration
+### [SEL-005] Requirement: smart_run orchestration
 The system SHALL implement `Testimonial.smart_run(; base_ref="origin/main", strict_coverage=false, dry_run=false)` that:
 
 1. Loads the `CoverageIndex` from `.testimonial/index.jls`.
@@ -109,9 +109,9 @@ The system SHALL implement `Testimonial.smart_run(; base_ref="origin/main", stri
      selected set (equivalent to `on_coverage_gap = "fallback_fast"` in Phase 3).
    - Strict (`strict_coverage=true`): raises an error listing uncovered files
      and lines (equivalent to `on_coverage_gap = "fail"` in Phase 3).
-7. If the number of selected items exceeds 200 (Phase 1 hardcoded cap;
-   configurable as `max_selected_items` in Phase 3), logs the reason and
-   falls through to running the full test suite.
+7. If the number of selected items exceeds `DEFAULT_MAX_SELECTED_ITEMS` (defined
+   in `CoverageIndex`), logs the reason and falls through to running the full
+   test suite.
 8. If `dry_run=true`: prints selected items with their reasons and returns
    without executing tests.
 9. Otherwise: invokes `ReTestItems.runtests` with `name` filter set to the
@@ -162,11 +162,17 @@ The system SHALL warn (but not fail) when the loaded index is more than
 - **AND** a message is logged indicating that no Julia changes were detected
 
 #### Scenario: Max selection cap
-- **WHEN** the number of selected items exceeds 200 (Phase 1 hardcoded cap)
+- **WHEN** the number of selected items exceeds `DEFAULT_MAX_SELECTED_ITEMS`
 - **THEN** `smart_run` logs the reason and falls through to running the full
   test suite instead of the selected subset
 
-### Requirement: explain API
+#### Scenario: Git command failure
+- **WHEN** the `git` command is not found or returns a non-zero exit code (e.g.,
+  invalid `base_ref`, not a git repository)
+- **THEN** `smart_run` raises a human-readable error explaining the failure
+- **AND** no tests are executed
+
+### [SEL-006] Requirement: explain API
 The system SHALL implement `Testimonial.explain(test_file, item_name)` that
 returns the list of source files (with line ranges) that the given test item
 covered, as recorded in the index.
@@ -180,7 +186,7 @@ covered, as recorded in the index.
 - **WHEN** the named item is not in the index
 - **THEN** an empty vector is returned and a warning is logged
 
-### Requirement: index_info API
+### [SEL-007] Requirement: index_info API
 The system SHALL implement `Testimonial.index_info()` that returns a
 `NamedTuple` with index metadata for inspection.
 

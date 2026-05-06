@@ -1,6 +1,6 @@
 ## ADDED Requirements
 
-### Requirement: @testitem discovery
+### [REC-001] Requirement: @testitem discovery
 The system SHALL discover all `@testitem` blocks in a monorepo by scanning
 source files matching the `test_directories` glob patterns (Phase 1 hardcoded
 default: `["**/test"]`; configurable in Phase 3).
@@ -22,7 +22,7 @@ absolute file path, item name, declared tags, and file content hash.
 - **WHEN** no `@testitem` blocks are found
 - **THEN** `record_all` completes without error and the index has zero entries
 
-### Requirement: Per-item subprocess recording
+### [REC-002] Requirement: Per-item subprocess recording
 The system SHALL record each `@testitem` in an isolated subprocess using
 `julia --code-coverage=user` so that coverage counters are attributed to
 exactly that item and are not contaminated by other items.
@@ -64,7 +64,7 @@ test file path and the item name, against a dedicated runner environment
   deleted before recording continues, preventing partial coverage data from
   being attributed to that item
 
-### Requirement: Per-item cache
+### [REC-003] Requirement: Per-item cache
 The system SHALL skip re-recording a test item when a cached record exists
 for its cache key (`file_hash * "_" * item_name`) in `.testimonial/items/`.
 
@@ -84,7 +84,7 @@ for its cache key (`file_hash * "_" * item_name`) in `.testimonial/items/`.
   to the final path, preventing partial writes from corrupting the cache if
   two concurrent `record_all` runs collide on the same item
 
-### Requirement: Parallel recording
+### [REC-004] Requirement: Parallel recording
 The system SHALL record multiple test items concurrently using
 `Threads.@threads` with `nthreads = CPU_THREADS ÷ 2` to leave headroom
 for the spawned subprocesses.
@@ -96,7 +96,7 @@ for the spawned subprocesses.
 - **AND** the total wall-clock time is less than sequential time for the
   same item set
 
-### Requirement: Index construction from per-item records
+### [REC-005] Requirement: Index construction from per-item records
 The system SHALL construct a `CoverageIndex` by loading per-item records
 from `.testimonial/items/` that correspond to items discovered in the
 current `record_all` run. Records in the cache that do not match a
@@ -114,7 +114,7 @@ currently discovered `TestItemRef` SHALL be ignored during construction.
   records for unchanged items
 - **AND** the resulting index is equivalent to a full re-recording
 
-### Requirement: record_all public API
+### [REC-006] Requirement: record_all public API
 The system SHALL expose `Testimonial.record_all(; incremental=true, force=false)`
 as the primary entry point for building or updating the coverage index.
 
@@ -132,7 +132,7 @@ as the primary entry point for building or updating the coverage index.
 - **THEN** only items in changed test files are re-recorded
 - **AND** items in unchanged files use cached records
 
-### Requirement: record_item public API
+### [REC-007] Requirement: record_item public API
 The system SHALL expose `Testimonial.record_item(test_file, item_name)`
 for single-item recording, primarily for debugging and interactive use.
 
@@ -141,7 +141,7 @@ for single-item recording, primarily for debugging and interactive use.
 - **THEN** exactly one subprocess is spawned for that item
 - **AND** the result is an `ItemCoverage` struct with the item's coverage data
 
-### Requirement: ItemCoverage per-item record
+### [REC-008] Requirement: ItemCoverage per-item record
 The system SHALL define an `ItemCoverage` struct representing the coverage
 data recorded for one `@testitem` in a single subprocess run.
 
@@ -164,7 +164,7 @@ construction. It is an **internal type** and is NOT part of the public API.
 - **WHEN** an `ItemCoverage` is serialized and then deserialized
 - **THEN** the result has identical `ref` and `coverage` fields
 
-### Requirement: TestimonialRunner workspace member
+### [REC-009] Requirement: TestimonialRunner workspace member
 The system SHALL provide `scripts/TestimonialRunner/` as a separate Julia
 workspace member — a minimal environment containing only the dependencies
 needed for subprocess recording, isolated from the main package dependencies
@@ -192,3 +192,15 @@ SnoopCompile, sometimes conflicts with `Revise.jl`).
 - **THEN** `driver.jl` exits with a non-zero status code
 - **AND** the recording layer logs the failure and does not include this item
   in the index
+
+### [REC-010] Requirement: Cache cleanup
+Upon successful completion of an index build, the system SHALL remove any
+files in `.testimonial/items/` that do not correspond to any currently
+discovered `@testitem`'s cache key. This ensures the cache directory does
+not grow indefinitely with orphaned records from renamed or deleted tests.
+
+#### Scenario: Cleanup orphaned records
+- **WHEN** `record_all` completes and `.testimonial/items/` contains a file
+  whose key does not match any `@testitem` found in the current run
+- **THEN** that file is deleted from disk
+- **AND** valid cache records used in the current index are preserved

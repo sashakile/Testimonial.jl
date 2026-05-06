@@ -1,6 +1,6 @@
 ## ADDED Requirements
 
-### Requirement: CoverageIndex data model
+### [CI-001] Requirement: CoverageIndex data model
 The system SHALL define a `CoverageIndex` struct that stores the mapping
 between source lines and test items in both directions, along with metadata
 for cache invalidation.
@@ -25,6 +25,9 @@ The constant `Testimonial.SCHEMA_VERSION::Int` SHALL be set to `1` and
 incremented on any breaking change to `CoverageIndex`. It is the source of
 truth for the schema check on index load.
 
+The constant `Testimonial.DEFAULT_MAX_SELECTED_ITEMS::Int` SHALL be set to `200`
+and used by `smart_run` to determine when to fall back to a full test run.
+
 #### Scenario: Forward query
 - **WHEN** a source file and line number are looked up in `line_to_tests`
 - **THEN** the result is a `Vector{TestItemRef}` of all items that executed that line
@@ -42,7 +45,7 @@ truth for the schema check on index load.
 - **WHEN** a persisted index is loaded and `julia_version != string(VERSION)`
 - **THEN** the index is treated as stale and recording is re-triggered
 
-### Requirement: TestItemRef identity type
+### [CI-002] Requirement: TestItemRef identity type
 The system SHALL define a `TestItemRef` struct that uniquely identifies a
 `@testitem` within the monorepo.
 
@@ -53,10 +56,13 @@ Fields:
 - `file_hash::String` — SHA-256 prefix (12 hex chars) of test file raw bytes
   at recording time; used for cache key computation.
 
-`TestItemRef` SHALL implement `==` and `hash` so it can be used as a dict key.
+`TestItemRef` SHALL implement `==` and `hash` based ONLY on `test_file` and
+`item_name`. The `file_hash` and `tags` fields MUST be excluded from equality
+and hashing to ensure the identity of a test item persists even when its
+content or tags change.
 
 #### Scenario: Equality and hashing
-- **WHEN** two `TestItemRef` values have identical `test_file` and `item_name`
+- **WHEN** two `TestItemRef` values have identical `test_file` and `item_name` but different `file_hash`
 - **THEN** they compare equal and produce the same hash
 - **AND** they can be used interchangeably as dict keys
 
@@ -64,7 +70,7 @@ Fields:
 - **WHEN** a cache key is computed for a test item
 - **THEN** the key is `file_hash * "_" * item_name` (hex prefix concatenated with name)
 
-### Requirement: ImpactResult and ImpactReason types
+### [CI-003] Requirement: ImpactResult and ImpactReason types
 The system SHALL define `ImpactResult` and `ImpactReason` types that explain
 why a test item was selected, enabling developer inspection and debugging.
 
@@ -87,7 +93,7 @@ why a test item was selected, enabling developer inspection and debugging.
 - **WHEN** a test file itself is in the changed set
 - **THEN** all `@testitem`s in that file are selected with `kind = TEST_FILE_CHANGED`
 
-### Requirement: CoverageGap type
+### [CI-004] Requirement: CoverageGap type
 The system SHALL define a `CoverageGap` struct that identifies changed source
 lines with no recorded coverage in any layer.
 
@@ -103,7 +109,7 @@ Fields:
   or `static_edges`
 - **THEN** it appears in the `uncovered_lines` of a `CoverageGap` for that file
 
-### Requirement: Index persistence
+### [CI-005] Requirement: Index persistence
 The system SHALL persist the `CoverageIndex` at `.testimonial/index.jls` using
 Julia's `Serialization` module, and per-item records at
 `.testimonial/items/<key>.jls`.
