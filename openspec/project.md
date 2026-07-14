@@ -47,6 +47,11 @@ Three analysis layers stack for complete coverage:
 | `cli` | Command-line interface (`testimonial record`, `run`, `explain`, `gaps`, `info`) |
 | `configuration` | `Testimonial.toml` parsing, entrypoints, tag overrides, selection caps |
 | `ci-integration` | Two-workflow pattern (recording + PR), index artifact handling |
+| `safety-invariants` | Soundness invariant, always-run set, scoped fallback, incident recording, must-run rules, flaky detection, shadow mode, reconciliation, promotion protocol |
+| `runtime-feedback` | Post-run ingestion, runtime edge creation, run history, idempotent ingest, external input recording |
+| `confidence-scoring` | Per-test confidence computation, per-component minimum confidence, threshold-based fallback gating |
+| `component-architecture` | Per-component indices, component graph, bottom-up resolution, cached selection, parallel selection, shard plans |
+| `provenance` | Reason chains, exclusion reasoning, persisted provenance, layered provenance view |
 
 ## Implementation Phases
 

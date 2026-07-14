@@ -1,0 +1,20 @@
+## 1. Reason chains
+- [ ] 1.1 Define `ProvenanceLink` struct (layer, content_unit, detail, next)
+- [ ] 1.2 Add `chain::Vector{ProvenanceLink}` to `ImpactReason`
+- [ ] 1.3 Build reason chain during `query`: trace from changed line through analysis layers to test
+- [ ] 1.4 Display reason chain in dry-run output
+
+## 2. Exclusion reasoning
+- [ ] 2.1 Implement `explain(test_ref; exclude=true)` that computes exclusion reason from index + diff
+- [ ] 2.2 Handle cases: not-in-index, no-coverage-overlap, different-component, changed-lines-mismatch
+- [ ] 2.3 Display exclusion reason as human-readable string with actionable suggestions
+
+## 3. Persisted provenance
+- [ ] 3.1 Store provenance after each `smart_run` at `.testimonial/provenance/<run_key>.jls`
+- [ ] 3.2 Load persisted provenance on `explain` calls when run key matches
+- [ ] 3.3 Implement sliding-window pruning (keep last N runs, configurable)
+
+## 4. Layered view in explain
+- [ ] 4.1 Group reasons by `LayerKind` in display output
+- [ ] 4.2 Show intersection/union semantics: "selected by coverage AND static" vs "selected by coverage OR static"
+- [ ] 4.3 Add `--layers` flag to `explain` CLI
