@@ -16,6 +16,9 @@ Fields:
   initialized as empty dict in Phase 1
 - `static_edges::Dict{String, Set{TestItemRef}}` — reserved for Phase 3;
   initialized as empty dict in Phase 1
+- `layer_data::Dict{Symbol, Any}` — extensible storage for layer-specific
+  data (e.g., inference call graph roots, static entrypoint lists);
+  initialized as empty dict in Phase 1
 - `git_sha::String` — commit SHA at which this index was recorded
 - `julia_version::String` — Julia version string; index treated as stale on mismatch
 - `built_at::DateTime` — UTC timestamp of index construction
@@ -107,7 +110,7 @@ Fields:
   context
 
 #### Scenario: Gap detection
-- **WHEN** a changed line has no coverage entry in `line_to_tests` or any other
+- **WHEN** a changed line has no coverage entry in `line_to_tests` or in any
   analysis layer registered in `layer_data`
 - **THEN** it appears in the `uncovered_lines` of a `CoverageGap` for that file
 

@@ -34,12 +34,6 @@ When ingestion discovers that a test exercised a content unit not previously lin
 - **THEN** the static edge SHALL NOT be removed
 - **AND** both the static and runtime edges SHALL coexist
 
-#### Scenario: Flaky test edge exclusion
-- **GIVEN** a test marked flaky (see SAFE-007)
-- **WHEN** runtime feedback ingestion processes its coverage data
-- **THEN** runtime edges from that test SHALL NOT be ingested
-- **AND** a warning SHALL be logged indicating the flaky status
-
 ### Requirement: [FEED-003] Run history persistence
 
 The system SHALL persist per-test run history (outcome, duration, attempt count, failure rate) independently from the main coverage index, surviving index rebuilds.

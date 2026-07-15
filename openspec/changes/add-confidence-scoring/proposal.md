@@ -17,4 +17,4 @@ Testimonial.jl currently has a binary view of index quality: the index is either
 
 - Affected capabilities: `smart-selection` (MODIFIED `smart_run` decision logic), `coverage-index` (ADDED confidence metadata)
 - New capabilities proposed: `confidence-scoring`
-- Dependencies: `implement-coverage-layer`, `add-runtime-feedback` (for run history → confidence), `add-safety-invariants` (for fallback integration)
+- Dependencies: `implement-coverage-layer`, `add-runtime-feedback` (for run history → confidence), `add-safety-invariants` (for fallback integration), `add-component-boundary` (for per-component confidence aggregation)

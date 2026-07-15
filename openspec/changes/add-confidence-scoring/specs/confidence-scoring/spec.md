@@ -28,7 +28,7 @@ The system SHALL apply per-invocation quality signals that modulate the effectiv
 
 ### Requirement: [CONF-003] Confidence threshold fallback
 
-When the minimum confidence across reachability-selected tests in a component falls below a configured threshold, the system SHALL fall back to a full run for that component only. The default threshold SHALL be 0.5 and SHALL be configurable per component in `Testimonial.toml`.
+When the minimum confidence across reachability-selected tests in a component falls below a configured threshold, the system SHALL fall back to a full run for that component only. The default threshold SHALL be 0.7 and SHALL be configurable per component in `Testimonial.toml`.
 
 Confidence for always-run tests SHALL be computed separately from reachability-selected tests. The per-component minimum confidence SHALL only consider reachability-selected tests for fallback gating, matching testaruda's TIA-SAFE-002 approach.
 

@@ -35,7 +35,7 @@ The geometric mean ensures no single factor can zero out the score. If any facto
 Where:
 - `freshness` = `1 - min(age_hours / stale_threshold, 1)` (decays linearly to 0)
 - `recording_quality` = `1 - (failed_items / total_items)` (fewer failures → higher quality)
-- `layer_coverage` = `1 / (num_layers_available + 1)` (more layers → higher ceiling; 1 layer = 0.5, 3 = 0.75)
+- `layer_coverage` = `num_layers_available / (num_layers_available + 1)` (more layers → higher ceiling; 1 layer = 0.5, 2 = 0.67, 3 = 0.75)
 - `history_quality` = `1 - failure_rate` (from run history; 1.0 if no history)
 
 The exact formula is configurable and will be tuned experimentally.
@@ -53,6 +53,7 @@ Confidence signals are computed at query time, not stored. This ensures determin
 | Composite formula produces counterintuitive results | Log all component signals; expose raw factors in `index_info` |
 | Threshold tuning is environment-specific | Make per-component thresholds configurable in `Testimonial.toml`; start with conservative 0.5 default |
 | Confidence adds cognitive overhead for users | Include confidence in dry-run output as education; document meaning clearly |
+| Threshold tuning is environment-specific | Make per-component thresholds configurable in `Testimonial.toml`; start with conservative 0.7 default (matches the default threshold in CONF-003) |
 
 ## Open Questions
 

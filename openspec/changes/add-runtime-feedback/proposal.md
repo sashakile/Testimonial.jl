@@ -18,4 +18,4 @@ Testimonial.jl's recording is a one-way process: you record an index, then you q
 
 - Affected capabilities: `smart-selection` (MODIFIED `smart_run` orchestration), `recording` (ADDED ingest mode), `coverage-index` (ADDED runtime edges)
 - New capabilities proposed: `runtime-feedback`
-- Dependencies: `implement-coverage-layer` (needs working recording + selection)
+- Dependencies: `implement-coverage-layer` (needs working recording + selection), `add-safety-invariants` (for flaky detection used in runtime edge exclusion)

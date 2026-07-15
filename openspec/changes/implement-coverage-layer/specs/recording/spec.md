@@ -221,3 +221,10 @@ The system SHALL decouple subprocess command construction from execution
 using a trait-based runner interface. This ensures the recording logic
 is testable via mock runners without spawning actual processes in unit tests.
 
+#### Scenario: Mock runner in unit test
+- **GIVEN** a `MockRunner` implementing the runner trait
+- **WHEN** `record_item` is called with the mock runner
+- **THEN** the command is constructed and returned without spawning a subprocess
+- **AND** the constructed command SHALL include the correct test file path and item name
+- **AND** the mock SHALL NOT execute any external process
+
