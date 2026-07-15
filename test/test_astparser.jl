@@ -82,3 +82,77 @@ end
         @test_throws SystemError Testimonial.extract_tags(joinpath(dir, "nonexistent.jl"))
     end
 end
+
+@testset "discover_testitems" begin
+    mktempdir() do dir
+        # Single file, single item, no tags
+        f1 = joinpath(dir, "test1.jl")
+        write(f1, """
+        module Test1
+        @testitem "foo" begin
+            @test 1 == 1
+        end
+        end
+        """)
+        f1_hash = Testimonial.file_hash(f1)
+
+        items = Testimonial.discover_testitems([dir])
+        @test length(items) == 1
+        @test items[1].name == "foo"
+        @test items[1].tags == Symbol[]
+        @test items[1].file_hash == f1_hash
+        @test endswith(items[1].file, "test1.jl")
+
+        # Multiple items in one file, some with tags
+        f2 = joinpath(dir, "test2.jl")
+        write(f2, """
+        module Test2
+        @testitem "a" begin
+            @test 1 == 1
+        end
+        @testitem "b" tags=[:unit] begin
+            @test 2 == 2
+        end
+        @testitem "c" tags=[:integration, :slow] begin
+            @test 3 == 3
+        end
+        end
+        """)
+        f2_hash = Testimonial.file_hash(f2)
+
+        items = Testimonial.discover_testitems([dir])
+        @test length(items) == 4  # 1 from f1 + 3 from f2
+
+        # Find items by name
+        by_name = Dict(item.name => item for item in items)
+
+        @test haskey(by_name, "foo")
+        @test by_name["foo"].tags == Symbol[]
+        @test by_name["foo"].file_hash == f1_hash
+
+        @test haskey(by_name, "a")
+        @test by_name["a"].tags == Symbol[]
+        @test by_name["a"].file_hash == f2_hash
+
+        @test haskey(by_name, "b")
+        @test by_name["b"].tags == [:unit]
+        @test by_name["b"].file_hash == f2_hash
+
+        @test haskey(by_name, "c")
+        @test by_name["c"].tags == [:integration, :slow]
+        @test by_name["c"].file_hash == f2_hash
+
+        # Line numbers should be set
+        for item in items
+            @test item.line > 0
+        end
+
+        # Directory with no .jl files returns empty
+        empty_dir = joinpath(dir, "empty")
+        mkpath(empty_dir)
+        @test Testimonial.discover_testitems([empty_dir]) == Testimonial.TestItemRef[]
+
+        # Non-existent directory throws
+        @test_throws Base.IOError Testimonial.discover_testitems([joinpath(dir, "nonexistent")])
+    end
+end
