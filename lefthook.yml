@@ -13,6 +13,19 @@ pre-commit:
       run: lefthook/check-julia-syntax.sh {staged_files}
       skip: [merge, rebase]
 
+    pretender-check:
+      run: pretender check src/ test/ 2>&1
+      skip: [merge, rebase]
+
+    dont-doctor:
+      run: dont doctor 2>&1
+      skip: [merge, rebase]
+
+    spec-test-correspondence:
+      glob: "*.jl"
+      run: ah check 2>&1
+      skip: [merge, rebase]
+
 pre-push:
   commands:
     julia-tests:
