@@ -50,9 +50,9 @@ reuses the same internals without duplicating orchestration logic.
 The core abstraction is the **`CoverageIndex`** — a dual-indexed artifact that
 maps source lines → test items (for fast impact queries) and test items →
 source lines (for incremental re-recording). Recording runs each `@testitem`
-in a **separate subprocess**. Julia 1.11 introduced `Base.reset_coverage()`,
-which may allow in-process coverage counter resets, but this has not been
-validated experimentally for per-test attribution. Inference state (Phase 2)
+in a **separate subprocess**. A spike confirmed that no in-process coverage
+reset API is available (see `.wai/research/2026-07-15-reset-coverage-spike.md`).
+Inference state (Phase 2)
 cannot be reset in-process regardless, making subprocess isolation the safe
 default for both layers. Separate processes also ensure a pristine global
 state for each test.
@@ -148,9 +148,9 @@ Per the specification:
 ## Important Constraints
 
 - Per-item subprocess recording is the preferred approach for Julia coverage
-  and inference attribution. Julia 1.11 introduced `Base.reset_coverage()`,
-  which may allow in-process coverage counter resets, but this has not been
-  validated experimentally for per-test attribution. Inference state cannot
+  and inference attribution. A spike confirmed that no in-process coverage
+  reset API is available (see `.wai/research/2026-07-15-reset-coverage-spike.md`).
+  Inference state cannot
   be reset in-process regardless, making subprocess isolation the safe
   default for both layers.
 - The index is never checked into the repo; it lives in CI artifact storage.

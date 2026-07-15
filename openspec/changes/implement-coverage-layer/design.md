@@ -5,9 +5,9 @@
 Testimonial.jl needs to attribute code coverage to individual `@testitem`s,
 not to packages or test files as a whole. Julia's LLVM-managed coverage
 counters accumulate globally and — as of Julia 1.10 — cannot be reset within
-a process. (Julia 1.11 introduced `Base.reset_coverage()`, which may change
-this, but has not been validated experimentally for per-test attribution.
-See the "Per-item subprocess isolation" decision below.) Each test item must
+a process. (A spike confirmed that `Base.reset_coverage()` does not exist in
+Julia 1.12.5; no in-process coverage API is available at all. See
+`.wai/research/2026-07-15-reset-coverage-spike.md`.) Each test item must
 run in its own subprocess. This is the foundational constraint that shapes
 the entire architecture.
 
@@ -79,9 +79,9 @@ see the correct test file path and item name
 
 ### Decision: Per-item subprocess isolation
 Each `@testitem` is recorded in a separate `julia --code-coverage=user`
-subprocess. Julia 1.11 introduced `Base.reset_coverage()`, which may allow
-in-process coverage counter resets, but this has not been validated
-experimentally for per-test attribution. Inference state (Phase 2) cannot
+subprocess. A spike confirmed that no in-process coverage reset API is
+available (see `.wai/research/2026-07-15-reset-coverage-spike.md`).
+Inference state (Phase 2) cannot
 be reset in-process regardless, making subprocess isolation the safe
 default. To avoid `.jl.cov` file contention during parallel recording,
 each subprocess SHALL run within a unique temporary directory containing a
@@ -102,10 +102,10 @@ source while maintaining environment isolation.
 
 **Alternatives considered:**
 - In-process coverage reset: not possible — LLVM counters are global and there
-  is no Julia API to zero them mid-process. (Julia 1.11 introduced
-  `Base.reset_coverage()`, which may change this, but has not been validated
-  experimentally for per-test attribution. Subprocess isolation is the safe
-  default until the spike in `03-risks-and-open-questions.md` is resolved.)
+  is no Julia API to zero them mid-process. (A spike confirmed that
+  `Base.reset_coverage()` does not exist in Julia 1.12.5; see
+  `.wai/research/2026-07-15-reset-coverage-spike.md`. Subprocess isolation
+  is the safe default.)
 - Package-level coverage: too coarse; would force re-running every downstream
   test on any change.
 - Sequential recording: safe but too slow for large monorepos.
