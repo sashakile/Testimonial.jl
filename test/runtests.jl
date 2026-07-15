@@ -1,1 +1,5 @@
-println("Testimonial.jl — tests will go here")
+using Testimonial
+using Test
+using Dates
+
+include("test_types.jl")

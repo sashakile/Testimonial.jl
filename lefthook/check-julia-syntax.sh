@@ -10,7 +10,7 @@ for file in "$@"; do
   if [[ "$file" == *.jl ]]; then
     julia -e "
       try
-        Meta.parse(read(\"$file\", String))
+        Meta.parseall(read(\"$file\", String))
       catch e
         println(\"syntax error: $file: \$e\")
         exit(1)
