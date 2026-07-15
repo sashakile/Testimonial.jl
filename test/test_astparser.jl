@@ -34,3 +34,51 @@ using Test
         @test_throws SystemError Testimonial.file_hash(joinpath(dir, "nonexistent.jl"))
     end
 end
+
+@testset "extract_tags" begin
+    mktempdir() do dir
+        path = joinpath(dir, "test.jl")
+
+        # No tags
+        write(path, """
+        @testitem "foo" begin
+            @test 1 == 1
+        end
+        """)
+        @test Testimonial.extract_tags(path) == Dict("foo" => Symbol[])
+
+        # With tags
+        write(path, """
+        @testitem "bar" tags=[:integration] begin
+            @test 2 == 2
+        end
+        """)
+        @test Testimonial.extract_tags(path) == Dict("bar" => [:integration])
+
+        # Multiple tags
+        write(path, """
+        @testitem "baz" tags=[:integration, :slow] begin
+            @test 3 == 3
+        end
+        """)
+        @test Testimonial.extract_tags(path) == Dict("baz" => [:integration, :slow])
+
+        # Multiple items in one file
+        write(path, """
+        @testitem "a" begin
+            @test 1 == 1
+        end
+        @testitem "b" tags=[:unit] begin
+            @test 2 == 2
+        end
+        @testitem "c" tags=[:integration, :slow] begin
+            @test 3 == 3
+        end
+        """)
+        tags = Testimonial.extract_tags(path)
+        @test tags == Dict("a" => Symbol[], "b" => [:unit], "c" => [:integration, :slow])
+
+        # Non-existent file throws
+        @test_throws SystemError Testimonial.extract_tags(joinpath(dir, "nonexistent.jl"))
+    end
+end

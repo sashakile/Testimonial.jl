@@ -10,15 +10,21 @@
     @test ref.file == "src/foo.jl"
     @test ref.line == 42
     @test ref.name == "test_bar"
+    @test ref.tags == Symbol[]
+    @test ref.file_hash == ""
 
-    # Equality
+    # Equality (ignores tags and file_hash)
     ref2 = TestItemRef("src/foo.jl", 42, "test_bar")
     @test ref == ref2
     @test hash(ref) == hash(ref2)
 
+    ref3 = TestItemRef("src/foo.jl", 42, "test_bar", [:integration], "abc123")
+    @test ref == ref3  # same identity despite different tags/hash
+    @test hash(ref) == hash(ref3)
+
     # Inequality
-    ref3 = TestItemRef("src/foo.jl", 99, "test_bar")
-    @test ref != ref3
+    ref4 = TestItemRef("src/foo.jl", 99, "test_bar")
+    @test ref != ref4
 end
 
 @testset "ImpactReasonKind" begin
