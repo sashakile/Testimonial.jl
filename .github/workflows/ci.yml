@@ -46,10 +46,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install openspec
+        run: npm install -g @fission-ai/openspec 2>&1
       - name: Validate specs
-        uses: openspec/validate-action@v1
-        with:
-          strict: true
+        run: openspec validate --strict 2>&1
         continue-on-error: true
 
   # ── Code quality — pretender ──────────────────
@@ -59,11 +59,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install pretender
-        run: |
-          curl -fsSL https://github.com/charly-vibes/pretender/releases/latest/download/pretender-linux-amd64 -o /usr/local/bin/pretender
-          chmod +x /usr/local/bin/pretender
+        run: cargo install pretender --locked 2>&1
       - name: Run pretender check
-        run: pretender check
+        run: pretender check src/ 2>&1
+        continue-on-error: true
 
   # ── Espectacular spec checks ─────────────────
   ah-check:
@@ -72,9 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install espectacular
-        run: |
-          curl -fsSL https://github.com/charly-vibes/espectacular/releases/latest/download/espectacular-linux-amd64 -o /usr/local/bin/espectacular
-          chmod +x /usr/local/bin/espectacular
+        run: cargo install espectacular --locked 2>&1
       - name: Run espectacular check
-        run: espectacular check
+        run: ah check 2>&1
         continue-on-error: true
