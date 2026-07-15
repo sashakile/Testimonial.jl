@@ -1,11 +1,19 @@
 module Testimonial
 
 using Dates
+using SHA
+
+# Protocol adapter — JSON stdin/stdout protocol for testaruda integration
+include("Protocol.jl")
+using .Protocol
 
 # Core types — the foundation of the coverage layer
 export TestItemRef, ImpactReasonKind, ImpactReason,
        ImpactResult, CoverageGap, ItemCoverage, CoverageIndex,
        DirectChange, DependencyChange, AlwaysRun, Unresolved
+
+# Protocol adapter exports
+export run_adapter_protocol
 
 # ── Basic structs ──────────────────────────────
 
@@ -76,7 +84,7 @@ end
 
 # ── Persistence ────────────────────────────────
 
-export atomic_write
+export atomic_write, file_hash
 
 """Write `data` to `path` atomically via temp-file + rename."""
 function atomic_write(path::String, data::String)
@@ -86,6 +94,14 @@ function atomic_write(path::String, data::String)
     write(tmppath, data)
     mv(tmppath, path; force=true)
     return nothing
+end
+
+# ── ASTParser ────────────────────────────────
+
+"""Compute SHA-256 hex prefix (first 12 chars) for a file's contents."""
+function file_hash(path::String)::String
+    content = read(path, String)
+    return bytes2hex(sha256(content))[1:12]
 end
 
 end # module Testimonial
