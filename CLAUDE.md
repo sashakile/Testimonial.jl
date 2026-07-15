@@ -1,3 +1,15 @@
+<!-- DONT:START -->
+# DONT MANAGED BLOCK — DO NOT EDIT
+
+This project uses `dont` for grounded-claim workflow.
+
+At session start run `dont prime --json`.
+
+Canonical agent instructions: `.dont/AGENTS.md`.
+
+Edits inside this managed block will be overwritten by `dont doctor --fix`.
+<!-- DONT:END -->
+
 <!-- Managed: kept in sync with AGENTS.md by wai and bd. Edit via managed blocks only. -->
 <!-- OPENSPEC:START -->
 # OpenSpec Instructions
@@ -117,6 +129,31 @@ bd close <id>         # Complete work
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
+
+<!-- TDD-RO5:START -->
+# TDD-Ro5 Pipeline
+
+Each ticket follows the TDD-Ro5 pipeline — no exceptions.
+
+## Pipeline per ticket
+
+1. **Claim** the issue: `bd update <id> --claim`
+2. **Implement TDD**:
+   - Write the **failing test first** (Red)
+   - Write the minimal code to pass (Green)
+   - **Refactor** — tidy the code, then commit
+   - Each phase (Red→Green→Refactor) gets its own commit
+3. **Review**: run `/ro5` after implement phase for quality check
+4. **Close** the issue: `bd close <id>`
+5. **Push**: `git push` (mandatory before moving to next ticket)
+
+## Rules
+
+- **Never** write implementation before the failing test
+- **Never** skip refactor — tidy before commit
+- **Never** close an issue without pushing
+- **Ro5 review** is mandatory after each ticket implementation
+<!-- TDD-RO5:END -->
 
 <!-- ah:managed:start -->
 ## espectacular

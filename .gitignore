@@ -47,3 +47,4 @@ pretender-report*
 # OS files
 .DS_Store
 Thumbs.db
+.dont/

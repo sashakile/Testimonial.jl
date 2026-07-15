@@ -9,7 +9,7 @@ install:
     julia --project -e 'import Pkg; Pkg.instantiate()'
 
 test:
-    julia --project -e 'import Pkg; Pkg.test()'
+    julia --project test/runtests.jl
 
 coverage:
     julia --project=scripts/TestimonialRunner -e 'using Testimonial; Testimonial.record_all()'
