@@ -1,5 +1,12 @@
 # Change: Add Confidence Scoring — Selection Quality Signals and Threshold-Based Fallback
 
+> **Status (two-layer architecture): DEFERRED indefinitely.**
+> Confidence scoring is a nice-to-have for standalone mode but not
+> correctness-critical. The conservative fallback (run everything on uncertainty)
+> covers the same gap without the complexity. In adapter mode, testaruda's own
+> confidence heuristics handle this. This proposal should not be implemented
+> until standalone mode has real users asking for graduated quality signals.
+
 ## Why
 
 Testimonial.jl currently has a binary view of index quality: the index is either valid (fresh enough) or stale (24+ hours). There's no gradient between "barely confident" and "highly confident." A confidence score lets the system make graduated decisions: trade off precision for recall when confidence is low, without a hard cutoff.

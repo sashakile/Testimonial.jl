@@ -1,5 +1,14 @@
 # Change: Add Component Boundary — Per-Component Indices and Bottom-Up Resolution
 
+> **Status (two-layer architecture): KEEP — Essential for monorepo support.**
+> This proposal is not superseded. Testimonial.jl's primary deployment context
+> is Julia monorepos with 10+ packages; per-component indices are required for
+> that to work. Phase 1 ships single-package only; this proposal deploys after
+> that foundation is proven. Under adapter mode, testaruda's single-store
+> architecture also needs a monorepo answer — coordination between Testimonial.jl's
+> component boundary and testaruda's store is an open design question (see
+> Decision 5 in the Phase 1 design).
+
 ## Why
 
 Testimonial.jl's target deployment is Julia monorepos with 10+ packages. The current `CoverageIndex` is flat — a single `Dict{String, Dict{Int, Vector{TestItemRef}}}` with no component boundary. This means:

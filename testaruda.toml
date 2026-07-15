@@ -2,11 +2,12 @@
 # See: https://github.com/charly-vibes/testaruda
 
 [adapters]
-# Julia adapter (custom shell-based — uses ReTestItems.jl for test discovery)
-".jl" = "testaruda-adapter-julia"
+# Julia adapter — runs Testimonial.jl's protocol adapter script
+# Installed as part of the Testimonial.jl package
+".jl" = "julia --project=. bin/testaruda_adapter.jl"
 
-# Default adapter (no Julia binary adapter exists yet, so use generic)
-default = "testaruda-adapter-julia"
+# Default adapter (no Julia binary adapter exists yet, so use same script)
+default = "julia --project=. bin/testaruda_adapter.jl"
 
 [discover]
 # Julia test discovery: ReTestItems.jl @testitem blocks

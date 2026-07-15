@@ -1,5 +1,12 @@
 # Change: Add Provenance and Deep Explainability — Reason Chains, Exclusion Reasoning, and Persisted Provenance
 
+> **Status (two-layer architecture): DEFERRED indefinitely.**
+> Deep provenance chains are a debugging ergonomics feature, not a correctness
+> requirement. Phase 1's basic `ImpactReason` types (`COVERED_LINE`,
+> `TEST_FILE_CHANGED`) provide sufficient explainability for initial use.
+> In adapter mode, testaruda's own provenance/reason-chain implementation
+> covers this. Implement when standalone mode users request better debugging.
+
 ## Why
 
 Testimonial.jl's current `explain` API returns "which files this test covers" — a flat list. When a developer asks "why wasn't my test selected?" or "why was it selected?" there's no chain of reasoning. This undermines trust in the tool, especially during onboarding. Provenance answers are the debugging interface.

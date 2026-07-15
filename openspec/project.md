@@ -2,30 +2,62 @@
 
 ## Purpose
 
-Testimonial.jl is a test impact analysis tool for Julia monorepos. Given a set
+Testimonial.jl is a Julia-native test impact analysis engine. Given a set
 of code changes (from a git diff), it selects the minimal set of `@testitem`s
 that must run to validate those changes — turning a 30-minute CI test suite
 into a 30-second feedback loop on most PRs.
 
-It operates in two phases:
-1. **Recording** (nightly on main): runs each `@testitem` in an isolated
-   subprocess, captures coverage and inference data, and builds a
-   `CoverageIndex`.
-2. **Smart selection** (every PR): parses the git diff, queries the index, and
-   invokes `ReTestItems.runtests` on the selected items only.
+It operates in **two deployment modes**:
+
+1. **Standalone mode** — `testimonial run <ref-range>`: parses the git diff,
+   queries the coverage index, and invokes `ReTestItems.runtests` on the
+   selected items. Conservative fallback: if no index exists or it's stale,
+   run everything. No policy layers beyond that.
+2. **Adapter mode** — `testimonial adapter`: a thin JSON-protocol subprocess
+   spawned by [testaruda](https://github.com/charly-vibes/testaruda) (a
+   language-agnostic test impact analysis orchestrator). testaruda owns
+   orchestration, SQLite persistence, confidence scoring, safety invariants,
+   and provenance — the adapter speaks stdin/stdout JSON and delegates
+   Julia-specific work (discovery, coverage recording, diff parsing) to Testimonial.jl's core.
 
 The primary intended deployment context is Julia monorepos with 10+ packages
 and hundreds of `@testitem`s (e.g., SundaeVolatility scale).
+
+### Architecture: Two Layers
+
+```
+┌─────────────────────────────────────────────────┐
+│  Layer 2: Protocol Layer (testimonial adapter)   │ ← stdin/stdout JSON
+│  Thin entry point mapping testaruda commands     │    spawned by testaruda
+│  (discover, ingest, static-deps, fingerprint,    │
+│   run-args) to the core below. No persistence,   │
+│   no orchestration — testaruda owns those.       │
+├─────────────────────────────────────────────────┤
+│  Layer 1: Julia Core (standalone)                │
+│  ASTParser, CoverageLayer, IndexBuilder,        │
+│  CoverageIndex, Query, GitDiff, Persistence,     │
+│  CLI (testimonial record, run, explain, gaps).   │
+│  Minimal orchestration: query → runtests.        │
+│  Conservative fallback: run all on staleness.    │
+└─────────────────────────────────────────────────┘
+```
+
+The core is independently useful as a standalone tool. The protocol layer
+reuses the same internals without duplicating orchestration logic.
 
 ## Domain Model
 
 The core abstraction is the **`CoverageIndex`** — a dual-indexed artifact that
 maps source lines → test items (for fast impact queries) and test items →
 source lines (for incremental re-recording). Recording runs each `@testitem`
-in a **separate subprocess**. While Julia 1.11 introduced the ability to reset
-coverage counters (`Base.reset_coverage()`), isolation is still required because
-inference fires only on the first invocation, and separate processes ensure a
-pristine global state for each test.
+in a **separate subprocess**. Julia 1.11 introduced `Base.reset_coverage()`,
+which may allow in-process coverage counter resets, but this has not been
+validated experimentally for per-test attribution. Inference state (Phase 2)
+cannot be reset in-process regardless, making subprocess isolation the safe
+default for both layers. Separate processes also ensure a pristine global
+state for each test.
+
+Three analysis layers stack for complete coverage:
 
 Three analysis layers stack for complete coverage:
 
@@ -37,29 +69,42 @@ Three analysis layers stack for complete coverage:
 
 ## Capability Specs
 
-| Capability | Purpose |
-|---|---|
-| `coverage-index` | `CoverageIndex` data model, persistence (`.testimonial/index.jls`) |
-| `recording` | Per-item subprocess recording protocol, parallelism, index construction |
-| `smart-selection` | Git diff → query pipeline, coverage gap detection, `smart_run` orchestration |
-| `inference-layer` | `@snoopi_deep` capture and inference edge construction |
-| `static-layer` | JET-based entrypoint analysis and static edge construction |
-| `cli` | Command-line interface (`testimonial record`, `run`, `explain`, `gaps`, `info`) |
-| `configuration` | `Testimonial.toml` parsing, entrypoints, tag overrides, selection caps |
-| `ci-integration` | Two-workflow pattern (recording + PR), index artifact handling |
-| `safety-invariants` | Soundness invariant, always-run set, scoped fallback, incident recording, must-run rules, flaky detection, shadow mode, reconciliation, promotion protocol |
-| `runtime-feedback` | Post-run ingestion, runtime edge creation, run history, idempotent ingest, external input recording |
-| `confidence-scoring` | Per-test confidence computation, per-component minimum confidence, threshold-based fallback gating |
-| `component-architecture` | Per-component indices, component graph, bottom-up resolution, cached selection, parallel selection, shard plans |
-| `provenance` | Reason chains, exclusion reasoning, persisted provenance, layered provenance view |
+### Core capabilities (Layer 1 — always present)
+
+| Capability | Purpose | Status |
+|---|---|---|
+| `coverage-index` | `CoverageIndex` data model, persistence (`.testimonial/index.jls`) | Active |
+| `recording` | Per-item subprocess recording protocol, parallelism, index construction | Active |
+| `smart-selection` | Git diff → query pipeline, coverage gap detection, `testimonial run` | Active |
+| `inference-layer` | `@snoopi_deep` capture and inference edge construction | Deferred (Phase 2) |
+| `static-layer` | JET-based entrypoint analysis and static edge construction | Deferred (Phase 3) |
+| `cli` | Command-line interface (`testimonial record`, `run`, `explain`, `gaps`) | Active |
+
+### Adapter protocol capabilities (Layer 2 — only used when spawned by testaruda)
+
+| Capability | Purpose | Status |
+|---|---|---|
+| `protocol-adapter` | JSON stdin/stdout protocol (handshake, discover, ingest, static-deps, fingerprint, run-args) | Planned |
+
+### Standalone-mode enhancements (Layer 1 extensions, useful without testaruda)
+
+| Capability | Purpose | Status |
+|---|---|---|
+| `component-architecture` | Per-component indices, bottom-up resolution, cached selection | Planned (Phase 2) — essential for monorepo |
+| `safety-invariants` | Soundness invariant, always-run set, conservative fallback | Planned (Phase 2) — fallback core only; promotion protocol deferred |
+| `confidence-scoring` | Per-test confidence computation, threshold-based fallback gating | Deferred indefinitely |
+| `provenance` | Reason chains, exclusion reasoning, persisted provenance | Deferred indefinitely |
+| `runtime-feedback` | Post-run ingestion, runtime edge creation, run history | Deferred indefinitely |
+| `configuration` | `Testimonial.toml` parsing, tag overrides, selection caps | Deferred |
+| `ci-integration` | Two-workflow pattern (recording + PR), index artifact handling | Deferred |
 
 ## Implementation Phases
 
 Per the specification:
-- **Phase 1 (MVP):** coverage layer only — `record_all`, `query`, `smart_run`
+- **Phase 1 (MVP):** coverage layer core + standalone CLI — `Types`, `Persistence`, `ASTParser`, `GitDiff`, `CoverageLayer`, `IndexBuilder`, `Query`, `Testimonial.jl` (CLI entry points: `record`, `run`, `explain`, `gaps`). Plus the adapter protocol entry point (`testimonial adapter`).
 - **Phase 2:** inference layer — `@snoopi_deep` capture and inference edges
 - **Phase 3:** static layer — JET entrypoint analysis, `Testimonial.toml` config
-- **Phase 4:** CI integration, CLI polish, GitHub PR comments
+- **Phases 2–3** update both the standalone CLI and the adapter protocol's `static-deps`/`ingest` handlers.
 
 ## Tech Stack
 
@@ -103,18 +148,27 @@ Per the specification:
 ## Important Constraints
 
 - Per-item subprocess recording is the preferred approach for Julia coverage
-  and inference attribution. Although coverage can be reset in 1.11+, inference state cannot, making subprocess isolation mandatory for Phase 2.
+  and inference attribution. Julia 1.11 introduced `Base.reset_coverage()`,
+  which may allow in-process coverage counter resets, but this has not been
+  validated experimentally for per-test attribution. Inference state cannot
+  be reset in-process regardless, making subprocess isolation the safe
+  default for both layers.
 - The index is never checked into the repo; it lives in CI artifact storage.
 - The runner environment (`scripts/TestimonialRunner/`) must be a separate
   workspace member to avoid dependency conflicts with `JuliaInterpreter.jl`.
 - `schema_version` in `CoverageIndex` must be bumped on any breaking struct
   change to enable cache invalidation.
+- **Adapter mode** is read-only with respect to the local `CoverageIndex`.
+  All coverage data writes go to testaruda's SQLite store via the `ingest`
+  response. The standalone index and testaruda's store are independent and
+  can diverge — the user must understand which mode they are in.
 
 ## External Dependencies
 
 - GitHub for source hosting and CI artifact storage
 - `wai`, `bd`, and `openspec` CLIs in contributor environments
 - Julia 1.12+ (required for `[workspace]` monorepo support; `[sources]` is supported since 1.11)
+- [testaruda](https://github.com/charly-vibes/testaruda) (optional — only needed for adapter mode)
 
 ## References
 
@@ -122,4 +176,4 @@ Per the specification:
 - [Coverage.jl](https://github.com/JuliaCI/Coverage.jl)
 - [SnoopCompile.jl](https://github.com/timholy/SnoopCompile.jl)
 - [JET.jl](https://github.com/aviatesk/JET.jl)
-- [testaruda](https://github.com/charly-vibes/testaruda) — proxy-based test impact analysis tool; prior art for reason-chain design, confidence heuristics, and incident promotion protocol
+- [testaruda](https://github.com/charly-vibes/testaruda) — language-agnostic test impact analysis orchestrator; Testimonial.jl's adapter mode speaks its protocol

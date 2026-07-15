@@ -30,8 +30,9 @@ The constant `Testimonial.SCHEMA_VERSION::Int` SHALL be set to `1` and
 incremented on any breaking change to `CoverageIndex`. It is the source of
 truth for the schema check on index load.
 
-The constant `Testimonial.DEFAULT_MAX_SELECTED_ITEMS::Int` SHALL be set to `200`
-and used by `smart_run` to determine when to fall back to a full test run.
+The constant `Testimonial.STALE_INDEX_THRESHOLD_HOURS::Int` SHALL be set to `24`
+and used by the standalone CLI to determine when an index is stale and the
+full test suite should be run instead of a selective run.
 
 #### Scenario: Forward query
 - **WHEN** a source file and line number are looked up in `line_to_tests`
@@ -134,5 +135,5 @@ Julia's `Serialization` module, and per-item records at
   interrupted write, disk full during write)
 - **THEN** the error is caught and a human-readable message is emitted
   explaining the index is corrupt and `record_all` must be re-run
-- **AND** `smart_run` raises an informative error rather than propagating a
-  raw Julia exception
+- **AND** `testimonial run` falls back to running the full test suite
+  rather than propagating a raw Julia exception

@@ -66,8 +66,9 @@
 
 - [ ] 6.1 Implement `build_index(items_dir::String) -> CoverageIndex`
       from per-item records in `src/IndexBuilder.jl`
-- [ ] 6.2 Implement `record_all(; incremental=true, force=false)` with
-      parallel recording via `Threads.@threads`
+- [ ] 6.2 Implement `record_all(items, runner=SubprocessRunner(); incremental=true, force=false)` —
+      record all items, build CoverageIndex, persist. The `runner` kwarg allows
+      injecting a mock for testing. Parallel recording via `Threads.@threads`.
 - [ ] 6.3 Implement `record_item(test_file, item_name)` for single-item
       debugging
 - [ ] 6.4 Implement cache cleanup (orphaned record deletion) in `IndexBuilder.jl`
@@ -85,30 +86,64 @@
       with `nearest_covered_lines` population
 - [ ] 7.5 Write unit tests with a synthetic `CoverageIndex` covering:
       single hit, multi-line hit, gap detection, test-file-changed
+- [ ] 7.6 Implement `is_index_stale(index) -> Bool` — checks whether
+      `built_at` is older than a threshold (default: 24h) or `julia_version`
+      mismatches. Used by the standalone CLI for fallback decisions.
 
-## 8. Smart Runner (`src/Orchestrator.jl`)
+## 8. Standalone CLI (`src/CLI.jl`) — replaces old Orchestrator + Inspector
 
-- [ ] 8.1 Implement `smart_run(; base_ref, strict_coverage, dry_run)` in `src/Orchestrator.jl`
-- [ ] 8.2 Integrate index load, git diff parse, query, gap handling (include Project/Manifest change detection)
-- [x] 8.3 Implement `on_coverage_gap` policy dispatch
-      (`fallback_fast`, `fail`, `warn`) *(merged into 8.1)*
-- [x] 8.4 Implement stale index warning (> 24 h) *(merged into 8.1)*
-- [x] 8.5 Implement `max_selected_items` cap with fallback to full suite *(merged into 8.1)*
-- [x] 8.6 Implement dry-run output (selected items + reasons, no test execution) *(merged into 8.1)*
-- [x] 8.7 Write unit tests for each coverage-gap policy branch *(merged into 8.1)*
+- [ ] 8.1 Implement `testimonial record` — calls `ASTParser.discover_testitems`,
+      `IndexBuilder.record_all`, persists CoverageIndex
+- [ ] 8.2 Implement `testimonial run <ref-range>` — loads index, checks staleness,
+      parses git diff, queries, runs selected tests. Falls back to full suite
+      if index is missing or stale.
+- [ ] 8.3 Implement `testimonial explain <test_file> <item_name>` — looks up
+      item in CoverageIndex, returns list of covered files/lines
+- [ ] 8.4 Implement `testimonial gaps <ref-range>` — reports changed lines
+      with no recorded coverage
+- [ ] 8.5 Implement cold start handling: if no index exists, emit informative
+      message and run full suite
+- [ ] 8.6 Write integration tests: `testimonial record` followed by
+      `testimonial run` on a known change selects the correct items
+- [ ] 8.7 Implement a **seeded-fault recall check** utility: given a source file,
+      inject a known semantic mutation, verify the test that should catch it is
+      still selected. This is a pre-deployment gate, not a unit test — it validates
+      the end-to-end pipeline.
 
-## 9. Inspection APIs (`src/Inspector.jl`)
+## 9. Protocol Adapter (`src/Protocol.jl`)
 
-- [ ] 9.1 Implement `explain(test_file, item_name) -> Vector{String}` in `src/Inspector.jl`
-- [ ] 9.2 Implement `index_info() -> NamedTuple` in `src/Inspector.jl`
-- [ ] 9.3 Write tests for both functions
+- [ ] 9.1 Implement `handle(line::String) -> String` — dispatch one JSON command
+      to the appropriate handler function
+- [ ] 9.2 Implement `run_adapter_protocol()` — main loop reading stdin,
+      dispatching, writing stdout
+- [ ] 9.3 Implement `handle_handshake` — static response with capabilities
+      (`runtime_edges: true`, `granularity: "file"`, `symbol_model_complete: false`)
+- [ ] 9.4 Implement `handle_discover` — calls `ASTParser.discover_testitems`,
+      returns JSON node list
+- [ ] 9.5 Implement `handle_ingest` — calls `CoverageLayer.record_item` for
+      each item in the request, constructs edge data from `ItemCoverage`,
+      returns edges inline. **No local index persistence** — edges go to
+      testaruda's SQLite store via the response.
+- [ ] 9.6 Implement `handle_static_deps` — if no coverage recorded yet, return
+      `unresolved` for all changed files. Otherwise, query the in-memory
+      coverage map built by `ingest` calls in this session.
+- [ ] 9.7 Implement `handle_fingerprint` — SHA-256 hash of file contents
+      (standardized instead of BLAKE3 to avoid a non-stdlib dependency)
+- [ ] 9.8 Implement `handle_run_args` — emit `ReTestItems.runtests` invocation
+      args filtered by `(test_file, item_name)` pairs
+- [ ] 9.9 Create `bin/testaruda_adapter.jl` — thin shell script calling
+      `Testimonial.run_adapter_protocol()`
+- [ ] 9.10 Write unit tests: send JSON commands via stdin, verify correct
+      JSON responses on stdout. Include error cases (malformed JSON, unknown
+      command, recording failure). Validate error response format:
+      `{ "error": { "message": "..." } }`.
 
 ## 10. Public API Surface (`src/Testimonial.jl`)
 
 - [ ] 10.1 Include all sub-modules in `src/Testimonial.jl`
 - [ ] 10.2 Re-export all public functions:
       `record_all`, `record_item`, `query`, `query_files`,
-      `smart_run`, `explain`, `coverage_gaps`, `index_info`
+      `run`, `explain`, `coverage_gaps`, `run_adapter_protocol`
 - [ ] 10.3 Re-export public types:
       `CoverageIndex`, `TestItemRef`, `ImpactResult`, `ImpactReason`,
       `ImpactReasonKind`, `CoverageGap`

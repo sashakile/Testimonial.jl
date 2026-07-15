@@ -1,5 +1,12 @@
 # Change: Add Runtime Feedback Loop — Ingest Phase and Edge Learning
 
+> **Status (two-layer architecture): DEFERRED indefinitely.**
+> Runtime feedback (post-run ingestion, run history, runtime edge creation)
+> is an incremental improvement over the Phase 1 coverage recording. The
+> Phase 1 approach (re-record on demand) is sufficient for correctness.
+> In adapter mode, testaruda's own runtime feedback loop covers this.
+> Implement when standalone users' recording costs become a real bottleneck.
+
 ## Why
 
 Testimonial.jl's recording is a one-way process: you record an index, then you query it. The index never learns from what actually happened when tests ran. If a test exercises code that static coverage analysis missed, that gap persists until the next full recording. A runtime feedback loop closes this gap continuously.

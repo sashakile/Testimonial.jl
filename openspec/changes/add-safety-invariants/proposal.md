@@ -1,5 +1,18 @@
 # Change: Add Safety Invariants — Soundness Guarantee, Always-Run Set, Fallback Architecture, and Verification Protocol
 
+> **Status (two-layer architecture): KEEP fallback core, DEFER protocol layer.**
+> Phase 1 already implements the conservative fallback (run everything on
+> staleness, missing index, or coverage gaps). This proposal extends that to
+> a proper always-run set (tests that failed last run, newly added tests, tests
+> with no history) and a scoped per-component fallback.
+> **Deferred from Phase 1:** the full promotion protocol (shadow mode →
+> zero-missed-selection window → enforcing mode), incident recording,
+> reconciliation, quarantine semantics. These only matter after the tool is
+> trusted in CI, not before.
+> In adapter mode, testaruda's own safety invariants (`TIA-SAFE-*`) cover
+> the protocol layer; only the always-run set remains Testimonial.jl's
+> responsibility.
+
 ## Why
 
 Testimonial.jl has no formal soundness guarantee. If a test is missed by selection, that's a silent CI gap with no detection mechanism. The current `FallbackFastPolicy` and `strict_coverage` are ad-hoc responses, not a coherent safety architecture. Without explicit invariants, confidence in the tool erodes over time as edge cases surface.

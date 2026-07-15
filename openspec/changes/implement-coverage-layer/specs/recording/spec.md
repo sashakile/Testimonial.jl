@@ -120,6 +120,7 @@ currently discovered `TestItemRef` SHALL be ignored during construction.
 ### Requirement: [REC-006] record_all public API
 The system SHALL expose `Testimonial.record_all(; incremental=true, force=false)`
 as the primary entry point for building or updating the coverage index.
+This is used by the standalone `testimonial record` command.
 
 Before beginning the recording process, the system SHALL acquire an exclusive, non-blocking file lock on `.testimonial/index.lock`. If the lock cannot be acquired, `record_all` SHALL throw an error indicating another recording process is active.
 
@@ -141,12 +142,25 @@ Before beginning the recording process, the system SHALL check for uncommitted c
 
 ### Requirement: [REC-007] record_item public API
 The system SHALL expose `Testimonial.record_item(test_file, item_name)`
-for single-item recording, primarily for debugging and interactive use.
+for single-item recording. This is used by:
+- The standalone `testimonial record` command (via `record_all` → `record_item` loop).
+- The adapter protocol's `ingest` handler, which calls `record_item` for each
+  item in the `ingest` request, constructs edge data from the `ItemCoverage`
+  results, and returns edges inline (no local index persistence).
 
 #### Scenario: Single item record
 - **WHEN** `record_item("/abs/path/test.jl", "My test")` is called
 - **THEN** exactly one subprocess is spawned for that item
 - **AND** the result is an `ItemCoverage` struct with the item's coverage data
+
+#### Scenario: Adapter ingest uses record_item
+- **WHEN** the adapter protocol's `ingest` handler receives a request to record
+  specific items
+- **THEN** `record_item` is called for each requested item
+- **AND** the resulting `ItemCoverage` structs are converted to edge data and
+  returned inline in the `ingest` response
+- **AND** no local index persistence is performed (testaruda's SQLite store
+  is the system of record)
 
 ### Requirement: [REC-008] ItemCoverage per-item record
 The system SHALL define an `ItemCoverage` struct representing the coverage
