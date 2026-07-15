@@ -74,4 +74,18 @@ struct CoverageIndex
     created_at :: DateTime
 end
 
+# ── Persistence ────────────────────────────────
+
+export atomic_write
+
+"""Write `data` to `path` atomically via temp-file + rename."""
+function atomic_write(path::String, data::String)
+    dir = dirname(path)
+    mkpath(dir)
+    tmppath = path * ".tmp"
+    write(tmppath, data)
+    mv(tmppath, path; force=true)
+    return nothing
+end
+
 end # module Testimonial
