@@ -22,9 +22,14 @@ struct TestItemRef
     file :: String
     line :: Int
     name :: String
+    tags :: Vector{Symbol}
+    file_hash :: String
 end
 
-# Equality by value
+# Convenience constructor without tags/file_hash
+TestItemRef(file, line, name) = TestItemRef(file, line, name, Symbol[], "")
+
+# Equality by identity (file, line, name) — excludes tags and file_hash
 Base.:(==)(a::TestItemRef, b::TestItemRef) = a.file == b.file && a.line == b.line && a.name == b.name
 Base.hash(r::TestItemRef, h::UInt) = hash(r.file, hash(r.line, hash(r.name, h)))
 
@@ -84,7 +89,7 @@ end
 
 # ── Persistence ────────────────────────────────
 
-export atomic_write, file_hash
+export atomic_write, file_hash, extract_tags
 
 """Write `data` to `path` atomically via temp-file + rename."""
 function atomic_write(path::String, data::String)
@@ -102,6 +107,32 @@ end
 function file_hash(path::String)::String
     content = read(path, String)
     return bytes2hex(sha256(content))[1:12]
+end
+
+"""Extract tags declarations from @testitem blocks in a source file.
+
+Returns a Dict mapping each @testitem name to its Vector{Symbol} of tags.
+Items without a tags= declaration get an empty Symbol[].
+"""
+function extract_tags(path::String)::Dict{String, Vector{Symbol}}
+    content = read(path, String)
+    result = Dict{String, Vector{Symbol}}()
+    
+    # Match @testitem "name" [tags=...] begin
+    pattern = r"@testitem\s+\"([^\"]+)\"(?:\s+tags=\[([^\]]*)\])?"
+    for m in eachmatch(pattern, content)
+        name = m.captures[1]
+        tags_str = m.captures[2]
+        if isnothing(tags_str) || isempty(strip(tags_str))
+            result[name] = Symbol[]
+        else
+            # Parse :sym1, :sym2 (strip leading colons)
+            tags = [Symbol(strip(strip(t), ':')) for t in split(tags_str, ",")]
+            result[name] = tags
+        end
+    end
+    
+    return result
 end
 
 end # module Testimonial
