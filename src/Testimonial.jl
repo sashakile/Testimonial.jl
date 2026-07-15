@@ -89,7 +89,7 @@ end
 
 # ── Persistence ────────────────────────────────
 
-export atomic_write, file_hash, extract_tags
+export atomic_write, file_hash, extract_tags, discover_testitems
 
 """Write `data` to `path` atomically via temp-file + rename."""
 function atomic_write(path::String, data::String)
@@ -133,6 +133,37 @@ function extract_tags(path::String)::Dict{String, Vector{Symbol}}
     end
     
     return result
+end
+
+"""Discover @testitem blocks in all .jl files under the given directories.
+
+Returns a Vector{TestItemRef} with one entry per @testitem found.
+"""
+function discover_testitems(dirs::Vector{String})::Vector{TestItemRef}
+    items = TestItemRef[]
+    for dir in dirs
+        # Read symlink-aware dir contents
+        entries = sort!(readdir(dir))
+        for entry in entries
+            path = joinpath(dir, entry)
+            if !endswith(entry, ".jl") || !isfile(path)
+                continue
+            end
+            fhash = file_hash(path)
+            tags = extract_tags(path)
+            content = read(path, String)
+            lines = split(content, "\n")
+            for (i, line) in enumerate(lines)
+                m = match(r"@testitem\s+\"([^\"]+)\"", line)
+                if !isnothing(m)
+                    name = m.captures[1]
+                    item_tags = get(tags, name, Symbol[])
+                    push!(items, TestItemRef(path, i, name, item_tags, fhash))
+                end
+            end
+        end
+    end
+    return items
 end
 
 end # module Testimonial
