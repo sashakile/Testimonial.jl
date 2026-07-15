@@ -49,7 +49,7 @@ jobs:
       - name: Install openspec
         run: npm install -g @fission-ai/openspec 2>&1
       - name: Validate specs
-        run: openspec validate --strict 2>&1
+        run: openspec validate --strict --all 2>&1
         continue-on-error: true
 
   # ── Code quality — pretender ──────────────────
