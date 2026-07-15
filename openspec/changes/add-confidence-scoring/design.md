@@ -51,7 +51,6 @@ Confidence signals are computed at query time, not stored. This ensures determin
 | Risk | Mitigation |
 |------|------------|
 | Composite formula produces counterintuitive results | Log all component signals; expose raw factors in `index_info` |
-| Threshold tuning is environment-specific | Make per-component thresholds configurable in `Testimonial.toml`; start with conservative 0.5 default |
 | Confidence adds cognitive overhead for users | Include confidence in dry-run output as education; document meaning clearly |
 | Threshold tuning is environment-specific | Make per-component thresholds configurable in `Testimonial.toml`; start with conservative 0.7 default (matches the default threshold in CONF-003) |
 

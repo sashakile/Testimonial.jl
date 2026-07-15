@@ -122,4 +122,4 @@ Per the specification:
 - [Coverage.jl](https://github.com/JuliaCI/Coverage.jl)
 - [SnoopCompile.jl](https://github.com/timholy/SnoopCompile.jl)
 - [JET.jl](https://github.com/aviatesk/JET.jl)
-- [testaruda](https://github.com/sashakile/testaruda.jl) — proxy-based test impact analysis tool; prior art for reason-chain design, confidence heuristics, and incident promotion protocol
+- [testaruda](https://github.com/charly-vibes/testaruda) — proxy-based test impact analysis tool; prior art for reason-chain design, confidence heuristics, and incident promotion protocol
