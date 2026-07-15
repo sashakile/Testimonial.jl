@@ -9,6 +9,7 @@
 module Protocol
 
 using JSON
+using SHA
 
 export run_adapter_protocol
 
@@ -61,6 +62,10 @@ function handle(line)
     # Dispatch
     if command == "handshake"
         return handle_handshake()
+    elseif command == "fingerprint"
+        return handle_fingerprint(cmd)
+    elseif command == "run-args"
+        return handle_run_args(cmd)
     else
         return json_error("unknown command: $(command)")
     end
@@ -88,6 +93,141 @@ function handle_handshake()
         )
     )
     return JSON.json(response)
+end
+
+"""
+    handle_fingerprint(cmd::Dict) -> String
+
+Compute SHA-256 hashes for the requested files per PROTO-006.
+Responds with an array of `{file, fingerprint}` objects.
+Uses SHA-256 (not BLAKE3) to avoid non-stdlib dependencies.
+"""
+function handle_fingerprint(cmd)
+    params = get(cmd, "params", nothing)
+    if params === nothing
+        return json_error("missing 'params' field")
+    end
+
+    files = get(params, "files", nothing)
+    if files === nothing || !isa(files, Vector) || isempty(files)
+        return json_error("missing or empty 'params.files'")
+    end
+
+    fingerprints = []
+    for file in files
+        if !isa(file, String)
+            return json_error("'params.files' entries must be strings")
+        end
+        if !isfile(file)
+            return json_error("file not found: $(file)")
+        end
+        content = try
+            read(file)
+        catch e
+            return json_error("cannot read $(file): $(sprint(showerror, e))")
+        end
+        hash = bytes2hex(sha256(content))
+        push!(fingerprints, Dict(
+            "file" => file,
+            "fingerprint" => hash,
+            "symbol" => nothing
+        ))
+    end
+
+    return JSON.json(Dict(
+        "ok" => true,
+        "result" => Dict(
+            "fingerprints" => fingerprints
+        )
+    ))
+end
+
+"""
+    handle_run_args(cmd::Dict) -> String
+
+Emit `ReTestItems.runtests` invocation arguments for the selected
+test items per PROTO-007. Does NOT execute the tests.
+"""
+function handle_run_args(cmd)
+    params = get(cmd, "params", nothing)
+    if params === nothing
+        return json_error("missing 'params' field")
+    end
+
+    selected = get(params, "selected", nothing)
+    if selected === nothing || !isa(selected, Vector) || isempty(selected)
+        return json_error("missing or empty 'params.selected'")
+    end
+
+    for item in selected
+        if !isa(item, String)
+            return json_error("'params.selected' entries must be strings")
+        end
+    end
+
+    # Build ReTestItems.runtests invocation
+    # Each selected item is in the format "test_file:item_name"
+    # We emit a Julia expression that calls ReTestItems.runtests with
+    # file and name filters for each selected item.
+    file_filter_pairs = []
+    for item in selected
+        parts = split(item, ":", limit=2)
+        if length(parts) == 2
+            push!(file_filter_pairs, (parts[1], parts[2]))
+        else
+            # No colon — treat the whole string as a test file path
+            push!(file_filter_pairs, (item, nothing))
+        end
+    end
+
+    # Group by file to avoid duplicate invocations
+    file_groups = Dict{String, Vector{Union{String, Nothing}}}()
+    for (file, name) in file_filter_pairs
+        if !haskey(file_groups, file)
+            file_groups[file] = []
+        end
+        if name !== nothing
+            push!(file_groups[file], name)
+        end
+    end
+
+    # Build the Julia expression
+    # ReTestItems.runtests(; filenames=[...], names=[...])
+    test_files = collect(keys(file_groups))
+    test_names = filter(x -> x !== nothing, vcat(values(file_groups)...))
+
+    # Build the runner command
+    # Use a single Julia invocation with ReTestItems.runtests
+    filter_expr = "ReTestItems.runtests("
+    if !isempty(test_files)
+        filter_expr *= "files=" * JSON.json(test_files)
+    end
+    if !isempty(test_names)
+        if !isempty(test_files)
+            filter_expr *= ", "
+        end
+        filter_expr *= "names=" * JSON.json(test_names)
+    end
+    filter_expr *= ")"
+
+    runner_args = [
+        "julia",
+        "--project=.",
+        "-e",
+        "using ReTestItems; $(filter_expr)"
+    ]
+
+    # Collection path for JUnit-style results
+    # ReTestItems outputs to stdout by default; we use a temp file
+    collection_path = "test-results.xml"
+
+    return JSON.json(Dict(
+        "ok" => true,
+        "result" => Dict(
+            "runner_args" => runner_args,
+            "collection_path" => collection_path
+        )
+    ))
 end
 
 """
