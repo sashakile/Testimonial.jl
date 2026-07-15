@@ -1,0 +1,37 @@
+# Lefthook configuration for Testimonial.jl
+min_version: 1.10.0
+
+pre-commit:
+  commands:
+    openspec-validate:
+      glob: "openspec/**/*.md"
+      run: openspec validate --strict 2>&1
+      skip: [merge, rebase]
+
+    julia-syntax:
+      glob: "*.jl"
+      run: lefthook/check-julia-syntax.sh {staged_files}
+      skip: [merge, rebase]
+
+pre-push:
+  commands:
+    julia-tests:
+      run: just test
+      skip: [merge, rebase]
+
+    openspec-validate-all:
+      run: openspec validate --strict 2>&1
+
+    beads-validate:
+      run: bd export -o .beads/issues.jsonl 2>&1
+
+post-commit:
+  commands:
+    beads-export:
+      run: bd export -o .beads/issues.jsonl 2>&1
+      skip: [merge, rebase]
+
+post-merge:
+  commands:
+    beads-update:
+      run: bd dolt pull 2>&1

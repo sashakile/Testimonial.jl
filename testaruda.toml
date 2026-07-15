@@ -1,0 +1,27 @@
+# testaruda configuration for Testimonial.jl
+# See: https://github.com/charly-vibes/testaruda
+
+[adapters]
+# Julia adapter (custom shell-based — uses ReTestItems.jl for test discovery)
+".jl" = "testaruda-adapter-julia"
+
+# Default adapter (no Julia binary adapter exists yet, so use generic)
+default = "testaruda-adapter-julia"
+
+[discover]
+# Julia test discovery: ReTestItems.jl @testitem blocks
+# Pattern: test/ directories with .jl files containing @testitem
+paths = ["test/"]
+
+# Exclude common build artifacts and vendored deps
+exclude = ["target", ".git", "node_modules", ".venv", "venv",
+          "__pycache__", ".mypy_cache", ".pytest_cache",
+          "build", "dist", ".tox", "deps", "docs/build"]
+
+[store]
+path = ".testimonial/testaruda"
+
+[oracle]
+# Soufflé Datalog oracle for cross-validation (optional)
+# Install: https://souffle-lang.github.io
+enabled = false

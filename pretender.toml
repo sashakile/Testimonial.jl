@@ -1,0 +1,28 @@
+# Pretender configuration for Testimonial.jl
+# See: https://github.com/charly-vibes/pretender
+mode = "tiered"  # tiered | guidance | gate
+
+[plugins]
+languages = ["julia"]
+
+# Complexity thresholds for Julia source files
+[metrics.complexity]
+paths = ["src/", "scripts/"]
+threshold = 12  # Cyclomatic complexity — flag functions over this
+exclude = []
+
+# Duplication thresholds
+[metrics.duplication]
+paths = ["src/", "test/"]
+threshold = 15  # Duplicate lines — flag clusters over this (tiered: warn)
+exclude = ["test/fixtures"]
+
+# Mutation testing
+[metrics.mutation]
+enabled = true
+runner = "julia"
+timeout = 120
+
+# Pre-commit is managed by lefthook — don't install pretender's hook
+[hooks]
+install = false

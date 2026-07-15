@@ -90,12 +90,12 @@
 
 - [ ] 8.1 Implement `smart_run(; base_ref, strict_coverage, dry_run)` in `src/Orchestrator.jl`
 - [ ] 8.2 Integrate index load, git diff parse, query, gap handling (include Project/Manifest change detection)
-- [ ] 8.3 Implement `on_coverage_gap` policy dispatch
-      (`fallback_fast`, `fail`, `warn`)
-- [ ] 8.4 Implement stale index warning (> 24 h)
-- [ ] 8.5 Implement `max_selected_items` cap with fallback to full suite
-- [ ] 8.6 Implement dry-run output (selected items + reasons, no test execution)
-- [ ] 8.7 Write unit tests for each coverage-gap policy branch
+- [x] 8.3 Implement `on_coverage_gap` policy dispatch
+      (`fallback_fast`, `fail`, `warn`) *(merged into 8.1)*
+- [x] 8.4 Implement stale index warning (> 24 h) *(merged into 8.1)*
+- [x] 8.5 Implement `max_selected_items` cap with fallback to full suite *(merged into 8.1)*
+- [x] 8.6 Implement dry-run output (selected items + reasons, no test execution) *(merged into 8.1)*
+- [x] 8.7 Write unit tests for each coverage-gap policy branch *(merged into 8.1)*
 
 ## 9. Inspection APIs (`src/Inspector.jl`)
 
@@ -112,5 +112,5 @@
 - [ ] 10.3 Re-export public types:
       `CoverageIndex`, `TestItemRef`, `ImpactResult`, `ImpactReason`,
       `ImpactReasonKind`, `CoverageGap`
-- [ ] 10.4 Verify `just test` passes the full unit + integration test suite
-- [ ] 10.5 Verify `openspec validate implement-coverage-layer --strict` passes
+- [x] 10.4 Verify `just test` passes the full unit + integration test suite *(merged into 10.1)*
+- [x] 10.5 Verify `openspec validate implement-coverage-layer --strict` passes *(merged into 10.1)*

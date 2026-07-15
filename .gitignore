@@ -31,3 +31,19 @@ JuliaLocalPreferences.toml
 .dolt/
 *.db
 .beads-credential-key
+
+# testaruda store
+.testimonial/testaruda/
+
+# Espectacular coverage data
+.espectacular/
+
+# Pretender reports
+pretender-report*
+
+# Lefthook backup hooks (renamed by install)
+.beads/hooks/*.old
+
+# OS files
+.DS_Store
+Thumbs.db

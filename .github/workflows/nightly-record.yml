@@ -1,0 +1,53 @@
+# Nightly recording workflow for Testimonial.jl
+# Runs coverage recording on main branch, stores the CoverageIndex as an artifact
+# See: openspec/specs/ci-integration/spec.md
+
+name: Nightly Recording
+
+on:
+  schedule:
+    - cron: "0 6 * * *"  # Daily at 06:00 UTC
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  JULIA_VERSION: "1.12"
+
+jobs:
+  record:
+    name: Record coverage index
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ env.JULIA_VERSION }}
+      - uses: julia-actions/cache@v2
+
+      - name: Restore previous coverage index (if any)
+        id: restore-index
+        uses: actions/cache/restore@v4
+        with:
+          path: .testimonial/
+          key: testimonial-index-${{ github.sha }}
+          restore-keys: |
+            testimonial-index-
+
+      - name: Instantiate runner project
+        run: julia --project=scripts/TestimonialRunner -e 'import Pkg; Pkg.instantiate()'
+
+      - name: Record all test items
+        run: julia --project=scripts/TestimonialRunner -e 'using Testimonial; Testimonial.record_all()'
+        timeout-minutes: 30
+
+      - name: Save coverage index as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: testimonial-index
+          path: .testimonial/
+          retention-days: 7
+
+      - name: Cache coverage index for PRs
+        uses: actions/cache/save@v4
+        with:
+          path: .testimonial/
+          key: testimonial-index-${{ github.sha }}

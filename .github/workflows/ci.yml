@@ -1,0 +1,80 @@
+# CI workflow for Testimonial.jl — runs on PRs and pushes to main
+# See: openspec/project.md for CI architecture
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JULIA_VERSION: "1.12"
+  JULIA_NUM_THREADS: "2"
+
+jobs:
+  # ── Julia tests ─────────────────────────────────
+  test:
+    name: Julia tests (Julia ${{ matrix.version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: ["1.11", "1.12"]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.version }}
+      - uses: julia-actions/cache@v2
+      - run: julia --project -e 'import Pkg; Pkg.instantiate()'
+      - run: julia --project -e 'import Pkg; Pkg.test()'
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+        if: ${{ matrix.version == '1.12' }}
+
+  # ── Spec validation ────────────────────────────
+  specs:
+    name: OpenSpec validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate specs
+        uses: openspec/validate-action@v1
+        with:
+          strict: true
+        continue-on-error: true
+
+  # ── Code quality — pretender ──────────────────
+  lint:
+    name: Code quality (pretender)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pretender
+        run: |
+          curl -fsSL https://github.com/charly-vibes/pretender/releases/latest/download/pretender-linux-amd64 -o /usr/local/bin/pretender
+          chmod +x /usr/local/bin/pretender
+      - name: Run pretender check
+        run: pretender check
+
+  # ── Espectacular spec checks ─────────────────
+  ah-check:
+    name: Spec-level checks (espectacular)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install espectacular
+        run: |
+          curl -fsSL https://github.com/charly-vibes/espectacular/releases/latest/download/espectacular-linux-amd64 -o /usr/local/bin/espectacular
+          chmod +x /usr/local/bin/espectacular
+      - name: Run espectacular check
+        run: espectacular check
+        continue-on-error: true
