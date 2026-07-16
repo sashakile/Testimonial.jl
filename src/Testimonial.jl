@@ -293,7 +293,7 @@ using .IndexBuilder
 # Query engine — impact analysis from coverage index
 include("Query.jl")
 using .Query
-export query_files
+export query_files, coverage_gaps, nearest_covered_lines
 
 # Extend the CoverageLayer.record_item function with a convenience method
 # that accepts (test_file, item_name) for single-item debugging.

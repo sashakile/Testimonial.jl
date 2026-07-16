@@ -139,3 +139,168 @@ end
         @test result[1].selected == true
     end
 end
+
+# ── coverage_gaps ────────────────────────────
+
+@testset "coverage_gaps finds gaps in changed file" begin
+    index = make_test_index([
+        ("/proj/test/foo_test.jl", "test_a", [2, 4, 6]),
+    ])
+
+    changed = Dict{String, Set{Int}}(
+        "/proj/test/foo_test.jl" => Set([1, 2, 3, 4, 5, 6])
+    )
+
+    gaps = Testimonial.coverage_gaps(index, changed)
+
+    @test length(gaps) == 3
+    @test gaps[1] == Testimonial.CoverageGap("/proj/test/foo_test.jl", 1, 1)
+    @test gaps[2] == Testimonial.CoverageGap("/proj/test/foo_test.jl", 3, 3)
+    @test gaps[3] == Testimonial.CoverageGap("/proj/test/foo_test.jl", 5, 5)
+end
+
+@testset "coverage_gaps merges consecutive uncovered lines" begin
+    index = make_test_index([
+        ("/proj/test/foo_test.jl", "test_a", [1, 10]),
+    ])
+
+    changed = Dict{String, Set{Int}}(
+        "/proj/test/foo_test.jl" => Set(2:9)
+    )
+
+    gaps = Testimonial.coverage_gaps(index, changed)
+
+    @test length(gaps) == 1
+    @test gaps[1] == Testimonial.CoverageGap("/proj/test/foo_test.jl", 2, 9)
+end
+
+@testset "coverage_gaps ignores covered lines" begin
+    index = make_test_index([
+        ("/proj/test/foo_test.jl", "test_a", collect(1:10)),
+    ])
+
+    changed = Dict{String, Set{Int}}(
+        "/proj/test/foo_test.jl" => Set(1:10)
+    )
+
+    gaps = Testimonial.coverage_gaps(index, changed)
+    @test isempty(gaps)
+end
+
+@testset "coverage_gaps ignores untracked files" begin
+    index = make_test_index([
+        ("/proj/test/foo_test.jl", "test_a", [1, 2, 3]),
+    ])
+
+    changed = Dict{String, Set{Int}}(
+        "/proj/src/untracked.jl" => Set(1:5)
+    )
+
+    gaps = Testimonial.coverage_gaps(index, changed)
+    @test isempty(gaps)
+end
+
+@testset "coverage_gaps returns empty for empty changed map" begin
+    index = make_test_index([
+        ("/proj/test/foo_test.jl", "test_a", [1, 2, 3]),
+    ])
+
+    gaps = Testimonial.coverage_gaps(index, Dict{String, Set{Int}}())
+    @test isempty(gaps)
+end
+
+@testset "coverage_gaps aggregates across multiple items" begin
+    index = make_test_index([
+        ("/proj/test/foo_test.jl", "test_a", [1, 2, 3]),
+        ("/proj/test/foo_test.jl", "test_b", [4, 5, 6]),
+    ])
+
+    changed = Dict{String, Set{Int}}(
+        "/proj/test/foo_test.jl" => Set(1:10)
+    )
+
+    gaps = Testimonial.coverage_gaps(index, changed)
+
+    # Lines 1-6 are covered (by test_a + test_b), lines 7-10 are not
+    @test length(gaps) == 1
+    @test gaps[1] == Testimonial.CoverageGap("/proj/test/foo_test.jl", 7, 10)
+end
+
+# ── nearest_covered_lines ─────────────────────
+
+@testset "nearest_covered_lines finds nearest covered before and after" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "nearest_test.jl")
+        write(test_file, """
+line 1
+line 2
+line 3
+line 4
+line 5
+""")
+
+        index = make_test_index([
+            (test_file, "test_a", [2, 4]),
+        ])
+
+        before, after = Testimonial.nearest_covered_lines(index, test_file, 3)
+
+        @test before == 2
+        @test after == 4
+    end
+end
+
+@testset "nearest_covered_lines returns nothing when no covered lines" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "none_test.jl")
+        write(test_file, "line 1\n")
+
+        index = make_test_index([
+            (test_file, "test_a", Int[]),
+        ])
+
+        before, after = Testimonial.nearest_covered_lines(index, test_file, 1)
+
+        @test before === nothing
+        @test after === nothing
+    end
+end
+
+@testset "nearest_covered_lines at exact covered line" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "exact_test.jl")
+        write(test_file, """
+line 1
+line 2
+""")
+
+        index = make_test_index([
+            (test_file, "test_a", [1, 2]),
+        ])
+
+        before, after = Testimonial.nearest_covered_lines(index, test_file, 1)
+
+        @test before == 1
+        @test after == 1
+    end
+end
+
+@testset "nearest_covered_lines beyond last line" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "beyond_test.jl")
+        write(test_file, """
+line 1
+line 2
+line 3
+""")
+
+        index = make_test_index([
+            (test_file, "test_a", [2]),
+        ])
+
+        before, after = Testimonial.nearest_covered_lines(index, test_file, 5)
+
+        @test before == 2
+        @test after === nothing
+    end
+end
