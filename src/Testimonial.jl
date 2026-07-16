@@ -197,6 +197,6 @@ export parse_unified_diff
 # Coverage layer — per-item recording
 include("CoverageLayer.jl")
 using .CoverageLayer
-export record_item, build_driver_command
+export record_item, build_driver_command, AbstractRunner, SubprocessRunner
 
 end # module Testimonial

@@ -7,7 +7,24 @@
 
 module CoverageLayer
 
-export record_item, build_driver_command
+export record_item, build_driver_command, AbstractRunner, SubprocessRunner
+
+# ── Runner types ──────────────────────────────
+
+"""Abstract type for test recording runners. Enables dependency injection
+for testing via MockRunner. See REC-011."""
+abstract type AbstractRunner end
+
+"""Concrete runner that spawns a Julia subprocess for @testitem recording.
+
+Fields:
+- `runner_dir`: path to the TestimonialRunner workspace (default: "scripts/TestimonialRunner")
+"""
+struct SubprocessRunner <: AbstractRunner
+    runner_dir::String
+end
+
+SubprocessRunner() = SubprocessRunner("scripts/TestimonialRunner")
 
 """
     build_driver_command(test_file::String, item_name::String; runner_dir::AbstractString="scripts/TestimonialRunner") -> Tuple{Vector{String}, Dict{String, String}}
