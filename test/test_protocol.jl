@@ -277,3 +277,98 @@ end
     @test parsed["ok"] == false
     @test occursin("missing or empty", parsed["error"]["message"])
 end
+# ── Discover handler (PROTO-003) ───────────────
+
+@testset "Discover returns nodes with id, file, name" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_foo.jl")
+        write(test_file, """
+        @testitem "test_one" begin
+            @test 1 == 1
+        end
+        @testitem "test_two" tags=[:slow] begin
+            @test 2 == 2
+        end
+        """)
+        cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        nodes = parsed["result"]["nodes"]
+        @test length(nodes) == 2
+
+        # Both nodes should have the same file (absolute)
+        @test nodes[1]["file"] == realpath(test_file)
+        @test nodes[2]["file"] == realpath(test_file)
+
+        @test nodes[1]["name"] == "test_one"
+        @test nodes[2]["name"] == "test_two"
+
+        # Node IDs should be file:line format
+        @test occursin("test_foo.jl:", nodes[1]["id"])
+        @test occursin("test_foo.jl:", nodes[2]["id"])
+        @test nodes[1]["id"] != nodes[2]["id"]
+    end
+end
+
+@testset "Discover returns absolute normalized paths" begin
+    mktempdir() do dir
+        subdir = joinpath(dir, "sub")
+        mkpath(subdir)
+        test_file = joinpath(subdir, "bar.jl")
+        write(test_file, """@testitem "my_test" begin end""")
+        cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        nodes = parsed["result"]["nodes"]
+        @test length(nodes) == 1
+        @test nodes[1]["file"] == realpath(test_file)
+        @test isabspath(nodes[1]["file"])
+    end
+end
+
+@testset "Discover empty directories returns empty nodes" begin
+    mktempdir() do dir
+        # Empty directory with no .jl files
+        cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        nodes = parsed["result"]["nodes"]
+        @test isempty(nodes)
+    end
+end
+
+@testset "Discover empty test_directories list" begin
+    resp = Protocol.handle("""{"command":"discover","params":{"test_directories":[]}}""")
+    parsed = JSON.parse(resp)
+
+    @test parsed["ok"] == true
+    nodes = parsed["result"]["nodes"]
+    @test isempty(nodes)
+end
+
+@testset "Discover missing params" begin
+    resp = Protocol.handle("""{"command":"discover"}""")
+    parsed = JSON.parse(resp)
+    @test parsed["ok"] == false
+    @test occursin("missing 'params'", parsed["error"]["message"])
+end
+
+@testset "Discover missing test_directories" begin
+    resp = Protocol.handle("""{"command":"discover","params":{}}""")
+    parsed = JSON.parse(resp)
+    @test parsed["ok"] == false
+    @test occursin("test_directories", parsed["error"]["message"])
+end
+
+@testset "Discover non-existent directory" begin
+    resp = Protocol.handle("""{"command":"discover","params":{"test_directories":["/nonexistent/path"]}}""")
+    parsed = JSON.parse(resp)
+    @test parsed["ok"] == false
+    @test occursin("not a directory", parsed["error"]["message"])
+end
