@@ -60,7 +60,10 @@ The system SHALL respond to the `discover` command by calling
 `ASTParser.discover_testitems` and returning the discovered `@testitem` nodes.
 
 Each node SHALL include:
-- A unique node ID in the format `test_file:item_name`
+- A unique node ID in the format `test_file:line` (stable, location-based)
+     rather than the test-item name, because dynamically-generated names
+     (e.g. `@testitem name="test_\$i"`) would produce non-deterministic IDs
+     across invocations.
 - The test file path (absolute, normalized)
 - The item name
 
@@ -81,7 +84,7 @@ The handler SHALL:
 3. Convert each `ItemCoverage` to edge data: for each (file, line) pair in
    the coverage, create a runtime edge.
 4. Accumulate the results into an in-memory `session_coverage::Dict{NodeID, ItemCoverage}`
-   map, keyed by node ID (`test_file:item_name`). This map is built incrementally
+   map, keyed by node ID (`test_file:line`). This map is built incrementally
    across `ingest` calls in the same session and is queried by the `static-deps`
    handler (PROTO-005).
 5. Return the edges inline in the `ingest` response, keyed by absolute path
@@ -140,8 +143,10 @@ same adapter's scope.)
 
 ### Requirement: [PROTO-007] run-args handler
 The system SHALL respond to the `run-args` command by emitting
-`ReTestItems.runtests` invocation arguments filtered by `(test_file, item_name)`
-pairs.
+`ReTestItems.runtests` invocation arguments for the selected node IDs
+(`test_file:line`). The adapter SHALL resolve each `test_file:line` node ID
+to its `@testitem` name via the AST parser, and pass the resulting
+`(file, name)` pairs to `ReTestItems.runtests`.
 
 #### Scenario: Run args for selected items
 - **WHEN** a `run-args` command is received with a set of item IDs
