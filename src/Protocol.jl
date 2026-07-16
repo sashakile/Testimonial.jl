@@ -74,6 +74,7 @@ function handle(line)
         "handshake" => () -> handle_handshake(),
         "discover" => () -> handle_discover(cmd),
         "ingest" => () -> handle_ingest(cmd),
+        "static-deps" => () -> handle_static_deps(cmd),
         "fingerprint" => () -> handle_fingerprint(cmd),
         "run-args" => () -> handle_run_args(cmd),
     )
@@ -505,6 +506,102 @@ function json_error(message)
         "ok" => false,
         "error" => Dict("message" => message)
     ))
+end
+
+"""
+    handle_static_deps(cmd::Dict) -> String
+
+Respond to the `static-deps` command by returning dependency edges for
+changed files per PROTO-005.
+
+If no coverage has been recorded in this session (session_coverage is empty),
+all changed files map to "unresolved", triggering testaruda's full-run fallback.
+
+If coverage has been recorded, looks up each changed file in the
+session_coverage map and returns the recorded edges.
+"""
+function handle_static_deps(cmd)
+    params = get(cmd, "params", nothing)
+    if params === nothing
+        return json_error("missing 'params' field")
+    end
+
+    changed = get(params, "changed_files", nothing)
+    if changed === nothing || !isa(changed, Vector) || isempty(changed)
+        return json_error("missing or empty 'params.changed_files'")
+    end
+
+    for f in changed
+        if !isa(f, String)
+            return json_error("'params.changed_files' entries must be strings")
+        end
+    end
+
+    # Build file→edges map, or mark as unresolved
+    edges = _build_static_edges(changed)
+
+    return JSON.json(Dict{String, Any}(
+        "ok" => true,
+        "result" => Dict{String, Any}("edges" => edges)
+    ))
+end
+
+"""
+    _build_static_edges(changed_files::Vector{String}) -> Dict
+
+Build dependency edges for the given changed files.
+
+If session_coverage is empty, every changed file maps to "unresolved".
+Otherwise, for each changed file, look up the recorded edges from
+session_coverage (grouped by file).
+"""
+function _build_static_edges(changed_files)
+    edges = Dict{String, Any}()
+
+    if isempty(session_coverage)
+        # No coverage recorded yet — all files are unresolved
+        for f in changed_files
+            edges[f] = "unresolved"
+        end
+        return edges
+    end
+
+    # Build a file→edges lookup from session_coverage
+    # session_coverage keyed by node_id (file:line), value is ItemCoverage
+    file_edges = Dict{String, Dict{String, Vector{String}}}()
+
+    for (node_id, coverage) in session_coverage
+        file = coverage.item.file
+        if !haskey(file_edges, file)
+            file_edges[file] = Dict{String, Vector{String}}()
+        end
+        inner = file_edges[file]
+        for line in coverage.covered_lines
+            line_key = string(line)
+            if !haskey(inner, line_key)
+                inner[line_key] = String[]
+            end
+            push!(inner[line_key], node_id)
+        end
+        for line in coverage.uncovered_lines
+            line_key = string(line)
+            if !haskey(inner, line_key)
+                inner[line_key] = String[]
+            end
+            push!(inner[line_key], node_id)
+        end
+    end
+
+    # For each changed file, return edges or unresolved
+    for f in changed_files
+        if haskey(file_edges, f)
+            edges[f] = file_edges[f]
+        else
+            edges[f] = "unresolved"
+        end
+    end
+
+    return edges
 end
 
 end # module Protocol
