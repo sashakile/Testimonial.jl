@@ -48,7 +48,7 @@ Detected workflow tools:
 > - **Implementation**: write the failing test first, then make it pass, then tidy in a separate commit.
 
 > **When beginning research or creating a ticket**: run `wai search "<topic>"` to check for existing patterns before writing new content.
-> **Ro5**: The Rule of 5 skill is installed. Run `/ro5` after key phase transitions — implement, research, design — for iterative quality review.
+> **Ro5**: The Universal Rule of 5 skill is installed. Run `/ro5` after key phase transitions — implement, research, design — for iterative quality review of any artifact (code, plans, research, issues, specs, documentation).
 
 ## Quick Start
 
@@ -142,7 +142,7 @@ Each ticket follows the TDD-Ro5 pipeline — no exceptions.
    - Write the minimal code to pass (Green)
    - **Refactor** — tidy the code, then commit
    - Each phase (Red→Green→Refactor) gets its own commit
-3. **Review**: run `/ro5` after implement phase for quality check
+3. **Review**: run `/ro5` (Universal Rule of 5) after implement phase for quality check — covers any artifact: code, plans, research, issues, specs, documentation
 4. **Close** the issue: `bd close <id>`
 5. **Push**: `git push` (mandatory before moving to next ticket)
 
