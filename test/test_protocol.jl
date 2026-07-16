@@ -56,7 +56,8 @@ end
 
     @test parsed["ok"] == false
     @test haskey(parsed, "error")
-    @test occursin("malformed JSON", parsed["error"])
+    @test haskey(parsed["error"], "message")
+    @test occursin("malformed JSON", parsed["error"]["message"])
 end
 
 @testset "Unknown command" begin
@@ -65,7 +66,8 @@ end
 
     @test parsed["ok"] == false
     @test haskey(parsed, "error")
-    @test occursin("unknown command", parsed["error"])
+    @test haskey(parsed["error"], "message")
+    @test occursin("unknown command", parsed["error"]["message"])
 end
 
 @testset "Missing command field" begin
@@ -74,7 +76,8 @@ end
 
     @test parsed["ok"] == false
     @test haskey(parsed, "error")
-    @test occursin("missing 'command' field", parsed["error"])
+    @test haskey(parsed["error"], "message")
+    @test occursin("missing 'command' field", parsed["error"]["message"])
 end
 
 @testset "Empty input" begin
@@ -83,9 +86,8 @@ end
 
     @test parsed["ok"] == false
     @test haskey(parsed, "error")
+    @test haskey(parsed["error"], "message")
 end
-
-# ── Fingerprint handler (PROTO-006) ────────────
 
 @testset "Fingerprint single file" begin
     mktemp() do path, io
@@ -185,14 +187,14 @@ end
     resp = Protocol.handle("""{"command":"fingerprint","params":{}}""")
     parsed = JSON.parse(resp)
     @test parsed["ok"] == false
-    @test occursin("missing or empty", parsed["error"])
+    @test occursin("missing or empty", parsed["error"]["message"])
 end
 
 @testset "Fingerprint missing params" begin
     resp = Protocol.handle("""{"command":"fingerprint"}""")
     parsed = JSON.parse(resp)
     @test parsed["ok"] == false
-    @test occursin("missing 'params'", parsed["error"])
+    @test occursin("missing 'params'", parsed["error"]["message"])
 end
 
 @testset "Fingerprint nonexistent file" begin
@@ -200,7 +202,7 @@ end
     resp = Protocol.handle(cmd)
     parsed = JSON.parse(resp)
     @test parsed["ok"] == false
-    @test occursin("file not found", parsed["error"])
+    @test occursin("file not found", parsed["error"]["message"])
 end
 
 # ── Run-args handler (PROTO-007) ───────────────
@@ -259,19 +261,19 @@ end
     resp = Protocol.handle("""{"command":"run-args","params":{}}""")
     parsed = JSON.parse(resp)
     @test parsed["ok"] == false
-    @test occursin("missing or empty", parsed["error"])
+    @test occursin("missing or empty", parsed["error"]["message"])
 end
 
 @testset "Run-args missing params" begin
     resp = Protocol.handle("""{"command":"run-args"}""")
     parsed = JSON.parse(resp)
     @test parsed["ok"] == false
-    @test occursin("missing 'params'", parsed["error"])
+    @test occursin("missing 'params'", parsed["error"]["message"])
 end
 
 @testset "Run-args empty selected" begin
     resp = Protocol.handle("""{"command":"run-args","params":{"selected":[]}}""")
     parsed = JSON.parse(resp)
     @test parsed["ok"] == false
-    @test occursin("missing or empty", parsed["error"])
+    @test occursin("missing or empty", parsed["error"]["message"])
 end

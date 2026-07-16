@@ -22,9 +22,12 @@
     @test ref == ref3  # same identity despite different tags/hash
     @test hash(ref) == hash(ref3)
 
-    # Inequality
-    ref4 = TestItemRef("src/foo.jl", 99, "test_bar")
+    # Inequality (different file or name — line is excluded from identity)
+    ref4 = TestItemRef("src/bar.jl", 10, "test_bar")
     @test ref != ref4
+
+    ref5 = TestItemRef("src/foo.jl", 10, "other_test")
+    @test ref != ref5
 end
 
 @testset "ImpactReasonKind" begin

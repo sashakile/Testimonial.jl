@@ -156,3 +156,40 @@ end
         @test_throws Base.IOError Testimonial.discover_testitems([joinpath(dir, "nonexistent")])
     end
 end
+
+@testset "discover_testitems multi-line" begin
+    mktempdir() do dir
+        f1 = joinpath(dir, "multi.jl")
+        write(f1, """
+        @testitem "foo" tags=[:a,
+            :b] begin
+            @test 1 == 1
+        end
+        """)
+
+        items = Testimonial.discover_testitems([dir])
+        @test length(items) == 1
+        @test items[1].name == "foo"
+        @test items[1].tags == [:a, :b]
+        @test items[1].line == 1  # @testitem is on line 1 of file content
+    end
+end
+
+@testset "discover_testitems recursive" begin
+    mktempdir() do dir
+        # Top-level file
+        top = joinpath(dir, "top.jl")
+        write(top, """@testitem "top" begin @test 1 == 1 end""")
+
+        # Subdirectory file
+        sub = joinpath(dir, "sub")
+        mkpath(sub)
+        nested = joinpath(sub, "nested.jl")
+        write(nested, """@testitem "nested" begin @test 2 == 2 end""")
+
+        items = Testimonial.discover_testitems([dir])
+        @test length(items) == 2
+        names = sort([item.name for item in items])
+        @test names == ["nested", "top"]
+    end
+end

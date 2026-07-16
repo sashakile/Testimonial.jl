@@ -59,16 +59,17 @@ function handle(line)
         return json_error("missing 'command' field")
     end
 
-    # Dispatch
-    if command == "handshake"
-        return handle_handshake()
-    elseif command == "fingerprint"
-        return handle_fingerprint(cmd)
-    elseif command == "run-args"
-        return handle_run_args(cmd)
-    else
+    # Dispatch via lookup table
+    handlers = Dict{String, Function}(
+        "handshake" => () -> handle_handshake(),
+        "fingerprint" => () -> handle_fingerprint(cmd),
+        "run-args" => () -> handle_run_args(cmd),
+    )
+    handler = get(handlers, command, nothing)
+    if isnothing(handler)
         return json_error("unknown command: $(command)")
     end
+    return handler()
 end
 
 """
@@ -233,12 +234,13 @@ end
 """
     json_error(message::String) -> String
 
-Build a JSON error response per TIA-ADAPT-001 error format.
+Build a JSON error response per PROTO-001 error format:
+`{ "error": { "message": "..." } }`.
 """
 function json_error(message)
     return JSON.json(Dict(
         "ok" => false,
-        "error" => message
+        "error" => Dict("message" => message)
     ))
 end
 
