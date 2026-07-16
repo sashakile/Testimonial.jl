@@ -30,10 +30,11 @@ end
     @test has_file
     @test has_runtests
 
-    # Check for exit code patterns
+    # Check for exit code patterns (exit 1 removed — ReTestItems
+    # prints results to stdout, exit code always 0 on success)
     has_exit0 = occursin("exit(0)", content)
-    has_exit1 = occursin("exit(1)", content)
 
     @test has_exit0
-    @test has_exit1
+    @test occursin("exit(2)", content)
+    @test occursin("exit(3)", content)
 end
