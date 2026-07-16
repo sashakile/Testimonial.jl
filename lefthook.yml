@@ -14,6 +14,7 @@ pre-commit:
       skip: [merge, rebase]
 
     pretender-check:
+      glob: "*.jl"
       run: pretender check src/ test/ 2>&1
       skip: [merge, rebase]
 
