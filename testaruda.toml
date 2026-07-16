@@ -2,12 +2,14 @@
 # See: https://github.com/charly-vibes/testaruda
 
 [adapters]
-# Julia adapter — runs Testimonial.jl's protocol adapter script
-# Installed as part of the Testimonial.jl package
-".jl" = "julia --project=. bin/testaruda_adapter.jl"
+# Julia adapter — runs Testimonial.jl's protocol adapter via -e expression
+# Works for both system-installed (Pkg.add) and local-dev setups.
+# For local dev from a cloned repo, use instead:
+#   "julia --project=/path/to/Testimonial.jl bin/testaruda_adapter.jl"
+".jl" = "julia --project=. -e 'using Testimonial; Testimonial.Protocol.run_adapter_protocol()'"
 
-# Default adapter (no Julia binary adapter exists yet, so use same script)
-default = "julia --project=. bin/testaruda_adapter.jl"
+# Default adapter
+default = "julia --project=. -e 'using Testimonial; Testimonial.Protocol.run_adapter_protocol()'"
 
 [discover]
 # Julia test discovery: ReTestItems.jl @testitem blocks
