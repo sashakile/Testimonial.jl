@@ -295,20 +295,20 @@ end
         parsed = JSON.parse(resp)
 
         @test parsed["ok"] == true
-        nodes = parsed["result"]["nodes"]
+        nodes = parsed["result"]
         @test length(nodes) == 2
 
         # Both nodes should have the same file (absolute)
         @test nodes[1]["file"] == realpath(test_file)
         @test nodes[2]["file"] == realpath(test_file)
 
-        @test nodes[1]["name"] == "test_one"
-        @test nodes[2]["name"] == "test_two"
+        @test nodes[1]["suite_kind"] == "ReTestItems.jl"
+        @test nodes[2]["suite_kind"] == "ReTestItems.jl"
 
         # Node IDs should be file:line format
-        @test occursin("test_foo.jl:", nodes[1]["id"])
-        @test occursin("test_foo.jl:", nodes[2]["id"])
-        @test nodes[1]["id"] != nodes[2]["id"]
+        @test occursin("test_foo.jl:", nodes[1]["node_id"])
+        @test occursin("test_foo.jl:", nodes[2]["node_id"])
+        @test nodes[1]["node_id"] != nodes[2]["node_id"]
     end
 end
 
@@ -323,7 +323,7 @@ end
         parsed = JSON.parse(resp)
 
         @test parsed["ok"] == true
-        nodes = parsed["result"]["nodes"]
+        nodes = parsed["result"]
         @test length(nodes) == 1
         @test nodes[1]["file"] == realpath(test_file)
         @test isabspath(nodes[1]["file"])
@@ -338,7 +338,7 @@ end
         parsed = JSON.parse(resp)
 
         @test parsed["ok"] == true
-        nodes = parsed["result"]["nodes"]
+        nodes = parsed["result"]
         @test isempty(nodes)
     end
 end
@@ -348,22 +348,25 @@ end
     parsed = JSON.parse(resp)
 
     @test parsed["ok"] == true
-    nodes = parsed["result"]["nodes"]
+    nodes = parsed["result"]
     @test isempty(nodes)
 end
 
-@testset "Discover missing params" begin
+@testset "Discover missing params defaults to test/" begin
     resp = Protocol.handle("""{"command":"discover"}""")
     parsed = JSON.parse(resp)
-    @test parsed["ok"] == false
-    @test occursin("missing 'params'", parsed["error"]["message"])
+    @test parsed["ok"] == true
+    nodes = parsed["result"]
+    @test length(nodes) > 0
+    @test nodes[1]["suite_kind"] == "ReTestItems.jl"
 end
 
-@testset "Discover missing test_directories" begin
+@testset "Discover missing test_directories defaults to test/" begin
     resp = Protocol.handle("""{"command":"discover","params":{}}""")
     parsed = JSON.parse(resp)
-    @test parsed["ok"] == false
-    @test occursin("test_directories", parsed["error"]["message"])
+    @test parsed["ok"] == true
+    nodes = parsed["result"]
+    @test length(nodes) > 0
 end
 
 @testset "Discover non-existent directory" begin
@@ -437,11 +440,11 @@ end
 
         parsed = JSON.parse(responses[1])
         @test parsed["ok"] == true
-        nodes = parsed["result"]["nodes"]
+        nodes = parsed["result"]
         @test length(nodes) == 1
-        @test nodes[1]["name"] == "my_test"
+@test nodes[1]["suite_kind"] == "ReTestItems.jl"
         @test nodes[1]["file"] == realpath(test_file)
-        @test occursin(":", nodes[1]["id"])
+        @test occursin(":", nodes[1]["node_id"])
     end
 end
 
@@ -469,8 +472,8 @@ end
         hs2 = JSON.parse(responses[3])
 
         @test hs1["result"]["name"] == "testimonial-adapter"
-        @test length(disc["result"]["nodes"]) == 1
-        @test disc["result"]["nodes"][1]["name"] == "test_a"
+        @test length(disc["result"]) == 1
+        @test disc["result"][1]["suite_kind"] == "ReTestItems.jl"
         @test hs2["result"]["name"] == "testimonial-adapter"
     end
 end
@@ -543,7 +546,7 @@ end
         disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
         disc_resp = Protocol.handle(disc_cmd)
         disc = JSON.parse(disc_resp)
-        node_id = disc["result"]["nodes"][1]["id"]
+        node_id = disc["result"][1]["node_id"]
 
         cmd = """{"command":"ingest","params":{"selected":["$(node_id)"]}}"""
         resp = Protocol.handle(cmd)
@@ -565,8 +568,8 @@ end
         disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
         disc_resp = Protocol.handle(disc_cmd)
         disc = JSON.parse(disc_resp)
-        nodes = disc["result"]["nodes"]
-        node_ids = [n["id"] for n in nodes]
+        nodes = disc["result"]
+        node_ids = [n["node_id"] for n in nodes]
 
         cmd = """{"command":"ingest","params":{"selected":$(JSON.json(node_ids))}}"""
         resp = Protocol.handle(cmd)
@@ -604,7 +607,7 @@ end
     @test parsed["ok"] == true
     @test haskey(parsed["result"], "errors")
     @test length(parsed["result"]["errors"]) == 1
-    @test parsed["result"]["errors"][1]["id"] == "bad-format"
+    @test parsed["result"]["errors"][1]["node_id"] == "bad-format"
     @test occursin("node ID", parsed["result"]["errors"][1]["error"])
 end
 
@@ -669,8 +672,8 @@ end
         disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
         disc_resp = Protocol.handle(disc_cmd)
         disc = JSON.parse(disc_resp)
-        node_id = disc["result"]["nodes"][1]["id"]
-        abs_file = disc["result"]["nodes"][1]["file"]
+        node_id = disc["result"][1]["node_id"]
+        abs_file = disc["result"][1]["file"]
 
         # Ingest to populate session_coverage
         ingest_cmd = """{"command":"ingest","params":{"selected":["$(node_id)"]}}"""
@@ -699,8 +702,8 @@ end
         disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
         disc_resp = Protocol.handle(disc_cmd)
         disc = JSON.parse(disc_resp)
-        node_id = disc["result"]["nodes"][1]["id"]
-        abs_file = disc["result"]["nodes"][1]["file"]
+        node_id = disc["result"][1]["node_id"]
+        abs_file = disc["result"][1]["file"]
 
         # Ingest one file
         ingest_cmd = """{"command":"ingest","params":{"selected":["$(node_id)"]}}"""

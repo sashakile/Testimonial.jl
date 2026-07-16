@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# testaruda-adapter-julia — Shell wrapper for Testimonial.jl's adapter protocol.
+#
+# testaruda spawns the adapter binary with no args. This wrapper translates
+# that into a Julia invocation with the correct project path and script.
+#
+# Usage: testaruda-adapter-julia
+#   (reads JSON commands from stdin, writes JSON responses to stdout)
+
+set -euo pipefail
+
+# Resolve the real script path (handles symlinks)
+SCRIPT="$(readlink -f "$0")"
+SCRIPT_DIR="$(dirname "$SCRIPT")"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+exec julia --project="$PROJECT_DIR" "$SCRIPT_DIR/testaruda_adapter.jl"

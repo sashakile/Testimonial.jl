@@ -3,14 +3,12 @@
 
 [adapters]
 # Julia adapter — runs Testimonial.jl's protocol adapter
-# Uses the shell wrapper script; needs the full path to the script.
-# If Testimonial.jl is installed via Pkg.add, the path is:
-#   $(julia -e 'print(dirname(dirname(pathof(Testimonial))))')/bin/testaruda_adapter.jl
-# For local dev:
-".jl" = "julia --project=$(pwd) bin/testaruda_adapter.jl"
+# The testaruda-adapter-julia binary must be on PATH.
+# Installed by: ln -s /path/to/Testimonial.jl/bin/testaruda-adapter-julia ~/.local/bin/
+".jl" = "testaruda-adapter-julia"
 
-# Default adapter (same as Julia adapter for now)
-default = "julia --project=$(pwd) bin/testaruda_adapter.jl"
+# Default adapter
+default = "testaruda-adapter-julia"
 
 [discover]
 # Julia test discovery: ReTestItems.jl @testitem blocks

@@ -162,22 +162,24 @@ end
 Respond to the `discover` command by scanning configured test directories
 for @testitem blocks per PROTO-003.
 
-Returns a JSON response with a `nodes` array, each node having:
-- `id`: unique node ID in `test_file:line` format
+Returns a JSON response with a flat array of test items, each having:
+- `node_id`: unique node ID in `test_file:line` format
+- `suite_kind`: always "ReTestItems.jl"
 - `file`: absolute, normalized test file path
-- `name`: the @testitem name
 
 Errors on missing params, invalid directory, or non-existent path.
 """
 function handle_discover(cmd)
     params = get(cmd, "params", nothing)
-    if params === nothing
-        return json_error("missing 'params' field")
-    end
 
-    dirs = get(params, "test_directories", nothing)
-    if dirs === nothing || !isa(dirs, Vector)
-        return json_error("missing or invalid 'params.test_directories'")
+    # Default to standard Julia test directory when no params provided
+    if params === nothing
+        dirs = ["test/"]
+    else
+        dirs = get(params, "test_directories", nothing)
+        if dirs === nothing || !isa(dirs, Vector)
+            dirs = ["test/"]
+        end
     end
 
     # Validate and normalize directories to absolute paths
@@ -199,17 +201,15 @@ function handle_discover(cmd)
     nodes = []
     for item in items
         push!(nodes, Dict(
-            "id" => "$(item.file):$(item.line)",
-            "file" => item.file,
-            "name" => item.name
+            "node_id" => "$(item.file):$(item.line)",
+            "suite_kind" => "ReTestItems.jl",
+            "file" => item.file
         ))
     end
 
     return JSON.json(Dict(
         "ok" => true,
-        "result" => Dict(
-            "nodes" => nodes
-        )
+        "result" => nodes
     ))
 end
 
