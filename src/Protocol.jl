@@ -14,6 +14,13 @@ using SHA
 export run_adapter_protocol
 
 """
+In-memory session coverage map, keyed by node ID (test_file:line).
+Built incrementally across `ingest` calls in the same adapter session.
+Queried by the `static-deps` handler (PROTO-005).
+"""
+const session_coverage = Dict{String, Any}()
+
+"""
     run_adapter_protocol()
 
 Main loop: reads JSON commands from stdin, dispatches to handlers,
@@ -63,6 +70,7 @@ function handle(line)
     handlers = Dict{String, Function}(
         "handshake" => () -> handle_handshake(),
         "discover" => () -> handle_discover(cmd),
+        "ingest" => () -> handle_ingest(cmd),
         "fingerprint" => () -> handle_fingerprint(cmd),
         "run-args" => () -> handle_run_args(cmd),
     )
@@ -199,6 +207,168 @@ function handle_discover(cmd)
             "nodes" => nodes
         )
     ))
+end
+
+"""
+    handle_ingest(cmd::Dict) -> String
+
+Respond to the `ingest` command by recording coverage for the specified
+test items per PROTO-004.
+
+Parses node IDs (test_file:line), calls CoverageLayer.record_item for each,
+converts ItemCoverage to runtime edges (file→line→test), and accumulates
+results in session_coverage.
+
+Returns edges inline in the response, keyed by absolute file path.
+"""
+function handle_ingest(cmd)
+    params = get(cmd, "params", nothing)
+    if params === nothing
+        return json_error("missing 'params' field")
+    end
+
+    selected = get(params, "selected", nothing)
+    if selected === nothing || !isa(selected, Vector) || isempty(selected)
+        return json_error("missing or empty 'params.selected'")
+    end
+
+    for item in selected
+        if !isa(item, String)
+            return json_error("'params.selected' entries must be strings")
+        end
+    end
+
+    # Build edges map: file_path -> {line_number -> [node_id, ...]}
+    edges = Dict{String, Dict{String, Vector{String}}}()
+    errors_list = []
+
+    parent = Base.parentmodule(@__MODULE__)
+
+    for item_id in selected
+        # Parse node ID: file:line
+        parts = split(item_id, ":", limit=2)
+        if length(parts) != 2
+            push!(errors_list, Dict(
+                "id" => item_id,
+                "error" => "invalid node ID format: $(item_id)"
+            ))
+            continue
+        end
+        file_path = parts[1]
+        line_str = parts[2]
+
+        line_num = try
+            parse(Int, line_str)
+        catch
+            push!(errors_list, Dict(
+                "id" => item_id,
+                "error" => "invalid line number in node ID: $(item_id)"
+            ))
+            continue
+        end
+
+        # Resolve the node ID to a TestItemRef by scanning the file
+        ref = _resolve_node_id(parent, file_path, line_num)
+        if ref === nothing
+            push!(errors_list, Dict(
+                "id" => item_id,
+                "error" => "no @testitem found at $(item_id)"
+            ))
+            continue
+        end
+
+        # Record coverage for this item
+        coverage = try
+            parent.record_item(ref)
+        catch e
+            push!(errors_list, Dict(
+                "id" => item_id,
+                "error" => "recording failed: $(sprint(showerror, e))"
+            ))
+            continue
+        end
+
+        if coverage === nothing
+            push!(errors_list, Dict(
+                "id" => item_id,
+                "error" => "recording returned no coverage"
+            ))
+            continue
+        end
+
+        # Accumulate in session_coverage
+        session_coverage[item_id] = coverage
+
+        # Convert ItemCoverage to runtime edges
+        # Each covered line creates an edge: file -> line -> [node_id]
+        abs_file = isabspath(coverage.item.file) ? coverage.item.file : joinpath(pwd(), coverage.item.file)
+        abs_file = realpath(abs_file)
+
+        if !haskey(edges, abs_file)
+            edges[abs_file] = Dict{String, Vector{String}}()
+        end
+
+        file_edges = edges[abs_file]
+
+        for line in coverage.covered_lines
+            line_key = string(line)
+            if !haskey(file_edges, line_key)
+                file_edges[line_key] = String[]
+            end
+            push!(file_edges[line_key], item_id)
+        end
+
+        for line in coverage.uncovered_lines
+            line_key = string(line)
+            if !haskey(file_edges, line_key)
+                file_edges[line_key] = String[]
+            end
+            push!(file_edges[line_key], item_id)
+        end
+    end
+
+    result = Dict{String, Any}("edges" => edges)
+    if !isempty(errors_list)
+        result["errors"] = errors_list
+    end
+
+    return JSON.json(Dict{String, Any}(
+        "ok" => true,
+        "result" => result
+    ))
+end
+
+"""
+    _resolve_node_id(parent::Module, file::String, line::Int) -> Union{TestItemRef, Nothing}
+
+Resolve a (file, line) pair to a TestItemRef by scanning the file for
+@testitem blocks. Returns nothing if no match is found.
+"""
+function _resolve_node_id(parent::Module, file::AbstractString, line::Int)
+    file_str = String(file)
+    if !isfile(file_str)
+        return nothing
+    end
+    content = try
+        read(file_str, String)
+    catch
+        return nothing
+    end
+
+    fhash = bytes2hex(sha256(content))[1:12]
+    tags = parent._parse_tags(content)
+    pattern = r"@testitem\s+\"([^\"]+)\""
+
+    for m in eachmatch(pattern, content)
+        name = m.captures[1]
+        offset = m.offset
+        item_line = count(==('\n'), content[1:offset]) + 1
+        if item_line == line
+            item_tags = get(tags, name, Symbol[])
+            return parent.TestItemRef(file_str, line, name, item_tags, fhash)
+        end
+    end
+    return nothing
 end
 
 """

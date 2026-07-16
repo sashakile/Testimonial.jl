@@ -187,4 +187,9 @@ function discover_testitems(dirs::Vector{String})::Vector{TestItemRef}
     return items
 end
 
+# Coverage layer — per-item recording
+include("CoverageLayer.jl")
+using .CoverageLayer
+export record_item
+
 end # module Testimonial
