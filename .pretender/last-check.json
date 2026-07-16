@@ -429,7 +429,7 @@
         {
           "name": "ImpactResult",
           "kind": "Function",
-          "start_line": 62,
+          "start_line": 63,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -444,7 +444,7 @@
         {
           "name": "atomic_write",
           "kind": "Function",
-          "start_line": 95,
+          "start_line": 96,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -459,7 +459,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 211,
+          "start_line": 298,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -482,6 +482,13 @@
     },
     {
       "path": "test/test_astparser.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_changed_detection.jl",
       "role": "app",
       "diagnostics": [],
       "file_violations": [],
