@@ -189,6 +189,11 @@ function discover_testitems(dirs::Vector{String})::Vector{TestItemRef}
     return items
 end
 
+# Git diff parser
+include("GitDiff.jl")
+using .GitDiff
+export parse_unified_diff
+
 # Coverage layer — per-item recording
 include("CoverageLayer.jl")
 using .CoverageLayer

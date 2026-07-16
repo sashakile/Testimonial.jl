@@ -9,7 +9,7 @@
 using Testimonial
 using Test
 
-# ── Helpers ────────────────────────────────────
+# ── Helper ──────────────────────────────────────
 
 """
     make_diff(headers, hunk_lines...) -> String
@@ -31,67 +31,29 @@ function make_diff(headers, hunks...)
     return String(take!(buf))
 end
 
-"""
-    simple_diff(file_path, added_lines, context_lines, removed_lines) -> String
-
-Build a realistic unified diff for a single file with one contiguous hunk.
-
-- `added_lines`: Vector{Int} of line numbers in the NEW file that are additions
-- `context_lines`: Vector{Int} of line numbers in the OLD file that are context
-- `removed_lines`: Vector{Int} of line numbers in the OLD file that are deleted
-
-All vectors must be sorted and contiguous in the vicinity of the change.
-The hunk is built around the first changed line.
-"""
-function simple_diff(file_path, added_lines, context_lines, removed_lines)
-    all_old = sort(union(context_lines, removed_lines))
-    all_new = sort(union(context_lines, added_lines))
-
-    isempty(all_old) && isempty(all_new) && return ""
-
-    old_start = first(all_old)
-    old_count = length(all_old)
-    new_start = first(all_new)
-    new_count = length(all_new)
-
-    hunk_header = "@@ -$(old_start),$(old_count) +$(new_start),$(new_count) @@"
-
-    body_lines = String[]
-    # Build the body by interleaving old and new line content
-    for i in all_old
-        if i in removed_lines
-            push!(body_lines, "-original_line_$(i)")
-        else
-            push!(body_lines, " context_line_$(i)")
-        end
-    end
-    for i in all_new
-        if i in added_lines
-            push!(body_lines, "+new_line_$(i)")
-        end
-    end
-
-    return make_diff(
-        ["diff --git a/$(file_path) b/$(file_path)",
-         "--- a/$(file_path)",
-         "+++ b/$(file_path)"],
-        [hunk_header; body_lines]
-    )
-end
-
 # ── Basic diff parsing ─────────────────────────
 
 @testset "parse_unified_diff: simple single-file change" begin
-    diff = simple_diff("src/foo.jl", [10, 15], [5], [5])
+    # A file with one line removed (line 5) and two lines added (lines 10, 11)
+    diff = make_diff(
+        ["diff --git a/src/foo.jl b/src/foo.jl",
+         "--- a/src/foo.jl",
+         "+++ b/src/foo.jl"],
+        ["@@ -5,1 +5,3 @@",
+         " context_5",
+         "+new_line_10",
+         "+new_line_11"]
+    )
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
     # Should find the absolute path for src/foo.jl
-    abs_path = realpath(joinpath(pwd(), "src/foo.jl"))
+    abs_path = abspath(joinpath(pwd(), "src/foo.jl"))
     @test haskey(result, abs_path)
-    @test 10 in result[abs_path]
-    @test 15 in result[abs_path]
-    @test !(5 in result[abs_path])  # deleted lines are not counted
+    # Context line 5 is not added; new lines 6 and 7 are the + lines
+    @test 6 in result[abs_path]
+    @test 7 in result[abs_path]
+    @test !(5 in result[abs_path])  # context line not counted
 end
 
 @testset "parse_unified_diff: multiple files changed" begin
@@ -115,8 +77,8 @@ end
 
     result = Testimonial.parse_unified_diff(full_diff, pwd())
 
-    abs_a = realpath(joinpath(pwd(), "src/a.jl"))
-    abs_b = realpath(joinpath(pwd(), "src/b.jl"))
+    abs_a = abspath(joinpath(pwd(), "src/a.jl"))
+    abs_b = abspath(joinpath(pwd(), "src/b.jl"))
 
     @test haskey(result, abs_a)
     @test haskey(result, abs_b)
@@ -138,7 +100,7 @@ end
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
-    abs_path = realpath(joinpath(pwd(), "src/new_file.jl"))
+    abs_path = abspath(joinpath(pwd(), "src/new_file.jl"))
     @test haskey(result, abs_path)
     @test 1 in result[abs_path]
     @test 2 in result[abs_path]
@@ -191,7 +153,7 @@ end
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
-    abs_path = realpath(joinpath(pwd(), "src/new_name.jl"))
+    abs_path = abspath(joinpath(pwd(), "src/new_name.jl"))
     @test haskey(result, abs_path)
     @test 2 in result[abs_path]
 end
@@ -213,7 +175,7 @@ end
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
-    abs_path = realpath(joinpath(pwd(), "src/foo.jl"))
+    abs_path = abspath(joinpath(pwd(), "src/foo.jl"))
     @test haskey(result, abs_path)
     @test 11 in result[abs_path]  # from first hunk: line 10 is context, 11 is added
     @test 20 in result[abs_path]  # from second hunk: line 20 is replaced
@@ -233,7 +195,7 @@ end
     result = Testimonial.parse_unified_diff(diff, pwd())
 
     # File with only deletions should not be in the result
-    abs_path = realpath(joinpath(pwd(), "src/bar.jl"))
+    abs_path = abspath(joinpath(pwd(), "src/bar.jl"))
     @test !haskey(result, abs_path)
 end
 
@@ -251,7 +213,7 @@ end
     result = Testimonial.parse_unified_diff(diff, pwd())
 
     # Context-only diff should produce no changes
-    abs_path = realpath(joinpath(pwd(), "src/only_ctx.jl"))
+    abs_path = abspath(joinpath(pwd(), "src/only_ctx.jl"))
     @test !haskey(result, abs_path)
 end
 
@@ -302,7 +264,7 @@ end
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
-    abs_path = realpath(joinpath(pwd(), "Project.toml"))
+    abs_path = abspath(joinpath(pwd(), "Project.toml"))
     @test haskey(result, abs_path)
     @test 2 in result[abs_path]
 end
@@ -319,7 +281,7 @@ end
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
-    abs_path = realpath(joinpath(pwd(), "Manifest.toml"))
+    abs_path = abspath(joinpath(pwd(), "Manifest.toml"))
     @test haskey(result, abs_path)
 end
 
@@ -355,7 +317,7 @@ end
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
-    abs_path = realpath(joinpath(pwd(), "src/lib/util.jl"))
+    abs_path = abspath(joinpath(pwd(), "src/lib/util.jl"))
     @test haskey(result, abs_path)
 end
 
@@ -394,8 +356,8 @@ end
     # Two Julia files changed, one README ignored
     @test length(result) == 2
 
-    abs_bs = realpath(joinpath(pwd(), "src/bs.jl"))
-    abs_test_bs = realpath(joinpath(pwd(), "test/test_bs.jl"))
+    abs_bs = abspath(joinpath(pwd(), "src/bs.jl"))
+    abs_test_bs = abspath(joinpath(pwd(), "test/test_bs.jl"))
 
     @test haskey(result, abs_bs)
     @test haskey(result, abs_test_bs)
@@ -426,7 +388,7 @@ end
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
-    abs_path = realpath(joinpath(pwd(), "src/foo.jl"))
+    abs_path = abspath(joinpath(pwd(), "src/foo.jl"))
     @test haskey(result, abs_path)
     @test 2 in result[abs_path]
 end
@@ -445,7 +407,7 @@ end
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
-    abs_path = realpath(joinpath(pwd(), "src/foo.jl"))
+    abs_path = abspath(joinpath(pwd(), "src/foo.jl"))
     @test haskey(result, abs_path)
     @test 1 in result[abs_path]
     @test 2 in result[abs_path]
