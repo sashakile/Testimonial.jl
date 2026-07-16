@@ -172,13 +172,16 @@ Errors on missing params, invalid directory, or non-existent path.
 function handle_discover(cmd)
     params = get(cmd, "params", nothing)
 
+    # Package root directory (directory containing src/)
+    pkg_root = realpath(joinpath(@__DIR__, ".."))
+
     # Default to standard Julia test directory when no params provided
     if params === nothing
-        dirs = ["test/"]
+        dirs = [joinpath(pkg_root, "test")]
     else
         dirs = get(params, "test_directories", nothing)
         if dirs === nothing || !isa(dirs, Vector)
-            dirs = ["test/"]
+            dirs = [joinpath(pkg_root, "test")]
         end
     end
 
@@ -277,7 +280,7 @@ function _ingest_one_item(parent, item_id, edges, errors_list)
     parts = split(item_id, ":", limit=2)
     if length(parts) != 2
         push!(errors_list, Dict(
-            "id" => item_id,
+            "node_id" => item_id,
             "error" => "invalid node ID format: $(item_id)"
         ))
         return
@@ -289,7 +292,7 @@ function _ingest_one_item(parent, item_id, edges, errors_list)
         parse(Int, line_str)
     catch
         push!(errors_list, Dict(
-            "id" => item_id,
+            "node_id" => item_id,
             "error" => "invalid line number in node ID: $(item_id)"
         ))
         return
@@ -299,7 +302,7 @@ function _ingest_one_item(parent, item_id, edges, errors_list)
     ref = _resolve_node_id(parent, file_path, line_num)
     if ref === nothing
         push!(errors_list, Dict(
-            "id" => item_id,
+            "node_id" => item_id,
             "error" => "no @testitem found at $(item_id)"
         ))
         return
@@ -310,7 +313,7 @@ function _ingest_one_item(parent, item_id, edges, errors_list)
         parent.record_item(ref)
     catch e
         push!(errors_list, Dict(
-            "id" => item_id,
+            "node_id" => item_id,
             "error" => "recording failed: $(sprint(showerror, e))"
         ))
         return
@@ -318,7 +321,7 @@ function _ingest_one_item(parent, item_id, edges, errors_list)
 
     if coverage === nothing
         push!(errors_list, Dict(
-            "id" => item_id,
+            "node_id" => item_id,
             "error" => "recording returned no coverage"
         ))
         return
