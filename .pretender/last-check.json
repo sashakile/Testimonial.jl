@@ -425,7 +425,29 @@
       "role": "app",
       "diagnostics": [],
       "file_violations": [],
-      "units": []
+      "units": [
+        {
+          "name": "nearest_covered_lines",
+          "kind": "Function",
+          "start_line": 168,
+          "metrics": {
+            "cyclomatic": 9,
+            "cognitive": 8,
+            "assertions": 0,
+            "function_lines": 47,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 18.81488772222678
+          },
+          "violations": [
+            {
+              "metric": "function_lines",
+              "actual": 47.0,
+              "limit": 40.0
+            }
+          ]
+        }
+      ]
     },
     {
       "path": "src/Testimonial.jl",
