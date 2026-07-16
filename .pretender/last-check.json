@@ -30,7 +30,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 475.0,
+          "actual": 607.0,
           "limit": 400.0
         }
       ],
@@ -43,32 +43,32 @@
             "cyclomatic": 4,
             "cognitive": 3,
             "assertions": 0,
-            "function_lines": 16,
+            "function_lines": 19,
             "params": 0,
             "nesting_max": 0,
-            "abc": 9.9498743710662
+            "abc": 10.862780491200215
           },
           "violations": []
         },
         {
           "name": "handle",
           "kind": "Function",
-          "start_line": 52,
+          "start_line": 55,
           "metrics": {
             "cyclomatic": 4,
             "cognitive": 3,
             "assertions": 0,
-            "function_lines": 31,
+            "function_lines": 32,
             "params": 1,
             "nesting_max": 0,
-            "abc": 18.920887928424502
+            "abc": 19.87460691435179
           },
           "violations": []
         },
         {
           "name": "handle_handshake",
           "kind": "Function",
-          "start_line": 89,
+          "start_line": 93,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -83,7 +83,7 @@
         {
           "name": "handle_fingerprint",
           "kind": "Function",
-          "start_line": 115,
+          "start_line": 119,
           "metrics": {
             "cyclomatic": 9,
             "cognitive": 8,
@@ -98,7 +98,7 @@
         {
           "name": "handle_discover",
           "kind": "Function",
-          "start_line": 168,
+          "start_line": 172,
           "metrics": {
             "cyclomatic": 8,
             "cognitive": 7,
@@ -119,48 +119,78 @@
         {
           "name": "handle_ingest",
           "kind": "Function",
-          "start_line": 224,
+          "start_line": 230,
           "metrics": {
-            "cyclomatic": 20,
-            "cognitive": 19,
+            "cyclomatic": 9,
+            "cognitive": 8,
             "assertions": 0,
-            "function_lines": 116,
+            "function_lines": 37,
             "params": 1,
             "nesting_max": 0,
-            "abc": 50.25932749251625
+            "abc": 17.578395831246947
+          },
+          "violations": []
+        },
+        {
+          "name": "_ingest_one_item",
+          "kind": "Function",
+          "start_line": 275,
+          "metrics": {
+            "cyclomatic": 6,
+            "cognitive": 5,
+            "assertions": 0,
+            "function_lines": 58,
+            "params": 4,
+            "nesting_max": 0,
+            "abc": 19.949937343260004
           },
           "violations": [
             {
-              "metric": "cyclomatic",
-              "actual": 20.0,
-              "limit": 10.0
-            },
-            {
-              "metric": "cognitive",
-              "actual": 19.0,
-              "limit": 15.0
-            },
-            {
               "metric": "function_lines",
-              "actual": 116.0,
+              "actual": 58.0,
               "limit": 40.0
-            },
-            {
-              "metric": "abc",
-              "actual": 50.25932749251625,
-              "limit": 30.0
             }
           ]
         },
         {
+          "name": "_build_edges_for_item",
+          "kind": "Function",
+          "start_line": 340,
+          "metrics": {
+            "cyclomatic": 4,
+            "cognitive": 3,
+            "assertions": 0,
+            "function_lines": 22,
+            "params": 3,
+            "nesting_max": 0,
+            "abc": 12.449899597988733
+          },
+          "violations": []
+        },
+        {
+          "name": "_add_line_edges",
+          "kind": "Function",
+          "start_line": 364,
+          "metrics": {
+            "cyclomatic": 3,
+            "cognitive": 2,
+            "assertions": 0,
+            "function_lines": 9,
+            "params": 3,
+            "nesting_max": 0,
+            "abc": 4.898979485566356
+          },
+          "violations": []
+        },
+        {
           "name": "_resolve_node_id",
           "kind": "Function",
-          "start_line": 347,
+          "start_line": 380,
           "metrics": {
             "cyclomatic": 5,
             "cognitive": 4,
             "assertions": 0,
-            "function_lines": 26,
+            "function_lines": 29,
             "params": 0,
             "nesting_max": 0,
             "abc": 15.524174696260024
@@ -170,7 +200,7 @@
         {
           "name": "handle_run_args",
           "kind": "Function",
-          "start_line": 380,
+          "start_line": 416,
           "metrics": {
             "cyclomatic": 15,
             "cognitive": 14,
@@ -201,7 +231,7 @@
         {
           "name": "json_error",
           "kind": "Function",
-          "start_line": 468,
+          "start_line": 504,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -212,6 +242,47 @@
             "abc": 4.0
           },
           "violations": []
+        },
+        {
+          "name": "handle_static_deps",
+          "kind": "Function",
+          "start_line": 523,
+          "metrics": {
+            "cyclomatic": 7,
+            "cognitive": 6,
+            "assertions": 0,
+            "function_lines": 25,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 12.884098726725126
+          },
+          "violations": []
+        },
+        {
+          "name": "_build_static_edges",
+          "kind": "Function",
+          "start_line": 558,
+          "metrics": {
+            "cyclomatic": 11,
+            "cognitive": 10,
+            "assertions": 0,
+            "function_lines": 48,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 20.322401432901575
+          },
+          "violations": [
+            {
+              "metric": "cyclomatic",
+              "actual": 11.0,
+              "limit": 10.0
+            },
+            {
+              "metric": "function_lines",
+              "actual": 48.0,
+              "limit": 40.0
+            }
+          ]
         }
       ]
     },
@@ -281,7 +352,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 609.0,
+          "actual": 723.0,
           "limit": 400.0
         }
       ],

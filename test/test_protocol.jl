@@ -654,8 +654,8 @@ end
 @testset "Static-deps empty changed_files" begin
     resp = Protocol.handle("""{"command":"static-deps","params":{"changed_files":[]}}""")
     parsed = JSON.parse(resp)
-    @test parsed["ok"] == false
-    @test occursin("empty", parsed["error"]["message"])
+    @test parsed["ok"] == true
+    @test parsed["result"]["edges"] == Dict{String, Any}()
 end
 
 @testset "Static-deps with prior ingest returns edges not unresolved" begin

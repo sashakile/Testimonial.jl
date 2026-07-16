@@ -339,11 +339,8 @@ line in the coverage, map file→line→[item_id]. Modifies `edges` in place.
 """
 function _build_edges_for_item(coverage, item_id, edges)
     # Normalize file path to absolute form
-    abs_file = try
-        file = coverage.item.file
-        abs = isabspath(file) ? file : joinpath(pwd(), file)
-        realpath(abs)
-    catch e
+    abs_file = _normalize_path(coverage.item.file)
+    if abs_file === nothing
         # If realpath fails (e.g., file deleted between discovery and ingest),
         # skip this item and use the original path as-is
         push!(edges, "_unresolved_$(item_id)" => Dict{String, Vector{String}}())
@@ -358,6 +355,21 @@ function _build_edges_for_item(coverage, item_id, edges)
 
     _add_line_edges(file_edges, coverage.covered_lines, item_id)
     _add_line_edges(file_edges, coverage.uncovered_lines, item_id)
+end
+
+"""
+    _normalize_path(path) -> Union{String, Nothing}
+
+Normalize a file path to absolute form via realpath.
+Returns nothing if normalization fails (file doesn't exist, etc.).
+"""
+function _normalize_path(path)
+    try
+        abs = isabspath(path) ? path : joinpath(pwd(), path)
+        return realpath(abs)
+    catch
+        return nothing
+    end
 end
 
 """Add a batch of line→[node_id] entries to an edge dict."""
@@ -527,8 +539,16 @@ function handle_static_deps(cmd)
     end
 
     changed = get(params, "changed_files", nothing)
-    if changed === nothing || !isa(changed, Vector) || isempty(changed)
-        return json_error("missing or empty 'params.changed_files'")
+    if changed === nothing || !isa(changed, Vector)
+        return json_error("missing or invalid 'params.changed_files'")
+    end
+
+    if isempty(changed)
+        # No changed files → empty edges dict
+        return JSON.json(Dict{String, Any}(
+            "ok" => true,
+            "result" => Dict{String, Any}("edges" => Dict{String, Any}())
+        ))
     end
 
     for f in changed
@@ -547,13 +567,16 @@ function handle_static_deps(cmd)
 end
 
 """
-    _build_static_edges(changed_files::Vector{String}) -> Dict
+    _build_static_edges(changed_files) -> Dict
 
 Build dependency edges for the given changed files.
 
 If session_coverage is empty, every changed file maps to "unresolved".
 Otherwise, for each changed file, look up the recorded edges from
 session_coverage (grouped by file).
+
+File paths are normalized with realpath before comparison to ensure
+absolute/relative path mismatches don't cause silent unresolved results.
 """
 function _build_static_edges(changed_files)
     edges = Dict{String, Any}()
@@ -568,34 +591,32 @@ function _build_static_edges(changed_files)
 
     # Build a file→edges lookup from session_coverage
     # session_coverage keyed by node_id (file:line), value is ItemCoverage
+    # Normalize file paths with realpath so the lookup is robust to
+    # absolute/relative path mismatches with changed_files.
     file_edges = Dict{String, Dict{String, Vector{String}}}()
 
     for (node_id, coverage) in session_coverage
-        file = coverage.item.file
+        file = _normalize_path(coverage.item.file)
+        # If normalization fails, use the original path as-is
+        if file === nothing
+            file = coverage.item.file
+        end
         if !haskey(file_edges, file)
             file_edges[file] = Dict{String, Vector{String}}()
         end
         inner = file_edges[file]
-        for line in coverage.covered_lines
-            line_key = string(line)
-            if !haskey(inner, line_key)
-                inner[line_key] = String[]
-            end
-            push!(inner[line_key], node_id)
-        end
-        for line in coverage.uncovered_lines
-            line_key = string(line)
-            if !haskey(inner, line_key)
-                inner[line_key] = String[]
-            end
-            push!(inner[line_key], node_id)
-        end
+        _add_line_edges(inner, coverage.covered_lines, node_id)
+        _add_line_edges(inner, coverage.uncovered_lines, node_id)
     end
 
-    # For each changed file, return edges or unresolved
+    # For each changed file, normalize path and return edges or unresolved
     for f in changed_files
-        if haskey(file_edges, f)
-            edges[f] = file_edges[f]
+        norm_f = _normalize_path(f)
+        if norm_f === nothing
+            # Can't normalize the changed file path — mark as unresolved
+            edges[f] = "unresolved"
+        elseif haskey(file_edges, norm_f)
+            edges[norm_f] = file_edges[norm_f]
         else
             edges[f] = "unresolved"
         end
