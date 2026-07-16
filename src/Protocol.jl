@@ -62,6 +62,7 @@ function handle(line)
     # Dispatch via lookup table
     handlers = Dict{String, Function}(
         "handshake" => () -> handle_handshake(),
+        "discover" => () -> handle_discover(cmd),
         "fingerprint" => () -> handle_fingerprint(cmd),
         "run-args" => () -> handle_run_args(cmd),
     )
@@ -139,6 +140,63 @@ function handle_fingerprint(cmd)
         "ok" => true,
         "result" => Dict(
             "fingerprints" => fingerprints
+        )
+    ))
+end
+
+"""
+    handle_discover(cmd::Dict) -> String
+
+Respond to the `discover` command by scanning configured test directories
+for @testitem blocks per PROTO-003.
+
+Returns a JSON response with a `nodes` array, each node having:
+- `id`: unique node ID in `test_file:line` format
+- `file`: absolute, normalized test file path
+- `name`: the @testitem name
+
+Errors on missing params, invalid directory, or non-existent path.
+"""
+function handle_discover(cmd)
+    params = get(cmd, "params", nothing)
+    if params === nothing
+        return json_error("missing 'params' field")
+    end
+
+    dirs = get(params, "test_directories", nothing)
+    if dirs === nothing || !isa(dirs, Vector)
+        return json_error("missing or invalid 'params.test_directories'")
+    end
+
+    # Validate and normalize directories to absolute paths
+    normalized_dirs = String[]
+    for d in dirs
+        if !isa(d, String)
+            return json_error("'params.test_directories' entries must be strings")
+        end
+        if !isdir(d)
+            return json_error("not a directory: $(d)")
+        end
+        push!(normalized_dirs, realpath(d))
+    end
+
+    # Discover test items across all configured directories
+    parent = Base.parentmodule(@__MODULE__)
+    items = parent.discover_testitems(normalized_dirs)
+
+    nodes = []
+    for item in items
+        push!(nodes, Dict(
+            "id" => "$(item.file):$(item.line)",
+            "file" => item.file,
+            "name" => item.name
+        ))
+    end
+
+    return JSON.json(Dict(
+        "ok" => true,
+        "result" => Dict(
+            "nodes" => nodes
         )
     ))
 end
