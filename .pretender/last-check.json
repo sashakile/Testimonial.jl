@@ -9,7 +9,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 25,
+          "start_line": 125,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -24,13 +24,86 @@
       ]
     },
     {
+      "path": "src/GitDiff.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "_parse_diff_section",
+          "kind": "Function",
+          "start_line": 45,
+          "metrics": {
+            "cyclomatic": 29,
+            "cognitive": 27,
+            "assertions": 0,
+            "function_lines": 131,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 60.663003552412405
+          },
+          "violations": [
+            {
+              "metric": "cyclomatic",
+              "actual": 29.0,
+              "limit": 10.0
+            },
+            {
+              "metric": "cognitive",
+              "actual": 27.0,
+              "limit": 15.0
+            },
+            {
+              "metric": "function_lines",
+              "actual": 131.0,
+              "limit": 40.0
+            },
+            {
+              "metric": "abc",
+              "actual": 60.663003552412405,
+              "limit": 30.0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/IndexBuilder.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "_record_single_item",
+          "kind": "Function",
+          "start_line": 26,
+          "metrics": {
+            "cyclomatic": 6,
+            "cognitive": 5,
+            "assertions": 0,
+            "function_lines": 42,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 24.124676163629637
+          },
+          "violations": [
+            {
+              "metric": "function_lines",
+              "actual": 42.0,
+              "limit": 40.0
+            }
+          ]
+        }
+      ]
+    },
+    {
       "path": "src/Protocol.jl",
       "role": "app",
       "diagnostics": [],
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 607.0,
+          "actual": 631.0,
           "limit": 400.0
         }
       ],
@@ -103,15 +176,15 @@
             "cyclomatic": 8,
             "cognitive": 7,
             "assertions": 0,
-            "function_lines": 43,
+            "function_lines": 46,
             "params": 1,
             "nesting_max": 0,
-            "abc": 19.339079605813716
+            "abc": 21.307275752662516
           },
           "violations": [
             {
               "metric": "function_lines",
-              "actual": 43.0,
+              "actual": 46.0,
               "limit": 40.0
             }
           ]
@@ -119,7 +192,7 @@
         {
           "name": "handle_ingest",
           "kind": "Function",
-          "start_line": 230,
+          "start_line": 233,
           "metrics": {
             "cyclomatic": 9,
             "cognitive": 8,
@@ -134,7 +207,7 @@
         {
           "name": "_ingest_one_item",
           "kind": "Function",
-          "start_line": 275,
+          "start_line": 278,
           "metrics": {
             "cyclomatic": 6,
             "cognitive": 5,
@@ -155,22 +228,37 @@
         {
           "name": "_build_edges_for_item",
           "kind": "Function",
-          "start_line": 340,
+          "start_line": 343,
           "metrics": {
-            "cyclomatic": 4,
-            "cognitive": 3,
+            "cyclomatic": 3,
+            "cognitive": 2,
             "assertions": 0,
-            "function_lines": 22,
+            "function_lines": 19,
             "params": 3,
             "nesting_max": 0,
-            "abc": 12.449899597988733
+            "abc": 8.774964387392123
+          },
+          "violations": []
+        },
+        {
+          "name": "_normalize_path",
+          "kind": "Function",
+          "start_line": 369,
+          "metrics": {
+            "cyclomatic": 3,
+            "cognitive": 2,
+            "assertions": 0,
+            "function_lines": 8,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 5.477225575051661
           },
           "violations": []
         },
         {
           "name": "_add_line_edges",
           "kind": "Function",
-          "start_line": 364,
+          "start_line": 379,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -185,7 +273,7 @@
         {
           "name": "_resolve_node_id",
           "kind": "Function",
-          "start_line": 380,
+          "start_line": 395,
           "metrics": {
             "cyclomatic": 5,
             "cognitive": 4,
@@ -200,7 +288,7 @@
         {
           "name": "handle_run_args",
           "kind": "Function",
-          "start_line": 416,
+          "start_line": 431,
           "metrics": {
             "cyclomatic": 15,
             "cognitive": 14,
@@ -231,7 +319,7 @@
         {
           "name": "json_error",
           "kind": "Function",
-          "start_line": 504,
+          "start_line": 519,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -246,40 +334,35 @@
         {
           "name": "handle_static_deps",
           "kind": "Function",
-          "start_line": 523,
+          "start_line": 538,
           "metrics": {
             "cyclomatic": 7,
             "cognitive": 6,
             "assertions": 0,
-            "function_lines": 25,
+            "function_lines": 33,
             "params": 1,
             "nesting_max": 0,
-            "abc": 12.884098726725126
+            "abc": 16.431676725154983
           },
           "violations": []
         },
         {
           "name": "_build_static_edges",
           "kind": "Function",
-          "start_line": 558,
+          "start_line": 584,
           "metrics": {
-            "cyclomatic": 11,
-            "cognitive": 10,
+            "cyclomatic": 9,
+            "cognitive": 8,
             "assertions": 0,
-            "function_lines": 48,
+            "function_lines": 46,
             "params": 1,
             "nesting_max": 0,
-            "abc": 20.322401432901575
+            "abc": 17.4928556845359
           },
           "violations": [
             {
-              "metric": "cyclomatic",
-              "actual": 11.0,
-              "limit": 10.0
-            },
-            {
               "metric": "function_lines",
-              "actual": 48.0,
+              "actual": 46.0,
               "limit": 40.0
             }
           ]
@@ -321,6 +404,21 @@
             "abc": 5.385164807134504
           },
           "violations": []
+        },
+        {
+          "name": "record_item",
+          "kind": "Function",
+          "start_line": 211,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 3,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 2.0
+          },
+          "violations": []
         }
       ]
     },
@@ -333,6 +431,86 @@
     },
     {
       "path": "test/test_astparser.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_command.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_cov_sidecar.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "_cov_line",
+          "kind": "Function",
+          "start_line": 16,
+          "metrics": {
+            "cyclomatic": 2,
+            "cognitive": 1,
+            "assertions": 0,
+            "function_lines": 4,
+            "params": 3,
+            "nesting_max": 0,
+            "abc": 4.242640687119285
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
+      "path": "test/test_driver.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_gitdiff.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [
+        {
+          "metric": "file_lines",
+          "actual": 414.0,
+          "limit": 400.0
+        }
+      ],
+      "units": [
+        {
+          "name": "make_diff",
+          "kind": "Function",
+          "start_line": 21,
+          "metrics": {
+            "cyclomatic": 4,
+            "cognitive": 3,
+            "assertions": 0,
+            "function_lines": 12,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 6.782329983125268
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
+      "path": "test/test_indexbuilder.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_mockrunner.jl",
       "role": "app",
       "diagnostics": [],
       "file_violations": [],
@@ -352,7 +530,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 723.0,
+          "actual": 726.0,
           "limit": 400.0
         }
       ],
@@ -360,7 +538,7 @@
         {
           "name": "run_protocol_commands",
           "kind": "Function",
-          "start_line": 385,
+          "start_line": 388,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -373,6 +551,20 @@
           "violations": []
         }
       ]
+    },
+    {
+      "path": "test/test_runner.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_runner_types.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
     },
     {
       "path": "test/test_types.jl",

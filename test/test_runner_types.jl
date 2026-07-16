@@ -16,13 +16,21 @@ end
     @test SubprocessRunner <: Testimonial.AbstractRunner
 end
 
-@testset "SubprocessRunner has runner_dir field" begin
+@testset "SubprocessRunner has runner_dir and timeout fields" begin
     runner = SubprocessRunner()
     @test hasproperty(runner, :runner_dir)
+    @test hasproperty(runner, :timeout)
     @test runner.runner_dir == "scripts/TestimonialRunner"
+    @test runner.timeout == Testimonial.TIMEOUT_PER_ITEM_DEFAULT
 end
 
 @testset "SubprocessRunner custom runner_dir" begin
-    runner = SubprocessRunner("/custom/path")
+    runner = SubprocessRunner(runner_dir="/custom/path")
     @test runner.runner_dir == "/custom/path"
+    @test runner.timeout == Testimonial.TIMEOUT_PER_ITEM_DEFAULT
+end
+
+@testset "SubprocessRunner custom timeout" begin
+    runner = SubprocessRunner(timeout=60.0)
+    @test runner.timeout == 60.0
 end

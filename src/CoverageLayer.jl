@@ -7,7 +7,9 @@
 
 module CoverageLayer
 
-export record_item, build_driver_command, AbstractRunner, SubprocessRunner, parse_cov_sidecar
+export record_item, build_driver_command, AbstractRunner, SubprocessRunner,
+       parse_cov_sidecar, run_with_timeout, with_retry,
+       TIMEOUT_PER_ITEM_DEFAULT, MAX_TIMEOUT_PER_ITEM, MAX_RETRIES
 
 using Coverage
 
@@ -24,9 +26,11 @@ Fields:
 """
 struct SubprocessRunner <: AbstractRunner
     runner_dir::String
+    timeout::Float64
 end
 
-SubprocessRunner() = SubprocessRunner("scripts/TestimonialRunner")
+SubprocessRunner(; runner_dir::String="scripts/TestimonialRunner", timeout::Float64=TIMEOUT_PER_ITEM_DEFAULT) =
+    SubprocessRunner(runner_dir, timeout)
 
 """
     build_driver_command(test_file::String, item_name::String; runner_dir::AbstractString="scripts/TestimonialRunner") -> Tuple{Vector{String}, Dict{String, String}}
@@ -132,6 +136,89 @@ function record_item(ref)
     # 5. Return ItemCoverage with covered/uncovered lines
     parent = Base.parentmodule(@__MODULE__)
     return parent.ItemCoverage(ref, Int[], Int[])
+end
+
+# ── Timeout handling ──────────────────────────
+
+"""Default timeout per subprocess item recording in seconds (300s = 5 minutes)."""
+const TIMEOUT_PER_ITEM_DEFAULT = 300.0
+
+"""Maximum allowed timeout for a retry attempt in seconds (600s = 10 minutes)."""
+const MAX_TIMEOUT_PER_ITEM = 600.0
+
+"""Maximum number of retry attempts for a timed-out subprocess (2 = 3 total tries)."""
+const MAX_RETRIES = 2
+
+"""
+    run_with_timeout(command, env, timeout) -> Union{Int, Nothing}
+
+Run a subprocess with a timeout. Returns the exit code if the process
+completes within `timeout` seconds, or `nothing` if the timeout was
+exceeded and the process was killed.
+
+The process is killed via `kill` on the process group so that any child
+processes are also terminated. stdout and stderr are inherited from the
+parent process.
+"""
+function run_with_timeout(command::Vector{String}, env::Dict{String, String}, timeout::Real)
+    # Build the command with environment variables
+    cmd = setenv(Cmd(command), env)
+
+    # Launch the subprocess without waiting
+    proc = run(cmd; wait=false)
+
+    timer = Timer(timeout) do t
+        # Timeout fired — kill the process
+        kill(proc)
+    end
+
+    # Wait for the process to finish or be killed
+    wait(proc)
+
+    # Close the timer if the process finished before the timeout
+    close(timer)
+
+    # If the process was terminated by a signal, it was killed by the timeout
+    if proc.termsignal > 0
+        return nothing
+    end
+
+    return proc.exitcode
+end
+
+"""
+    with_retry(fn, initial_timeout; max_retries=MAX_RETRIES, max_timeout=MAX_TIMEOUT_PER_ITEM) -> result
+
+Execute a thunk `fn` with timeout-based retry logic.
+
+The thunk must return either:
+- A value (success) — returned immediately
+- `nothing` (timeout) — retried with doubled timeout
+
+Retries are capped at `max_retries`. Each retry doubles the timeout,
+capped at `max_timeout`. If all retries are exhausted, returns `nothing`.
+
+# Examples
+```julia
+# Retry a subprocess with timeout, doubling on each timeout
+result = with_retry(300.0) do timeout
+    run_with_timeout(["julia", "script.jl"], Dict{String, String}(), timeout)
+end
+```
+"""
+function with_retry(fn::Function, initial_timeout::Real;
+                     max_retries::Int=MAX_RETRIES,
+                     max_timeout::Real=MAX_TIMEOUT_PER_ITEM)
+    timeout = Float64(initial_timeout)
+    for attempt in 0:max_retries
+        result = fn(timeout)
+        if result !== nothing
+            return result
+        end
+        # Timed out — double timeout for next attempt, capped at max
+        timeout = min(timeout * 2, Float64(max_timeout))
+    end
+    return nothing
 end
 
 end # module CoverageLayer
