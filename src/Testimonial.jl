@@ -199,4 +199,17 @@ include("CoverageLayer.jl")
 using .CoverageLayer
 export record_item, build_driver_command, AbstractRunner, SubprocessRunner
 
+# Index builder — single-item and bulk recording
+include("IndexBuilder.jl")
+using .IndexBuilder
+
+# Extend the CoverageLayer.record_item function with a convenience method
+# that accepts (test_file, item_name) for single-item debugging.
+# We use the function from CoverageLayer so both method signatures
+# (one-arg ref and two-arg string) live on the same function object.
+import .CoverageLayer: record_item
+function record_item(test_file::AbstractString, item_name::AbstractString)
+    return IndexBuilder._record_single_item(test_file, item_name)
+end
+
 end # module Testimonial
