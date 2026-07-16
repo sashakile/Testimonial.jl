@@ -7,7 +7,9 @@
 
 module CoverageLayer
 
-export record_item, build_driver_command, AbstractRunner, SubprocessRunner
+export record_item, build_driver_command, AbstractRunner, SubprocessRunner, parse_cov_sidecar
+
+using Coverage
 
 # ── Runner types ──────────────────────────────
 
@@ -58,6 +60,53 @@ function build_driver_command(
         "TESTIMONIAL_ITEM" => String(item_name)
     )
     return (cmd, env)
+end
+
+# ── Coverage sidecar parsing ──────────────────
+
+"""
+    parse_cov_sidecar(source_file::AbstractString) -> Dict{String, Set{Int}}
+
+Parse a Julia .jl.cov coverage sidecar file for the given source file
+and return a map of source file paths to sets of covered line numbers.
+
+Only lines with execution count > 0 are included (lines with count 0
+or non-executable lines marked with `-` are excluded).
+
+Returns an empty dict if the source file or its .jl.cov sidecar
+cannot be found or read.
+"""
+function parse_cov_sidecar(source_file::AbstractString)::Dict{String, Set{Int}}
+    result = Dict{String, Set{Int}}()
+
+    src_path = String(source_file)
+    if !isfile(src_path)
+        return result
+    end
+
+    cov_path = src_path * ".cov"
+    if !isfile(cov_path)
+        return result
+    end
+
+    fc = try
+        Coverage.process_file(src_path, dirname(src_path))
+    catch
+        return result
+    end
+
+    covered = Set{Int}()
+    for (i, count) in enumerate(fc.coverage)
+        if count !== nothing && count > 0
+            push!(covered, i)
+        end
+    end
+
+    if !isempty(covered)
+        result[src_path] = covered
+    end
+
+    return result
 end
 
 """

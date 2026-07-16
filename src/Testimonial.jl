@@ -197,7 +197,7 @@ export parse_unified_diff
 # Coverage layer — per-item recording
 include("CoverageLayer.jl")
 using .CoverageLayer
-export record_item, build_driver_command, AbstractRunner, SubprocessRunner
+export record_item, build_driver_command, AbstractRunner, SubprocessRunner, parse_cov_sidecar
 
 # Index builder — single-item and bulk recording
 include("IndexBuilder.jl")
