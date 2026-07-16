@@ -607,3 +607,117 @@ end
     @test parsed["result"]["errors"][1]["id"] == "bad-format"
     @test occursin("node ID", parsed["result"]["errors"][1]["error"])
 end
+
+# ── Static-deps handler (PROTO-005) ───────────
+
+@testset "Static-deps unresolved when no coverage recorded" begin
+    # Clear any session state from previous tests
+    empty!(Protocol.session_coverage)
+
+    resp = Protocol.handle("""{"command":"static-deps","params":{"changed_files":["src/foo.jl"]}}""")
+    parsed = JSON.parse(resp)
+
+    @test parsed["ok"] == true
+    @test haskey(parsed["result"], "edges")
+    @test parsed["result"]["edges"]["src/foo.jl"] == "unresolved"
+end
+
+@testset "Static-deps multiple files all unresolved" begin
+    empty!(Protocol.session_coverage)
+
+    cmd = """{"command":"static-deps","params":{"changed_files":["a.jl","b.jl","c.jl"]}}"""
+    resp = Protocol.handle(cmd)
+    parsed = JSON.parse(resp)
+
+    @test parsed["ok"] == true
+    edges = parsed["result"]["edges"]
+    @test length(edges) == 3
+    @test edges["a.jl"] == "unresolved"
+    @test edges["b.jl"] == "unresolved"
+    @test edges["c.jl"] == "unresolved"
+end
+
+@testset "Static-deps missing params" begin
+    resp = Protocol.handle("""{"command":"static-deps"}""")
+    parsed = JSON.parse(resp)
+    @test parsed["ok"] == false
+    @test occursin("missing 'params'", parsed["error"]["message"])
+end
+
+@testset "Static-deps missing changed_files" begin
+    resp = Protocol.handle("""{"command":"static-deps","params":{}}""")
+    parsed = JSON.parse(resp)
+    @test parsed["ok"] == false
+    @test occursin("changed_files", parsed["error"]["message"])
+end
+
+@testset "Static-deps empty changed_files" begin
+    resp = Protocol.handle("""{"command":"static-deps","params":{"changed_files":[]}}""")
+    parsed = JSON.parse(resp)
+    @test parsed["ok"] == false
+    @test occursin("empty", parsed["error"]["message"])
+end
+
+@testset "Static-deps with prior ingest returns edges not unresolved" begin
+    empty!(Protocol.session_coverage)
+
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_edgy.jl")
+        write(test_file, """@testitem "edgy" begin @test 1==1 end""")
+
+        # Discover to get node ID
+        disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        disc_resp = Protocol.handle(disc_cmd)
+        disc = JSON.parse(disc_resp)
+        node_id = disc["result"]["nodes"][1]["id"]
+        abs_file = disc["result"]["nodes"][1]["file"]
+
+        # Ingest to populate session_coverage
+        ingest_cmd = """{"command":"ingest","params":{"selected":["$(node_id)"]}}"""
+        Protocol.handle(ingest_cmd)
+
+        # Now static-deps should find edges for this file
+        sd_cmd = """{"command":"static-deps","params":{"changed_files":["$(abs_file)"]}}"""
+        sd_resp = Protocol.handle(sd_cmd)
+        sd = JSON.parse(sd_resp)
+
+        @test sd["ok"] == true
+        @test haskey(sd["result"]["edges"], abs_file)
+        # The file should NOT be "unresolved" — should be a dict (even if empty)
+        @test !isa(sd["result"]["edges"][abs_file], String)  # not "unresolved"
+        @test isa(sd["result"]["edges"][abs_file], AbstractDict)  # edges dict
+    end
+end
+
+@testset "Static-deps mixed: some covered, some unresolved" begin
+    empty!(Protocol.session_coverage)
+
+    mktempdir() do dir
+        test_file = joinpath(dir, "covered.jl")
+        write(test_file, """@testitem "c" begin @test 1==1 end""")
+
+        disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        disc_resp = Protocol.handle(disc_cmd)
+        disc = JSON.parse(disc_resp)
+        node_id = disc["result"]["nodes"][1]["id"]
+        abs_file = disc["result"]["nodes"][1]["file"]
+
+        # Ingest one file
+        ingest_cmd = """{"command":"ingest","params":{"selected":["$(node_id)"]}}"""
+        Protocol.handle(ingest_cmd)
+
+        # static-deps with both covered and uncovered file
+        sd_cmd = """{"command":"static-deps","params":{"changed_files":["$(abs_file)","other.jl"]}}"""
+        sd_resp = Protocol.handle(sd_cmd)
+        sd = JSON.parse(sd_resp)
+
+        @test sd["ok"] == true
+        edges = sd["result"]["edges"]
+        @test length(edges) == 2
+        @test haskey(edges, abs_file)
+        @test haskey(edges, "other.jl")
+        @test !isa(edges[abs_file], String)  # not "unresolved"
+        @test isa(edges[abs_file], AbstractDict)  # covered → edges dict
+        @test edges["other.jl"] == "unresolved"  # unknown → unresolved
+    end
+end
