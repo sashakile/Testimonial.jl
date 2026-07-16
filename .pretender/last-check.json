@@ -9,37 +9,58 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 129,
+          "start_line": 144,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
             "assertions": 0,
-            "function_lines": 11,
+            "function_lines": 4,
             "params": 1,
             "nesting_max": 0,
-            "abc": 3.1622776601683795
+            "abc": 3.0
           },
           "violations": []
         },
         {
-          "name": "run_with_timeout",
+          "name": "record_item",
           "kind": "Function",
-          "start_line": 163,
+          "start_line": 159,
           "metrics": {
-            "cyclomatic": 2,
-            "cognitive": 1,
+            "cyclomatic": 3,
+            "cognitive": 2,
             "assertions": 0,
-            "function_lines": 25,
-            "params": 0,
+            "function_lines": 27,
+            "params": 1,
             "nesting_max": 0,
-            "abc": 8.602325267042627
+            "abc": 10.488088481701515
           },
           "violations": []
+        },
+        {
+          "name": "_collect_coverage",
+          "kind": "Function",
+          "start_line": 198,
+          "metrics": {
+            "cyclomatic": 10,
+            "cognitive": 9,
+            "assertions": 0,
+            "function_lines": 52,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 29.154759474226502
+          },
+          "violations": [
+            {
+              "metric": "function_lines",
+              "actual": 52.0,
+              "limit": 40.0
+            }
+          ]
         },
         {
           "name": "with_retry",
           "kind": "Function",
-          "start_line": 209,
+          "start_line": 319,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -591,6 +612,13 @@
     },
     {
       "path": "test/test_runner_types.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_subprocess_record.jl",
       "role": "app",
       "diagnostics": [],
       "file_violations": [],
