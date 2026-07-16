@@ -7,7 +7,41 @@
 
 module CoverageLayer
 
-export record_item
+export record_item, build_driver_command
+
+"""
+    build_driver_command(test_file::String, item_name::String; runner_dir::AbstractString="scripts/TestimonialRunner") -> Tuple{Vector{String}, Dict{String, String}}
+
+Build the subprocess command and environment for recording a single @testitem.
+
+Returns a tuple `(cmd, env)` where `cmd` is the argument vector for the Julia
+subprocess and `env` is a dict of environment variables to set.
+
+Generated command:
+    julia --code-coverage=user --project=<runner_dir> <runner_dir>/driver.jl
+
+Environment:
+    TESTIMONIAL_FILE=<test_file>
+    TESTIMONIAL_ITEM=<item_name>
+"""
+function build_driver_command(
+    test_file::AbstractString,
+    item_name::AbstractString;
+    runner_dir::AbstractString="scripts/TestimonialRunner"
+)::Tuple{Vector{String}, Dict{String, String}}
+    driver_path = joinpath(runner_dir, "driver.jl")
+    cmd = [
+        "julia",
+        "--code-coverage=user",
+        "--project=$(runner_dir)",
+        driver_path
+    ]
+    env = Dict(
+        "TESTIMONIAL_FILE" => String(test_file),
+        "TESTIMONIAL_ITEM" => String(item_name)
+    )
+    return (cmd, env)
+end
 
 """
     record_item(ref) -> Union{ItemCoverage, Nothing}
