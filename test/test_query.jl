@@ -304,3 +304,104 @@ line 3
         @test after === nothing
     end
 end
+
+# ── Provider-based query ─────────────────────
+
+@testset "direct_change_provider returns DirectChange for tracked files" begin
+    index = make_test_index([
+        ("/proj/test/foo_test.jl", "test_a", [1, 2, 3]),
+    ])
+
+    result = Testimonial.direct_change_provider(index, ["/proj/test/foo_test.jl"])
+
+    @test length(result) == 1
+    @test result[1].item.name == "test_a"
+    @test result[1].selected == true
+    @test result[1].reasons[1].kind == Testimonial.DirectChange
+end
+
+@testset "unresolved_provider returns Unresolved for untracked files" begin
+    index = make_test_index([
+        ("/proj/test/foo_test.jl", "test_a", [1, 2, 3]),
+    ])
+
+    result = Testimonial.unresolved_provider(index, ["/proj/src/untracked.jl"])
+
+    @test length(result) == 1
+    @test result[1].selected == false
+    @test result[1].reasons[1].kind == Testimonial.Unresolved
+end
+
+@testset "unresolved_provider skips files tracked in index" begin
+    index = make_test_index([
+        ("/proj/test/foo_test.jl", "test_a", [1, 2, 3]),
+    ])
+
+    result = Testimonial.unresolved_provider(index, ["/proj/test/foo_test.jl"])
+    @test isempty(result)
+end
+
+@testset "query accumulates reasons across providers" begin
+    index = make_test_index([
+        ("/proj/test/foo_test.jl", "test_a", [1, 2, 3]),
+    ])
+
+    providers = [Testimonial.direct_change_provider, Testimonial.unresolved_provider]
+    changed = Dict{String, Set{Int}}(
+        "/proj/test/foo_test.jl" => Set([1, 2, 3]),
+        "/proj/src/lib.jl" => Set([10, 11, 12]),
+    )
+
+    results = Testimonial.query(providers, index, changed)
+
+    @test length(results) >= 1
+    tracked = filter(r -> r.selected, results)
+    untracked = filter(r -> !r.selected, results)
+    @test length(tracked) == 1
+    @test length(untracked) == 1
+    @test tracked[1].item.name == "test_a"
+    @test untracked[1].reasons[1].kind == Testimonial.Unresolved
+end
+
+@testset "query deduplicates items from same provider" begin
+    index = make_test_index([
+        ("/proj/test/foo_test.jl", "test_a", [1, 2, 3]),
+    ])
+
+    providers = [Testimonial.direct_change_provider, Testimonial.direct_change_provider]
+    changed = Dict{String, Set{Int}}(
+        "/proj/test/foo_test.jl" => Set([1, 2, 3]),
+    )
+
+    results = Testimonial.query(providers, index, changed)
+
+    # Should be deduplicated to one result with two reasons
+    @test length(results) == 1
+    @test length(results[1].reasons) == 2
+    @test results[1].selected == true
+end
+
+@testset "query returns empty for empty changed" begin
+    index = make_test_index([
+        ("/proj/test/foo_test.jl", "test_a", [1, 2, 3]),
+    ])
+
+    providers = [Testimonial.direct_change_provider]
+    results = Testimonial.query(providers, index, Dict{String, Set{Int}}())
+    @test isempty(results)
+end
+
+@testset "query returns empty when no providers match" begin
+    index = make_test_index([
+        ("/proj/test/foo_test.jl", "test_a", [1, 2, 3]),
+    ])
+
+    # Empty provider list
+    empty_providers = Function[]
+    changed = Dict{String, Set{Int}}(
+        "/proj/test/foo_test.jl" => Set([1, 2, 3]),
+    )
+
+    results = Testimonial.query(empty_providers, index, changed)
+    @test isempty(results)
+end

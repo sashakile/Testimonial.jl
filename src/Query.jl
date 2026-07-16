@@ -9,7 +9,8 @@
 
 module Query
 
-export query_files, coverage_gaps, nearest_covered_lines
+export query_files, coverage_gaps, nearest_covered_lines,
+       query, direct_change_provider, unresolved_provider
 
 # ── Helpers ───────────────────────────────────
 
@@ -38,7 +39,7 @@ function query_files(index, files::Vector{String})::Vector
     parent = _parent()
     isempty(files) && return parent.ImpactResult[]
 
-    # Build a reverse index: file_path → [TestItemRef, ...]
+    # Build a reverse index: file_path -> [TestItemRef, ...]
     file_to_items = Dict{String, Vector{parent.TestItemRef}}()
     for (ref, _) in index.items
         f = ref.file
@@ -96,7 +97,7 @@ function coverage_gaps(index, changed::Dict{String, Set{Int}})::Vector
     parent = _parent()
     isempty(changed) && return parent.CoverageGap[]
 
-    # Aggregate coverage by file: file → Set{covered_lines}
+    # Aggregate coverage by file: file -> Set{covered_lines}
     file_coverage = Dict{String, Set{Int}}()
     for (ref, item_cov) in index.items
         f = ref.file
@@ -109,14 +110,11 @@ function coverage_gaps(index, changed::Dict{String, Set{Int}})::Vector
     gaps = parent.CoverageGap[]
 
     for (file_path, changed_lines) in changed
-        # Only process files that have coverage data
         if !haskey(file_coverage, file_path)
             continue
         end
 
         covered = file_coverage[file_path]
-
-        # Find gaps: contiguous regions of changed lines that are NOT covered
         sorted_changed = sort!(collect(changed_lines))
         i = 1
         while i <= length(sorted_changed)
@@ -126,11 +124,9 @@ function coverage_gaps(index, changed::Dict{String, Set{Int}})::Vector
                 continue
             end
 
-            # Start of a gap
             gap_start = line
             gap_end = line
 
-            # Extend the gap while consecutive lines are uncovered
             j = i + 1
             while j <= length(sorted_changed)
                 next_line = sorted_changed[j]
@@ -162,13 +158,10 @@ Returns a tuple `(before, after)` where:
   or `nothing` if no covered line exists before or at `line`.
 - `after` is the nearest covered line number at or after `line`,
   or `nothing` if no covered line exists after or at `line`.
-
-Coverage is aggregated across all test items in the index for the file.
 """
 function nearest_covered_lines(index, file::String, line::Int)
     parent = _parent()
 
-    # Aggregate covered lines for this file across all items
     covered_lines = Set{Int}()
     for (ref, item_cov) in index.items
         if ref.file == file
@@ -180,19 +173,8 @@ function nearest_covered_lines(index, file::String, line::Int)
         return (nothing, nothing)
     end
 
-    # Find the file's total line count for bounds checking
-    total_lines = typemax(Int)
-    try
-        content = read(file, String)
-        total_lines = count(==('\n'), content)
-    catch
-        # Use the max covered line as a bound
-        total_lines = maximum(covered_lines)
-    end
-
     sorted_covered = sort!(collect(covered_lines))
 
-    # Find nearest covered line at or before `line`
     before = nothing
     for cl in reverse(sorted_covered)
         if cl <= line
@@ -201,7 +183,6 @@ function nearest_covered_lines(index, file::String, line::Int)
         end
     end
 
-    # Find nearest covered line at or after `line`
     after = nothing
     for cl in sorted_covered
         if cl >= line
@@ -211,6 +192,123 @@ function nearest_covered_lines(index, file::String, line::Int)
     end
 
     return (before, after)
+end
+
+# ── Provider-based query engine ─────────────
+
+"""
+    query(providers, index, changed) -> Vector{ImpactResult}
+
+Run a multi-provider query against the coverage index for changed files.
+
+`providers` is a vector of provider functions. Each provider is called
+as `provider(index, changed_files)` and returns `Vector{ImpactResult}`.
+
+`changed` is a `Dict{String, Set{Int}}` mapping file paths to changed
+line numbers (from `parse_unified_diff`).
+
+Results are accumulated across all providers: if a test item receives
+reasons from multiple providers, all reasons are collected. Items are
+deduplicated by (file, name).
+
+If no provider selected any items (all unresolved), the function returns
+an empty vector -- the caller should fall back to running all tests.
+
+# Examples
+```julia
+providers = [direct_change_provider, unresolved_provider]
+results = query(providers, index, changed)
+for r in results
+    if r.selected
+        println("Run \$(r.item.name): \$(r.reasons)")
+    end
+end
+```
+"""
+function query(providers::Vector{<:Function}, index, changed::Dict{String, Set{Int}})::Vector
+    parent = _parent()
+    isempty(changed) && return parent.ImpactResult[]
+
+    changed_files = collect(keys(changed))
+
+    # Accumulate reasons per item across all providers
+    # item_key (file => name) -> (ref, reasons, selected)
+    item_map = Dict{Pair{String, String}, Tuple{Any, Vector{Any}, Bool}}()
+
+    for provider in providers
+        provider_results = provider(index, changed_files)
+        for r in provider_results
+            key = r.item.file => r.item.name
+            if haskey(item_map, key)
+                existing_ref, existing_reasons, existing_selected = item_map[key]
+                append!(existing_reasons, r.reasons)
+                item_map[key] = (existing_ref, existing_reasons, existing_selected || r.selected)
+            else
+                item_map[key] = (r.item, copy(r.reasons), r.selected)
+            end
+        end
+    end
+
+    results = parent.ImpactResult[]
+    for (_, (ref, reasons, selected)) in item_map
+        push!(results, parent.ImpactResult(ref, reasons, selected))
+    end
+
+    return results
+end
+
+"""
+    direct_change_provider(index, changed_files) -> Vector{ImpactResult}
+
+Provider: for files tracked in the CoverageIndex, returns `DirectChange`
+reasons for all items in those files.
+
+This is a provider function suitable for use with `query`.
+"""
+function direct_change_provider(index, changed_files::Vector{String})::Vector
+    return query_files(index, changed_files)
+end
+
+"""
+    unresolved_provider(index, changed_files) -> Vector{ImpactResult}
+
+Provider: for files NOT tracked in the CoverageIndex, returns `Unresolved`
+reasons. These are source files, config files, etc. that don't have
+coverage data.
+
+This is a provider function suitable for use with `query`.
+"""
+function unresolved_provider(index, changed_files::Vector{String})::Vector
+    parent = _parent()
+
+    # Build set of tracked files
+    tracked_files = Set{String}()
+    for (ref, _) in index.items
+        push!(tracked_files, ref.file)
+    end
+
+    results = parent.ImpactResult[]
+    seen = Set{Pair{String, String}}()
+
+    for file in changed_files
+        norm_file = isabspath(file) ? file : abspath(file)
+
+        if norm_file in tracked_files
+            continue
+        end
+
+        key = norm_file => ""
+        if key in seen
+            continue
+        end
+        push!(seen, key)
+
+        ref = parent.TestItemRef(norm_file, 0, "")
+        reason = parent.ImpactReason(parent.Unresolved, "file not tracked in coverage index: $(norm_file)")
+        push!(results, parent.ImpactResult(ref, [reason], false))
+    end
+
+    return results
 end
 
 end # module Query
