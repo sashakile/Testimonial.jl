@@ -290,6 +290,11 @@ export record_item, build_driver_command, AbstractRunner, SubprocessRunner, pars
 include("IndexBuilder.jl")
 using .IndexBuilder
 
+# Query engine — impact analysis from coverage index
+include("Query.jl")
+using .Query
+export query_files
+
 # Extend the CoverageLayer.record_item function with a convenience method
 # that accepts (test_file, item_name) for single-item debugging.
 # We use the function from CoverageLayer so both method signatures
