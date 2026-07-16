@@ -532,3 +532,78 @@ end
         @test parsed["result"]["name"] == "testimonial-adapter"
     end
 end
+
+# ── Ingest handler (PROTO-004) ────────────────
+
+@testset "Ingest returns edges with ok=true" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_foo.jl")
+        write(test_file, """@testitem "test_one" begin @test 1==1 end""")
+        # First discover to get the node ID
+        disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        disc_resp = Protocol.handle(disc_cmd)
+        disc = JSON.parse(disc_resp)
+        node_id = disc["result"]["nodes"][1]["id"]
+
+        cmd = """{"command":"ingest","params":{"selected":["$(node_id)"]}}"""
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        @test haskey(parsed, "result")
+        @test haskey(parsed["result"], "edges")
+    end
+end
+
+@testset "Ingest multiple items" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_multi.jl")
+        write(test_file, """
+        @testitem "item_a" begin @test 1==1 end
+        @testitem "item_b" begin @test 2==2 end
+        """)
+        disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        disc_resp = Protocol.handle(disc_cmd)
+        disc = JSON.parse(disc_resp)
+        nodes = disc["result"]["nodes"]
+        node_ids = [n["id"] for n in nodes]
+
+        cmd = """{"command":"ingest","params":{"selected":$(JSON.json(node_ids))}}"""
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        @test haskey(parsed["result"], "edges")
+    end
+end
+
+@testset "Ingest missing params" begin
+    resp = Protocol.handle("""{"command":"ingest"}""")
+    parsed = JSON.parse(resp)
+    @test parsed["ok"] == false
+    @test occursin("missing 'params'", parsed["error"]["message"])
+end
+
+@testset "Ingest missing selected" begin
+    resp = Protocol.handle("""{"command":"ingest","params":{}}""")
+    parsed = JSON.parse(resp)
+    @test parsed["ok"] == false
+    @test occursin("selected", parsed["error"]["message"])
+end
+
+@testset "Ingest empty selected" begin
+    resp = Protocol.handle("""{"command":"ingest","params":{"selected":[]}}""")
+    parsed = JSON.parse(resp)
+    @test parsed["ok"] == false
+    @test occursin("empty", parsed["error"]["message"])
+end
+
+@testset "Ingest invalid node ID format" begin
+    resp = Protocol.handle("""{"command":"ingest","params":{"selected":["bad-format"]}}""")
+    parsed = JSON.parse(resp)
+    @test parsed["ok"] == true
+    @test haskey(parsed["result"], "errors")
+    @test length(parsed["result"]["errors"]) == 1
+    @test parsed["result"]["errors"][1]["id"] == "bad-format"
+    @test occursin("node ID", parsed["result"]["errors"][1]["error"])
+end
