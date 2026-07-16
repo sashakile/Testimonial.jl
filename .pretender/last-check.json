@@ -622,7 +622,23 @@
       "role": "app",
       "diagnostics": [],
       "file_violations": [],
-      "units": []
+      "units": [
+        {
+          "name": "create_scratch_project",
+          "kind": "Function",
+          "start_line": 19,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 17,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 9.219544457292887
+          },
+          "violations": []
+        }
+      ]
     },
     {
       "path": "test/test_timeout.jl",
