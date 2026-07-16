@@ -421,6 +421,13 @@
       ]
     },
     {
+      "path": "src/Query.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
       "path": "src/Testimonial.jl",
       "role": "app",
       "diagnostics": [],
@@ -459,7 +466,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 298,
+          "start_line": 303,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -605,6 +612,29 @@
             "params": 0,
             "nesting_max": 0,
             "abc": 16.278820596099706
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
+      "path": "test/test_query.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "make_test_index",
+          "kind": "Function",
+          "start_line": 17,
+          "metrics": {
+            "cyclomatic": 2,
+            "cognitive": 1,
+            "assertions": 0,
+            "function_lines": 13,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 6.782329983125268
           },
           "violations": []
         }
