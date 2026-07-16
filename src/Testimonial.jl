@@ -10,7 +10,8 @@ using .Protocol
 # Core types — the foundation of the coverage layer
 export TestItemRef, ImpactReasonKind, ImpactReason,
        ImpactResult, CoverageGap, ItemCoverage, CoverageIndex,
-       DirectChange, DependencyChange, AlwaysRun, Unresolved
+       DirectChange, DependencyChange, AlwaysRun, Unresolved,
+       select_changed_items, _discover_in_file
 
 # Protocol adapter exports
 export run_adapter_protocol
@@ -189,7 +190,93 @@ function discover_testitems(dirs::Vector{String})::Vector{TestItemRef}
     return items
 end
 
-# Git diff parser
+"""
+    _discover_in_file(path::String) -> Vector{TestItemRef}
+
+Discover @testitem blocks in a single file. Returns a Vector{TestItemRef}
+with one entry per @testitem found. Returns an empty vector if the file
+cannot be read or contains no @testitem blocks.
+"""
+function _discover_in_file(path::String)::Vector{TestItemRef}
+    if !isfile(path)
+        return TestItemRef[]
+    end
+
+    content = try
+        read(path, String)
+    catch
+        return TestItemRef[]
+    end
+
+    fhash = bytes2hex(sha256(content))[1:12]
+    tags = _parse_tags(content)
+    items = TestItemRef[]
+
+    for m in eachmatch(_TESTITEM_PATTERN, content)
+        name = m.captures[1]
+        offset = m.offset
+        line = count(==('\n'), content[1:offset]) + 1
+        item_tags = get(tags, name, Symbol[])
+        push!(items, TestItemRef(path, line, name, item_tags, fhash))
+    end
+
+    return items
+end
+
+"""
+    select_changed_items(changed_files::Vector{String}, test_dirs::Vector{String}) -> Vector{TestItemRef}
+
+Given a list of changed file paths (from git diff) and test directories,
+return all @testitems in files that are under any of the test directories.
+
+Files outside the test directories are ignored. Only files that actually
+contain @testitem blocks contribute to the result.
+
+# Examples
+```julia
+changed = ["src/foo.jl", "test/foo_test.jl", "README.md"]
+items = select_changed_items(changed, ["test/"])
+```
+"""
+function select_changed_items(changed_files::Vector{String}, test_dirs::Vector{String})::Vector{TestItemRef}
+    # Normalize test directories to absolute paths
+    abs_dirs = String[]
+    for d in test_dirs
+        push!(abs_dirs, isabspath(d) ? realpath(d) : abspath(d))
+    end
+
+    items = TestItemRef[]
+    seen = Set{String}()
+
+    for cf in changed_files
+        # Normalize the changed file path
+        abs_cf = isabspath(cf) ? cf : abspath(cf)
+
+        # Check if the file is under any test directory
+        in_test_dir = false
+        for d in abs_dirs
+            if startswith(abs_cf, d)
+                in_test_dir = true
+                break
+            end
+        end
+
+        if !in_test_dir
+            continue
+        end
+
+        # Skip files we've already scanned (duplicates in changed_files list)
+        if abs_cf in seen
+            continue
+        end
+        push!(seen, abs_cf)
+
+        # Discover @testitems in this file
+        append!(items, _discover_in_file(abs_cf))
+    end
+
+    return items
+end
 include("GitDiff.jl")
 using .GitDiff
 export parse_unified_diff
