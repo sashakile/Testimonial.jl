@@ -9,7 +9,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 125,
+          "start_line": 129,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -18,6 +18,36 @@
             "params": 1,
             "nesting_max": 0,
             "abc": 3.1622776601683795
+          },
+          "violations": []
+        },
+        {
+          "name": "run_with_timeout",
+          "kind": "Function",
+          "start_line": 163,
+          "metrics": {
+            "cyclomatic": 2,
+            "cognitive": 1,
+            "assertions": 0,
+            "function_lines": 25,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 8.602325267042627
+          },
+          "violations": []
+        },
+        {
+          "name": "with_retry",
+          "kind": "Function",
+          "start_line": 209,
+          "metrics": {
+            "cyclomatic": 3,
+            "cognitive": 2,
+            "assertions": 0,
+            "function_lines": 14,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 6.164414002968976
           },
           "violations": []
         }
@@ -561,6 +591,13 @@
     },
     {
       "path": "test/test_runner_types.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_timeout.jl",
       "role": "app",
       "diagnostics": [],
       "file_violations": [],
