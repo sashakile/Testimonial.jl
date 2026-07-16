@@ -429,23 +429,17 @@
         {
           "name": "nearest_covered_lines",
           "kind": "Function",
-          "start_line": 168,
+          "start_line": 162,
           "metrics": {
-            "cyclomatic": 9,
-            "cognitive": 8,
+            "cyclomatic": 8,
+            "cognitive": 7,
             "assertions": 0,
-            "function_lines": 47,
+            "function_lines": 34,
             "params": 1,
             "nesting_max": 0,
-            "abc": 18.81488772222678
+            "abc": 12.727922061357855
           },
-          "violations": [
-            {
-              "metric": "function_lines",
-              "actual": 47.0,
-              "limit": 40.0
-            }
-          ]
+          "violations": []
         }
       ]
     },
@@ -643,7 +637,13 @@
       "path": "test/test_query.jl",
       "role": "app",
       "diagnostics": [],
-      "file_violations": [],
+      "file_violations": [
+        {
+          "metric": "file_lines",
+          "actual": 407.0,
+          "limit": 400.0
+        }
+      ],
       "units": [
         {
           "name": "make_test_index",
