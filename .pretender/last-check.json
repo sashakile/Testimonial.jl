@@ -1,0 +1,314 @@
+{
+  "files": [
+    {
+      "path": "src/CoverageLayer.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "record_item",
+          "kind": "Function",
+          "start_line": 25,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 11,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 3.1622776601683795
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
+      "path": "src/Protocol.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [
+        {
+          "metric": "file_lines",
+          "actual": 475.0,
+          "limit": 400.0
+        }
+      ],
+      "units": [
+        {
+          "name": "run_adapter_protocol",
+          "kind": "Function",
+          "start_line": 29,
+          "metrics": {
+            "cyclomatic": 4,
+            "cognitive": 3,
+            "assertions": 0,
+            "function_lines": 16,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 9.9498743710662
+          },
+          "violations": []
+        },
+        {
+          "name": "handle",
+          "kind": "Function",
+          "start_line": 52,
+          "metrics": {
+            "cyclomatic": 4,
+            "cognitive": 3,
+            "assertions": 0,
+            "function_lines": 31,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 18.920887928424502
+          },
+          "violations": []
+        },
+        {
+          "name": "handle_handshake",
+          "kind": "Function",
+          "start_line": 89,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 18,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 5.0990195135927845
+          },
+          "violations": []
+        },
+        {
+          "name": "handle_fingerprint",
+          "kind": "Function",
+          "start_line": 115,
+          "metrics": {
+            "cyclomatic": 9,
+            "cognitive": 8,
+            "assertions": 0,
+            "function_lines": 39,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 21.213203435596427
+          },
+          "violations": []
+        },
+        {
+          "name": "handle_discover",
+          "kind": "Function",
+          "start_line": 168,
+          "metrics": {
+            "cyclomatic": 8,
+            "cognitive": 7,
+            "assertions": 0,
+            "function_lines": 43,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 19.339079605813716
+          },
+          "violations": [
+            {
+              "metric": "function_lines",
+              "actual": 43.0,
+              "limit": 40.0
+            }
+          ]
+        },
+        {
+          "name": "handle_ingest",
+          "kind": "Function",
+          "start_line": 224,
+          "metrics": {
+            "cyclomatic": 20,
+            "cognitive": 19,
+            "assertions": 0,
+            "function_lines": 116,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 50.25932749251625
+          },
+          "violations": [
+            {
+              "metric": "cyclomatic",
+              "actual": 20.0,
+              "limit": 10.0
+            },
+            {
+              "metric": "cognitive",
+              "actual": 19.0,
+              "limit": 15.0
+            },
+            {
+              "metric": "function_lines",
+              "actual": 116.0,
+              "limit": 40.0
+            },
+            {
+              "metric": "abc",
+              "actual": 50.25932749251625,
+              "limit": 30.0
+            }
+          ]
+        },
+        {
+          "name": "_resolve_node_id",
+          "kind": "Function",
+          "start_line": 347,
+          "metrics": {
+            "cyclomatic": 5,
+            "cognitive": 4,
+            "assertions": 0,
+            "function_lines": 26,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 15.524174696260024
+          },
+          "violations": []
+        },
+        {
+          "name": "handle_run_args",
+          "kind": "Function",
+          "start_line": 380,
+          "metrics": {
+            "cyclomatic": 15,
+            "cognitive": 14,
+            "assertions": 0,
+            "function_lines": 81,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 33.91164991562634
+          },
+          "violations": [
+            {
+              "metric": "cyclomatic",
+              "actual": 15.0,
+              "limit": 10.0
+            },
+            {
+              "metric": "function_lines",
+              "actual": 81.0,
+              "limit": 40.0
+            },
+            {
+              "metric": "abc",
+              "actual": 33.91164991562634,
+              "limit": 30.0
+            }
+          ]
+        },
+        {
+          "name": "json_error",
+          "kind": "Function",
+          "start_line": 468,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 6,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 4.0
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
+      "path": "src/Testimonial.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "ImpactResult",
+          "kind": "Function",
+          "start_line": 62,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 3,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 3.0
+          },
+          "violations": []
+        },
+        {
+          "name": "atomic_write",
+          "kind": "Function",
+          "start_line": 95,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 8,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 5.385164807134504
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
+      "path": "test/runtests.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_astparser.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_persistence.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_protocol.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [
+        {
+          "metric": "file_lines",
+          "actual": 609.0,
+          "limit": 400.0
+        }
+      ],
+      "units": [
+        {
+          "name": "run_protocol_commands",
+          "kind": "Function",
+          "start_line": 385,
+          "metrics": {
+            "cyclomatic": 3,
+            "cognitive": 2,
+            "assertions": 0,
+            "function_lines": 30,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 16.278820596099706
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
+      "path": "test/test_types.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    }
+  ]
+}

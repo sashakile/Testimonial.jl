@@ -27,6 +27,9 @@ Main loop: reads JSON commands from stdin, dispatches to handlers,
 writes JSON responses to stdout. Exits cleanly on EOF.
 """
 function run_adapter_protocol()
+    # Clear session state from any previous invocation in the same process
+    empty!(session_coverage)
+
     while !eof(stdin)
         line = readline(stdin)
         if isnothing(line)
@@ -220,6 +223,8 @@ converts ItemCoverage to runtime edges (file→line→test), and accumulates
 results in session_coverage.
 
 Returns edges inline in the response, keyed by absolute file path.
+On partial failure, the response includes a `result.errors` array
+with per-item error entries (invalid IDs, missing files, recording failures).
 """
 function handle_ingest(cmd)
     params = get(cmd, "params", nothing)
@@ -245,86 +250,7 @@ function handle_ingest(cmd)
     parent = Base.parentmodule(@__MODULE__)
 
     for item_id in selected
-        # Parse node ID: file:line
-        parts = split(item_id, ":", limit=2)
-        if length(parts) != 2
-            push!(errors_list, Dict(
-                "id" => item_id,
-                "error" => "invalid node ID format: $(item_id)"
-            ))
-            continue
-        end
-        file_path = parts[1]
-        line_str = parts[2]
-
-        line_num = try
-            parse(Int, line_str)
-        catch
-            push!(errors_list, Dict(
-                "id" => item_id,
-                "error" => "invalid line number in node ID: $(item_id)"
-            ))
-            continue
-        end
-
-        # Resolve the node ID to a TestItemRef by scanning the file
-        ref = _resolve_node_id(parent, file_path, line_num)
-        if ref === nothing
-            push!(errors_list, Dict(
-                "id" => item_id,
-                "error" => "no @testitem found at $(item_id)"
-            ))
-            continue
-        end
-
-        # Record coverage for this item
-        coverage = try
-            parent.record_item(ref)
-        catch e
-            push!(errors_list, Dict(
-                "id" => item_id,
-                "error" => "recording failed: $(sprint(showerror, e))"
-            ))
-            continue
-        end
-
-        if coverage === nothing
-            push!(errors_list, Dict(
-                "id" => item_id,
-                "error" => "recording returned no coverage"
-            ))
-            continue
-        end
-
-        # Accumulate in session_coverage
-        session_coverage[item_id] = coverage
-
-        # Convert ItemCoverage to runtime edges
-        # Each covered line creates an edge: file -> line -> [node_id]
-        abs_file = isabspath(coverage.item.file) ? coverage.item.file : joinpath(pwd(), coverage.item.file)
-        abs_file = realpath(abs_file)
-
-        if !haskey(edges, abs_file)
-            edges[abs_file] = Dict{String, Vector{String}}()
-        end
-
-        file_edges = edges[abs_file]
-
-        for line in coverage.covered_lines
-            line_key = string(line)
-            if !haskey(file_edges, line_key)
-                file_edges[line_key] = String[]
-            end
-            push!(file_edges[line_key], item_id)
-        end
-
-        for line in coverage.uncovered_lines
-            line_key = string(line)
-            if !haskey(file_edges, line_key)
-                file_edges[line_key] = String[]
-            end
-            push!(file_edges[line_key], item_id)
-        end
+        _ingest_one_item(parent, item_id, edges, errors_list)
     end
 
     result = Dict{String, Any}("edges" => edges)
@@ -336,6 +262,112 @@ function handle_ingest(cmd)
         "ok" => true,
         "result" => result
     ))
+end
+
+"""
+    _ingest_one_item(parent, item_id, edges, errors_list)
+
+Process a single node ID through the ingest pipeline: parse, resolve,
+record, accumulate, and build edges. Modifies `edges` and `errors_list`
+in place. On failure, pushes an error entry and returns without modifying edges.
+"""
+function _ingest_one_item(parent, item_id, edges, errors_list)
+    # Parse node ID: file:line
+    parts = split(item_id, ":", limit=2)
+    if length(parts) != 2
+        push!(errors_list, Dict(
+            "id" => item_id,
+            "error" => "invalid node ID format: $(item_id)"
+        ))
+        return
+    end
+    file_path = parts[1]
+    line_str = parts[2]
+
+    line_num = try
+        parse(Int, line_str)
+    catch
+        push!(errors_list, Dict(
+            "id" => item_id,
+            "error" => "invalid line number in node ID: $(item_id)"
+        ))
+        return
+    end
+
+    # Resolve the node ID to a TestItemRef by scanning the file
+    ref = _resolve_node_id(parent, file_path, line_num)
+    if ref === nothing
+        push!(errors_list, Dict(
+            "id" => item_id,
+            "error" => "no @testitem found at $(item_id)"
+        ))
+        return
+    end
+
+    # Record coverage for this item
+    coverage = try
+        parent.record_item(ref)
+    catch e
+        push!(errors_list, Dict(
+            "id" => item_id,
+            "error" => "recording failed: $(sprint(showerror, e))"
+        ))
+        return
+    end
+
+    if coverage === nothing
+        push!(errors_list, Dict(
+            "id" => item_id,
+            "error" => "recording returned no coverage"
+        ))
+        return
+    end
+
+    # Accumulate in session_coverage
+    session_coverage[item_id] = coverage
+
+    # Convert ItemCoverage to runtime edges
+    _build_edges_for_item(coverage, item_id, edges)
+end
+
+"""
+    _build_edges_for_item(coverage, item_id, edges)
+
+Convert an ItemCoverage to runtime edges: for each covered and uncovered
+line in the coverage, map file→line→[item_id]. Modifies `edges` in place.
+"""
+function _build_edges_for_item(coverage, item_id, edges)
+    # Normalize file path to absolute form
+    abs_file = try
+        file = coverage.item.file
+        abs = isabspath(file) ? file : joinpath(pwd(), file)
+        realpath(abs)
+    catch e
+        # If realpath fails (e.g., file deleted between discovery and ingest),
+        # skip this item and use the original path as-is
+        push!(edges, "_unresolved_$(item_id)" => Dict{String, Vector{String}}())
+        return
+    end
+
+    if !haskey(edges, abs_file)
+        edges[abs_file] = Dict{String, Vector{String}}()
+    end
+
+    file_edges = edges[abs_file]
+
+    _add_line_edges(file_edges, coverage.covered_lines, item_id)
+    _add_line_edges(file_edges, coverage.uncovered_lines, item_id)
+end
+
+"""Add a batch of line→[node_id] entries to an edge dict."""
+function _add_line_edges(file_edges, lines, item_id)
+    for line in lines
+        line_key = string(line)
+        if !haskey(file_edges, line_key)
+            file_edges[line_key] = String[]
+        end
+        push!(file_edges[line_key], item_id)
+    end
 end
 
 """
@@ -356,8 +388,11 @@ function _resolve_node_id(parent::Module, file::AbstractString, line::Int)
     end
 
     fhash = bytes2hex(sha256(content))[1:12]
+    # _parse_tags is a private helper in the parent module — used here to
+    # avoid duplicating tag-parsing logic. The pattern is shared via
+    # parent._TESTITEM_PATTERN to keep the regex in one place.
     tags = parent._parse_tags(content)
-    pattern = r"@testitem\s+\"([^\"]+)\""
+    pattern = parent._TESTITEM_PATTERN
 
     for m in eachmatch(pattern, content)
         name = m.captures[1]

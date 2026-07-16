@@ -103,6 +103,9 @@ end
 
 # ── ASTParser ────────────────────────────────
 
+"""Regex matching @testitem "name" — shared across AST parsing and protocol resolution."""
+const _TESTITEM_PATTERN = r"@testitem\s+\"([^\"]+)\""
+
 """Compute SHA-256 hex prefix (first 12 chars) for a file's contents."""
 function file_hash(path::String)::String
     content = read(path, String)
@@ -174,8 +177,7 @@ function discover_testitems(dirs::Vector{String})::Vector{TestItemRef}
             fhash = bytes2hex(sha256(content))[1:12]
             tags = _parse_tags(content)
             # Match @testitem on each line, converting byte offset to line number
-            pattern = r"@testitem\s+\"([^\"]+)\""
-            for m in eachmatch(pattern, content)
+            for m in eachmatch(_TESTITEM_PATTERN, content)
                 name = m.captures[1]
                 offset = m.offset
                 line = count(==('\n'), content[1:offset]) + 1
