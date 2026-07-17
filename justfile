@@ -11,6 +11,10 @@ install:
 test:
     julia --project test/runtests.jl
 
+# Run tests excluding slow subprocess tests (fast pre-push check)
+test-quick:
+    julia --project test/runtests_quick.jl
+
 coverage:
     julia --project=scripts/TestimonialRunner -e 'using Testimonial; Testimonial.record_all()'
 

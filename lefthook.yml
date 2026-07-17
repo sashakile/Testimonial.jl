@@ -30,7 +30,7 @@ pre-commit:
 pre-push:
   commands:
     julia-tests:
-      run: just test
+      run: just test-quick
       skip: [merge, rebase]
 
     openspec-validate-all:
