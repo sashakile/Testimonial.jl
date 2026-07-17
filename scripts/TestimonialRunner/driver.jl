@@ -21,6 +21,7 @@
 # See REC-009 in openspec/changes/implement-coverage-layer/specs/recording/spec.md
 
 using ReTestItems
+using Pkg
 
 # ── Read environment ──────────────────────────
 
@@ -36,6 +37,29 @@ if !isfile(test_file)
     println(stderr, "driver.jl: test file not found: $(test_file)")
     exit(3)
 end
+
+# ── Activate the project under test ──────────
+# The test file belongs to a project (e.g., TestJuliaAdapter).
+# Walk up from the test file to find a Project.toml and activate it
+# so ReTestItems can find the @testitem blocks and the project's deps.
+test_dir = dirname(realpath(test_file))
+function _find_project_root(start_dir)
+    d = start_dir
+    while true
+        if isfile(joinpath(d, "Project.toml"))
+            return d
+        end
+        parent = dirname(d)
+        if parent == d
+            return dirname(start_dir)
+        end
+        d = parent
+    end
+end
+pkg_under_test = _find_project_root(test_dir)
+
+# Add the project to the load path so ReTestItems can find its test files
+push!(LOAD_PATH, pkg_under_test)
 
 # ── Run the test ──────────────────────────────
 

@@ -172,16 +172,14 @@ Errors on missing params, invalid directory, or non-existent path.
 function handle_discover(cmd)
     params = get(cmd, "params", nothing)
 
-    # Package root directory (directory containing src/)
-    pkg_root = realpath(joinpath(@__DIR__, ".."))
-
-    # Default to standard Julia test directory when no params provided
+    # Default to current working directory (project being tested) when no params provided.
+    # testaruda spawns the adapter from the project directory, so pwd() is the correct root.
     if params === nothing
-        dirs = [joinpath(pkg_root, "test")]
+        dirs = [joinpath(pwd(), "test")]
     else
         dirs = get(params, "test_directories", nothing)
         if dirs === nothing || !isa(dirs, Vector)
-            dirs = [joinpath(pkg_root, "test")]
+            dirs = [joinpath(pwd(), "test")]
         end
     end
 
@@ -317,6 +315,14 @@ function _handle_ingest_run_output(cmd, params)
         test_id = get(entry, "test_id", nothing)
         if test_id === nothing || !isa(test_id, String)
             return json_error("'params.run_output' entries must have a 'test_id' string field")
+        end
+
+        # Resolve relative paths in test_id to absolute.
+        # ReTestItems outputs paths relative to pwd, but discover returns absolute paths.
+        parts = split(test_id, ":", limit=2)
+        if length(parts) == 2 && !isabspath(parts[1])
+            abs_file = joinpath(pwd(), parts[1])
+            test_id = "$(abs_file):$(parts[2])"
         end
 
         outcome = get(entry, "outcome", "passed")
