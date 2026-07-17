@@ -295,7 +295,7 @@ export record_item, build_driver_command, AbstractRunner, SubprocessRunner, pars
 # Index builder — single-item and bulk recording
 include("IndexBuilder.jl")
 using .IndexBuilder
-export record_all, build_index, save_index, load_index, is_index_stale
+export record_all, build_index, save_index, load_index, is_index_stale, clean_cache
 
 # Query engine — impact analysis from coverage index
 include("Query.jl")

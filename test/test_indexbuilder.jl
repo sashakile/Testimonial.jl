@@ -210,3 +210,84 @@ end
         end
     end
 end
+
+# ── clean_cache ───────────────────────────────
+
+@testset "clean_cache removes orphaned records" begin
+    mktempdir() do dir
+        cd(dir) do
+            mkpath(".testimonial/items")
+            mkpath("test")
+
+            # Create a current test file
+            write("test/current_test.jl", """@testitem "current_item" begin @test 1==1 end""")
+
+            # Discover to get the real file_hash
+            items = discover_testitems(["test/"])
+            @test length(items) == 1
+            ref = items[1]
+
+            # Create a valid current record using the real hash
+            ic = ItemCoverage(ref, [1], Int[])
+            key = "$(ref.file_hash)-$(ref.name)"
+            open(".testimonial/items/$(key).jls", "w") do io
+                serialize(io, ic)
+            end
+
+            # Create an orphaned record (no matching @testitem)
+            orphan_ref = TestItemRef("/gone/test.jl", 1, "orphaned", Symbol[], "deadbeef")
+            orphan_ic = ItemCoverage(orphan_ref, [1], Int[])
+            open(".testimonial/items/deadbeef-orphaned.jls", "w") do io
+                serialize(io, orphan_ic)
+            end
+
+            # Create a corrupted file
+            write(".testimonial/items/corrupted.jls", "not valid")
+
+            @test length(readdir(".testimonial/items")) == 3
+
+            n_removed = clean_cache()
+            @test n_removed == 2  # orphan + corrupted
+
+            remaining = readdir(".testimonial/items")
+            @test length(remaining) == 1
+            @test startswith(remaining[1], "$(ref.file_hash)-current_item")
+        end
+    end
+end
+
+@testset "clean_cache keeps valid records" begin
+    mktempdir() do dir
+        cd(dir) do
+            mkpath(".testimonial/items")
+            mkpath("test")
+
+            write("test/foo_test.jl", """@testitem "test_a" begin @test 1==1 end""")
+            write("test/bar_test.jl", """@testitem "test_b" begin @test 2==2 end""")
+
+            items = discover_testitems(["test/"])
+            @test length(items) == 2
+
+            # Create cache records that match current items
+            for ref in items
+                ic = ItemCoverage(ref, [1], Int[])
+                open(".testimonial/items/$(ref.file_hash)-$(ref.name).jls", "w") do io
+                    serialize(io, ic)
+                end
+            end
+
+            n_removed = clean_cache()
+            @test n_removed == 0  # nothing to remove
+            @test length(readdir(".testimonial/items")) == 2
+        end
+    end
+end
+
+@testset "clean_cache handles empty items directory" begin
+    mktempdir() do dir
+        cd(dir) do
+            n_removed = clean_cache()
+            @test n_removed == 0
+        end
+    end
+end

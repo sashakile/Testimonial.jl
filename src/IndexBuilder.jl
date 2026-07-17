@@ -416,6 +416,66 @@ function is_index_stale(index; stale_threshold_hours::Int=24)::Bool
 end
 
 # Re-export for CLI convenience
-export save_index, load_index, is_index_stale
+export save_index, load_index, is_index_stale, clean_cache
+
+"""
+    clean_cache(; test_dirs::Vector{String}=String["test/"],
+                  items_dir::AbstractString=joinpath(".testimonial", "items")) -> Int
+
+Remove orphaned cache records from the items directory.
+
+Orphaned records are `.jls` files whose `TestItemRef` no longer matches
+any discovered @testitem. This can happen when:
+- A test file is deleted
+- A @testitem block is removed or renamed
+- A test file's content changes (new file_hash)
+
+Returns the number of orphaned records removed.
+"""
+function clean_cache(; test_dirs::Vector{String}=String["test/"],
+                       items_dir::AbstractString=joinpath(".testimonial", "items"))::Int
+    parent = Base.parentmodule(@__MODULE__)
+    dir = String(items_dir)
+    isdir(dir) || return 0
+
+    # Discover current @testitems
+    current = parent.discover_testitems(test_dirs)
+    current_keys = Set{String}()
+    for ref in current
+        push!(current_keys, _cache_key(ref))
+    end
+
+    # Scan cache directory for orphaned files
+    removed = 0
+    for entry in readdir(dir)
+        path = joinpath(dir, entry)
+        if !isfile(path) || !endswith(entry, ".jls")
+            continue
+        end
+
+        # Try to load the record to get its key
+        ic = try
+            open(deserialize, path, "r")
+        catch
+            nothing
+        end
+
+        if ic === nothing || !(ic isa parent.ItemCoverage)
+            # Corrupted or invalid — remove it
+            rm(path; force=true)
+            removed += 1
+            continue
+        end
+
+        # Check if this item's key is still current
+        key = _cache_key(ic.item)
+        if !(key in current_keys)
+            rm(path; force=true)
+            removed += 1
+        end
+    end
+
+    return removed
+end
 
 end # module IndexBuilder
