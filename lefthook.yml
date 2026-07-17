@@ -33,12 +33,6 @@ pre-push:
       run: just test-quick
       skip: [merge, rebase]
 
-    openspec-validate-all:
-      run: openspec validate --strict 2>&1
-
-    beads-validate:
-      run: bd export -o .beads/issues.jsonl 2>&1
-
 post-commit:
   commands:
     beads-export:

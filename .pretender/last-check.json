@@ -504,6 +504,13 @@
       "units": []
     },
     {
+      "path": "test/runtests_quick.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
       "path": "test/test_astparser.jl",
       "role": "app",
       "diagnostics": [],
