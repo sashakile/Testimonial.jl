@@ -13,7 +13,7 @@ using Dates
 import ..Testimonial: CoverageIndex, TestItemRef, ItemCoverage,
     discover_testitems, load_index, save_index, is_index_stale
 
-export index_info, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS
+export index_info, explain, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS
 
 # ── Constants ──────────────────────────────────
 
@@ -99,6 +99,55 @@ function index_info(; index_path::String=".testimonial/index.jls",
         failed_item_count = failed,
         index_present = true,
     )
+end
+
+# ── explain ────────────────────────────────────
+
+"""
+    explain(test_file::AbstractString, item_name::AbstractString;
+            index_path::String=".testimonial/index.jls") -> Vector{String}
+
+Return a human-readable list of source files (with covered line counts)
+for the given test item, as recorded in the coverage index.
+
+Returns an empty vector if the item is not found or the index does not
+exist.
+
+# Examples
+```julia
+explain("test/foo_test.jl", "test_foo")
+# Returns: ["test/foo_test.jl: lines 1-3 (covered: 3)"]
+```
+"""
+function explain(test_file::AbstractString, item_name::AbstractString;
+                  index_path::String=".testimonial/index.jls")::Vector{String}
+    parent = Base.parentmodule(@__MODULE__)
+
+    # Load the index
+    index = parent.load_index(index_path)
+    index === nothing && return String[]
+
+    # Build a TestItemRef for lookup (file_hash can be empty for matching)
+    target = parent.TestItemRef(String(test_file), 0, String(item_name))
+
+    # Find the item in the index
+    for (ref, ic) in index.items
+        if ref == target
+            # Found it — build description strings
+            lines = String[]
+            n_covered = length(ic.covered_lines)
+            if n_covered > 0
+                line_range = "$(first(ic.covered_lines))-$(last(ic.covered_lines))"
+                push!(lines, "$(ref.file): lines $line_range (covered: $n_covered)")
+            else
+                push!(lines, "$(ref.file): no coverage data")
+            end
+            return lines
+        end
+    end
+
+    # Not found
+    return String[]
 end
 
 end # module CLI

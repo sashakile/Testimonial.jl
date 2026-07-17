@@ -77,3 +77,60 @@ end
         end
     end
 end
+
+# ── explain ────────────────────────────────────
+
+@testset "explain returns covered files for a known item" begin
+    mktempdir() do dir
+        cd(dir) do
+            ref = TestItemRef("test/foo_test.jl", 10, "test_foo", Symbol[], "abc123")
+            ic = ItemCoverage(ref, [1, 2, 3], [4, 5])
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref => ic),
+                "abc123",
+                string(VERSION),
+                v"0.1.0",
+                now(),
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            result = explain("test/foo_test.jl", "test_foo")
+            @test result isa Vector{String}
+            @test !isempty(result)
+            # Should mention the test file and covered line count
+            @test any(contains(s, "test/foo_test.jl") for s in result)
+            @test any(contains(s, "3") for s in result)  # 3 covered lines
+        end
+    end
+end
+
+@testset "explain returns empty vector for unknown item" begin
+    mktempdir() do dir
+        cd(dir) do
+            ref = TestItemRef("test/foo_test.jl", 10, "test_foo", Symbol[], "abc123")
+            ic = ItemCoverage(ref, [1, 2, 3], [4, 5])
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref => ic),
+                "abc123",
+                string(VERSION),
+                v"0.1.0",
+                now(),
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            result = explain("test/foo_test.jl", "nonexistent_item")
+            @test result isa Vector{String}
+            @test isempty(result)
+        end
+    end
+end
+
+@testset "explain returns empty vector when no index exists" begin
+    mktempdir() do dir
+        cd(dir) do
+            result = explain("test/foo_test.jl", "test_foo")
+            @test result isa Vector{String}
+            @test isempty(result)
+        end
+    end
+end

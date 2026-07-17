@@ -10,7 +10,7 @@ using .Protocol
 # CLI entry points
 include("CLI.jl")
 using .CLI
-export index_info, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS
+export index_info, explain, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS
 
 # Core types — the foundation of the coverage layer
 export TestItemRef, ImpactReasonKind, ImpactReason,
