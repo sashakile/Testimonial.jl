@@ -7,6 +7,11 @@ using SHA
 include("Protocol.jl")
 using .Protocol
 
+# CLI entry points
+include("CLI.jl")
+using .CLI
+export index_info, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS
+
 # Core types — the foundation of the coverage layer
 export TestItemRef, ImpactReasonKind, ImpactReason,
        ImpactResult, CoverageGap, ItemCoverage, CoverageIndex,
@@ -84,6 +89,7 @@ end
 struct CoverageIndex
     items :: Dict{TestItemRef, ItemCoverage}
     git_hash :: String
+    julia_version :: String
     schema_version :: VersionNumber
     created_at :: DateTime
 end
@@ -289,7 +295,7 @@ export record_item, build_driver_command, AbstractRunner, SubprocessRunner, pars
 # Index builder — single-item and bulk recording
 include("IndexBuilder.jl")
 using .IndexBuilder
-export record_all, build_index
+export record_all, build_index, save_index, load_index, is_index_stale
 
 # Query engine — impact analysis from coverage index
 include("Query.jl")

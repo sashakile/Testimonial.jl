@@ -21,4 +21,5 @@ include("helpers.jl")
     include("test_driver.jl")
     include("test_record_all.jl")
     include("test_build_index_integration.jl")
+    include("test_cli.jl")
 end

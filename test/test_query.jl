@@ -23,6 +23,7 @@ function make_test_index(pairs::Vector{Tuple{String, String, Vector{Int}}})
     return Testimonial.CoverageIndex(
         items,
         "abc1234",
+        string(VERSION),
         v"0.1.0",
         now()
     )

@@ -212,6 +212,7 @@ function record_all(
     isempty(items) && return parent.CoverageIndex(
         Dict{parent.TestItemRef, parent.ItemCoverage}(),
         _git_hash(),
+        string(VERSION),
         v"0.1.0",
         now()
     )
@@ -275,7 +276,7 @@ function record_all(
     end
 
     git_sha = _git_hash() * dirty_suffix
-    return parent.CoverageIndex(item_map, git_sha, v"0.1.0", now())
+    return parent.CoverageIndex(item_map, git_sha, string(VERSION), v"0.1.0", now())
 end
 
 export record_all, build_index
@@ -303,6 +304,7 @@ function build_index(items_dir::AbstractString)::Any
         return parent.CoverageIndex(
             Dict{parent.TestItemRef, parent.ItemCoverage}(),
             _git_hash(),
+            string(VERSION),
             v"0.1.0",
             now()
         )
@@ -327,7 +329,93 @@ function build_index(items_dir::AbstractString)::Any
         end
     end
 
-    return parent.CoverageIndex(item_map, _git_hash(), v"0.1.0", now())
+    return parent.CoverageIndex(item_map, _git_hash(), string(VERSION), v"0.1.0", now())
 end
+
+# ── Index persistence ──────────────────────────
+
+"""
+    save_index(index::CoverageIndex, path::AbstractString)
+
+Persist a CoverageIndex to disk via serialization.
+
+Creates parent directories if needed and writes atomically via
+temp-file + rename.
+"""
+function save_index(index, path::AbstractString)::Nothing
+    dir = dirname(String(path))
+    mkpath(dir)
+    tmppath = String(path) * ".tmp"
+    open(tmppath, "w") do io
+        serialize(io, index)
+    end
+    mv(tmppath, String(path); force=true)
+    return nothing
+end
+
+"""
+    load_index(path::AbstractString) -> Union{CoverageIndex, Nothing}
+
+Load a persisted CoverageIndex from disk.
+
+Returns `nothing` if the file doesn't exist, can't be read, or fails
+deserialization.
+"""
+function load_index(path::AbstractString)
+    p = String(path)
+    if !isfile(p)
+        return nothing
+    end
+    try
+        result = open(deserialize, p, "r")
+        parent = Base.parentmodule(@__MODULE__)
+        if result isa parent.CoverageIndex
+            return result
+        end
+        return nothing
+    catch
+        return nothing
+    end
+end
+
+"""
+    is_index_stale(index::CoverageIndex; stale_threshold_hours::Int=24) -> Bool
+
+Check whether a CoverageIndex is stale and should be rebuilt.
+
+Returns `true` if:
+- The index is older than `stale_threshold_hours` (default: 24h)
+- The Julia version has changed since the index was built
+- The git workspace is dirty
+
+Used by the CLI for fallback decisions — a stale index triggers a full
+suite run instead of a selective run.
+"""
+function is_index_stale(index; stale_threshold_hours::Int=24)::Bool
+    parent = Base.parentmodule(@__MODULE__)
+
+    # Check Julia version mismatch
+    if hasfield(parent.CoverageIndex, :julia_version)
+        if index.julia_version != string(VERSION)
+            return true
+        end
+    end
+
+    # Check age threshold
+    age_hours = (now() - index.created_at).value / (1000 * 3600)
+    if age_hours > stale_threshold_hours
+        return true
+    end
+
+    # Check dirty workspace
+    if _is_dirty()
+        return true
+    end
+
+    return false
+end
+
+# Re-export for CLI convenience
+export save_index, load_index, is_index_stale
 
 end # module IndexBuilder

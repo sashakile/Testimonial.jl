@@ -84,6 +84,7 @@ end
     index = CoverageIndex(
         Dict{TestItemRef, ItemCoverage}(),
         "abc123",
+        string(VERSION),
         v"0.1.0",
         DateTime(2026, 7, 15),
     )
