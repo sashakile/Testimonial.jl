@@ -3,23 +3,14 @@ module Testimonial
 using Dates
 using SHA
 
-# Protocol adapter — JSON stdin/stdout protocol for testaruda integration
-include("Protocol.jl")
-using .Protocol
+# ════════════════════════════════════════════
+# 1. Core types — no dependencies on sub-modules
+# ════════════════════════════════════════════
 
-# CLI entry points
-include("CLI.jl")
-using .CLI
-export index_info, explain, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS
-
-# Core types — the foundation of the coverage layer
 export TestItemRef, ImpactReasonKind, ImpactReason,
        ImpactResult, CoverageGap, ItemCoverage, CoverageIndex,
        DirectChange, DependencyChange, AlwaysRun, Unresolved,
        select_changed_items, _discover_in_file
-
-# Protocol adapter exports
-export run_adapter_protocol
 
 # ── Basic structs ──────────────────────────────
 
@@ -127,7 +118,6 @@ Shared by extract_tags and discover_testitems.
 """
 function _parse_tags(content::String)::Dict{String, Vector{Symbol}}
     result = Dict{String, Vector{Symbol}}()
-    # Matches: @testitem "name" [tags=[:sym1, :sym2]] begin
     pattern = r"@testitem\s+\"([^\"]+)\"(?:\s+tags=\[([^\]]*)\])?"
     for m in eachmatch(pattern, content)
         name = m.captures[1]
@@ -135,7 +125,6 @@ function _parse_tags(content::String)::Dict{String, Vector{Symbol}}
         if isnothing(tags_str) || isempty(strip(tags_str))
             result[name] = Symbol[]
         else
-            # Parse :sym1, :sym2 (strip leading colons)
             tags = [Symbol(strip(strip(t), ':')) for t in split(tags_str, ",")]
             result[name] = tags
         end
@@ -153,11 +142,7 @@ function extract_tags(path::String)::Dict{String, Vector{Symbol}}
     return _parse_tags(content)
 end
 
-"""
-    _walk_jl_files(dir::String) -> Vector{String}
-
-Recursively walk a directory and return all .jl files.
-"""
+"""Recursively walk a directory and return all .jl files."""
 function _walk_jl_files(dir::String)::Vector{String}
     results = String[]
     for entry in sort(readdir(dir))
@@ -183,7 +168,6 @@ function discover_testitems(dirs::Vector{String})::Vector{TestItemRef}
             content = read(path, String)
             fhash = bytes2hex(sha256(content))[1:12]
             tags = _parse_tags(content)
-            # Match @testitem on each line, converting byte offset to line number
             for m in eachmatch(_TESTITEM_PATTERN, content)
                 name = m.captures[1]
                 offset = m.offset
@@ -196,12 +180,10 @@ function discover_testitems(dirs::Vector{String})::Vector{TestItemRef}
     return items
 end
 
-"""
-    _discover_in_file(path::String) -> Vector{TestItemRef}
+"""Discover @testitem blocks in a single file.
 
-Discover @testitem blocks in a single file. Returns a Vector{TestItemRef}
-with one entry per @testitem found. Returns an empty vector if the file
-cannot be read or contains no @testitem blocks.
+Returns a Vector{TestItemRef} with one entry per @testitem found.
+Returns an empty vector if the file cannot be read or contains no @testitems.
 """
 function _discover_in_file(path::String)::Vector{TestItemRef}
     if !isfile(path)
@@ -237,15 +219,8 @@ return all @testitems in files that are under any of the test directories.
 
 Files outside the test directories are ignored. Only files that actually
 contain @testitem blocks contribute to the result.
-
-# Examples
-```julia
-changed = ["src/foo.jl", "test/foo_test.jl", "README.md"]
-items = select_changed_items(changed, ["test/"])
-```
 """
 function select_changed_items(changed_files::Vector{String}, test_dirs::Vector{String})::Vector{TestItemRef}
-    # Normalize test directories to absolute paths
     abs_dirs = String[]
     for d in test_dirs
         push!(abs_dirs, isabspath(d) ? realpath(d) : abspath(d))
@@ -255,10 +230,8 @@ function select_changed_items(changed_files::Vector{String}, test_dirs::Vector{S
     seen = Set{String}()
 
     for cf in changed_files
-        # Normalize the changed file path
         abs_cf = isabspath(cf) ? cf : abspath(cf)
 
-        # Check if the file is under any test directory
         in_test_dir = false
         for d in abs_dirs
             if startswith(abs_cf, d)
@@ -271,41 +244,57 @@ function select_changed_items(changed_files::Vector{String}, test_dirs::Vector{S
             continue
         end
 
-        # Skip files we've already scanned (duplicates in changed_files list)
         if abs_cf in seen
             continue
         end
         push!(seen, abs_cf)
 
-        # Discover @testitems in this file
         append!(items, _discover_in_file(abs_cf))
     end
 
     return items
 end
+
+# ════════════════════════════════════════════
+# 2. Protocol adapter (depends on core types)
+# ════════════════════════════════════════════
+
+include("Protocol.jl")
+using .Protocol
+export run_adapter_protocol
+
+# ════════════════════════════════════════════
+# 3. CLI entry points (depends on core types)
+# ════════════════════════════════════════════
+
+include("CLI.jl")
+using .CLI
+export index_info, explain, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS
+
+# ════════════════════════════════════════════
+# 4. Sub-modules (may depend on types + CLI/Protocol)
+# ════════════════════════════════════════════
+
 include("GitDiff.jl")
 using .GitDiff
 export parse_unified_diff
 
-# Coverage layer — per-item recording
 include("CoverageLayer.jl")
 using .CoverageLayer
 export record_item, build_driver_command, AbstractRunner, SubprocessRunner, parse_cov_sidecar
 
-# Index builder — single-item and bulk recording
 include("IndexBuilder.jl")
 using .IndexBuilder
 export record_all, build_index, save_index, load_index, is_index_stale, clean_cache
 
-# Query engine — impact analysis from coverage index
 include("Query.jl")
 using .Query
 export query, query_files, coverage_gaps, nearest_covered_lines
 
-# Extend the CoverageLayer.record_item function with a convenience method
-# that accepts (test_file, item_name) for single-item debugging.
-# We use the function from CoverageLayer so both method signatures
-# (one-arg ref and two-arg string) live on the same function object.
+# ════════════════════════════════════════════
+# 5. Extensions
+# ════════════════════════════════════════════
+
 import .CoverageLayer: record_item
 function record_item(test_file::AbstractString, item_name::AbstractString)
     return IndexBuilder._record_single_item(test_file, item_name)

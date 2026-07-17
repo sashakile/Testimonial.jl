@@ -11,7 +11,7 @@ module CLI
 
 using Dates
 import ..Testimonial: CoverageIndex, TestItemRef, ItemCoverage,
-    discover_testitems, load_index, save_index, is_index_stale
+    discover_testitems
 
 export index_info, explain, run, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS
 
