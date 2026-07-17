@@ -127,7 +127,7 @@
         {
           "name": "_record_single_item",
           "kind": "Function",
-          "start_line": 26,
+          "start_line": 28,
           "metrics": {
             "cyclomatic": 6,
             "cognitive": 5,
@@ -144,6 +144,36 @@
               "limit": 40.0
             }
           ]
+        },
+        {
+          "name": "_load_cached_record",
+          "kind": "Function",
+          "start_line": 138,
+          "metrics": {
+            "cyclomatic": 3,
+            "cognitive": 2,
+            "assertions": 0,
+            "function_lines": 11,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 4.58257569495584
+          },
+          "violations": []
+        },
+        {
+          "name": "_save_cached_record",
+          "kind": "Function",
+          "start_line": 156,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 10,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 7.615773105863909
+          },
+          "violations": []
         }
       ]
     },
@@ -482,7 +512,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 303,
+          "start_line": 304,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -495,6 +525,13 @@
           "violations": []
         }
       ]
+    },
+    {
+      "path": "test/helpers.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
     },
     {
       "path": "test/runtests.jl",
@@ -664,6 +701,29 @@
             "params": 0,
             "nesting_max": 0,
             "abc": 6.782329983125268
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
+      "path": "test/test_record_all.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "create_test_project",
+          "kind": "Function",
+          "start_line": 16,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 24,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 7.0710678118654755
           },
           "violations": []
         }
