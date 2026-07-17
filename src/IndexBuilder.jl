@@ -278,6 +278,56 @@ function record_all(
     return parent.CoverageIndex(item_map, git_sha, v"0.1.0", now())
 end
 
-export record_all
+export record_all, build_index
+
+# ── build_index ───────────────────────────────
+
+"""
+    build_index(items_dir::AbstractString) -> CoverageIndex
+
+Build a CoverageIndex from per-item cache records in the given directory.
+
+Scans `items_dir` for `.jls` files, deserializes each into an `ItemCoverage`,
+and constructs a `CoverageIndex`. Non-`.jls` files are ignored.
+
+This is a recovery/rebuild utility — it reconstructs the index from cached
+per-item records without re-recording anything.
+
+## Returns
+A `CoverageIndex` containing all successfully deserialized records.
+"""
+function build_index(items_dir::AbstractString)::Any
+    parent = Base.parentmodule(@__MODULE__)
+
+    if !isdir(items_dir)
+        return parent.CoverageIndex(
+            Dict{parent.TestItemRef, parent.ItemCoverage}(),
+            _git_hash(),
+            v"0.1.0",
+            now()
+        )
+    end
+
+    item_map = Dict{parent.TestItemRef, parent.ItemCoverage}()
+
+    for entry in readdir(items_dir)
+        path = joinpath(String(items_dir), entry)
+        if !isfile(path) || !endswith(entry, ".jls")
+            continue
+        end
+
+        ic = try
+            open(deserialize, path, "r")
+        catch
+            nothing
+        end
+
+        if ic !== nothing && ic isa parent.ItemCoverage
+            item_map[ic.item] = ic
+        end
+    end
+
+    return parent.CoverageIndex(item_map, _git_hash(), v"0.1.0", now())
+end
 
 end # module IndexBuilder

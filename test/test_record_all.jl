@@ -9,6 +9,7 @@
 using Testimonial
 using Test
 using Dates
+using Serialization
 
 # ── Helpers ───────────────────────────────────
 
@@ -138,5 +139,84 @@ end
         # MockRunner should NOT have been called for any item (all cached)
         # when incremental=true and files haven't changed
         @test isempty(runner2.captured_cmd)
+    end
+end
+
+# ── build_index ────────────────────────────────
+
+@testset "build_index loads records from items directory" begin
+    mktempdir() do dir
+        items_dir = joinpath(dir, "items")
+        mkpath(items_dir)
+
+        # Create serialized ItemCoverage records
+        ref1 = TestItemRef("/proj/test/foo_test.jl", 10, "test_a", Symbol[], "abc123")
+        ref2 = TestItemRef("/proj/test/bar_test.jl", 5, "test_b", Symbol[], "def456")
+
+        ic1 = ItemCoverage(ref1, [1, 2, 3], [4, 5])
+        ic2 = ItemCoverage(ref2, [10, 11, 12], [13])
+
+        open(joinpath(items_dir, "abc123-test_a.jls"), "w") do io
+            serialize(io, ic1)
+        end
+        open(joinpath(items_dir, "def456-test_b.jls"), "w") do io
+            serialize(io, ic2)
+        end
+
+        index = build_index(items_dir)
+
+        @test index isa CoverageIndex
+        @test length(index.items) == 2
+
+        # Verify items are loaded correctly
+        names = sort([ic.item.name for (_, ic) in index.items])
+        @test names == ["test_a", "test_b"]
+    end
+end
+
+@testset "build_index returns empty index for empty directory" begin
+    mktempdir() do dir
+        items_dir = joinpath(dir, "items")
+        mkpath(items_dir)
+
+        index = build_index(items_dir)
+
+        @test index isa CoverageIndex
+        @test isempty(index.items)
+    end
+end
+
+@testset "build_index ignores non-jls files" begin
+    mktempdir() do dir
+        items_dir = joinpath(dir, "items")
+        mkpath(items_dir)
+
+        # Create a valid record
+        ref = TestItemRef("/proj/test/foo_test.jl", 10, "test_a", Symbol[], "abc123")
+        ic = ItemCoverage(ref, [1, 2], Int[])
+        open(joinpath(items_dir, "abc123-test_a.jls"), "w") do io
+            serialize(io, ic)
+        end
+
+        # Create a non-jls file that should be ignored
+        write(joinpath(items_dir, "readme.txt"), "not a record")
+
+        index = build_index(items_dir)
+
+        @test length(index.items) == 1
+        @test first(values(index.items)).item.name == "test_a"
+    end
+end
+
+@testset "build_index sets metadata fields" begin
+    mktempdir() do dir
+        items_dir = joinpath(dir, "items")
+        mkpath(items_dir)
+
+        index = build_index(items_dir)
+
+        @test index.schema_version == v"0.1.0"
+        @test index.git_hash isa String
+        @test index.created_at isa DateTime
     end
 end

@@ -289,7 +289,7 @@ export record_item, build_driver_command, AbstractRunner, SubprocessRunner, pars
 # Index builder — single-item and bulk recording
 include("IndexBuilder.jl")
 using .IndexBuilder
-export record_all
+export record_all, build_index
 
 # Query engine — impact analysis from coverage index
 include("Query.jl")
