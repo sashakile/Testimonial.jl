@@ -8,6 +8,7 @@
 
 using Testimonial
 using Test
+using Serialization
 
 @testset "record_item returns ItemCoverage" begin
     mktempdir() do dir
@@ -146,6 +147,66 @@ end
             @test !is_index_stale(index; stale_threshold_hours=24)
             # 12h old, threshold 6h — stale
             @test is_index_stale(index; stale_threshold_hours=6)
+        end
+    end
+end
+# ── Schema mismatch & round-trip ──────────────
+
+@testset "is_index_stale detects Julia version mismatch" begin
+    mktempdir() do dir
+        cd(dir) do
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(),
+                "abc123",
+                "1.0.0",
+                v"0.1.0",
+                now(),
+            )
+            @test is_index_stale(index)
+        end
+    end
+end
+
+@testset "load_index rejects non-CoverageIndex data" begin
+    mktempdir() do dir
+        cd(dir) do
+            path = joinpath(dir, "index.jls")
+            open(path, "w") do io
+                serialize(io, "not_a_coverage_index")
+            end
+            result = load_index(path)
+            @test result === nothing
+        end
+    end
+end
+
+@testset "load_index round-trip preserves all fields" begin
+    mktempdir() do dir
+        cd(dir) do
+            ref = TestItemRef("test/foo.jl", 10, "test_a", Symbol[], "abc123")
+            ic = ItemCoverage(ref, [1, 2, 3], [4, 5])
+            original = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref => ic),
+                "abc123",
+                string(VERSION),
+                v"0.1.0",
+                now(),
+            )
+            path = joinpath(dir, "index.jls")
+            save_index(original, path)
+            loaded = load_index(path)
+
+            @test loaded isa CoverageIndex
+            @test loaded.git_hash == original.git_hash
+            @test loaded.julia_version == original.julia_version
+            @test loaded.schema_version == original.schema_version
+            @test length(loaded.items) == length(original.items)
+
+            for (ref, ic) in original.items
+                @test haskey(loaded.items, ref)
+                @test loaded.items[ref].covered_lines == ic.covered_lines
+                @test loaded.items[ref].uncovered_lines == ic.uncovered_lines
+            end
         end
     end
 end
