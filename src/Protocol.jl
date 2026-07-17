@@ -236,9 +236,15 @@ function handle_ingest(cmd)
         return json_error("missing 'params' field")
     end
 
+    # Check for run_output format (TIA-ADAPT-008)
+    run_output = get(params, "run_output", nothing)
+    if run_output !== nothing
+        return _handle_ingest_run_output(cmd, params)
+    end
+
     selected = get(params, "selected", nothing)
     if selected === nothing || !isa(selected, Vector) || isempty(selected)
-        return json_error("missing or empty 'params.selected'")
+        return json_error("missing or empty 'params.selected' or 'params.run_output'")
     end
 
     for item in selected
@@ -266,6 +272,162 @@ function handle_ingest(cmd)
         "ok" => true,
         "result" => result
     ))
+end
+
+"""
+    _handle_ingest_run_output(cmd, params) -> String
+
+Handle the `ingest` command when `params.run_output` is provided (TIA-ADAPT-008).
+
+Parses the run_output string (JSON lines), extracts @testitem results,
+records coverage for each, and returns the standard response format:
+- `runtime_edges`: Vec<DepEdge> with {from, to, weight, origin}
+- `per_test_results`: Vec<TestRunResult> with {test_id, outcome, duration_ms, error_text}
+- `external_inputs`: Vec<String> (empty, reserved for future use)
+"""
+function _handle_ingest_run_output(cmd, params)
+    run_output = params["run_output"]
+
+    if !isa(run_output, String)
+        return json_error("'params.run_output' must be a string")
+    end
+
+    # Parse JSON lines
+    lines = split(run_output, "\n", keepempty=false)
+    test_results = []
+    edge_dicts = []
+    parent = Base.parentmodule(@__MODULE__)
+
+    for line in lines
+        stripped = strip(line)
+        if isempty(stripped)
+            continue
+        end
+
+        entry = try
+            JSON.parse(stripped)
+        catch e
+            return json_error("malformed JSON in 'params.run_output': $(sprint(showerror, e))")
+        end
+
+        if !isa(entry, AbstractDict)
+            return json_error("'params.run_output' entries must be JSON objects")
+        end
+
+        test_id = get(entry, "test_id", nothing)
+        if test_id === nothing || !isa(test_id, String)
+            return json_error("'params.run_output' entries must have a 'test_id' string field")
+        end
+
+        outcome = get(entry, "outcome", "passed")
+        duration_ms = get(entry, "duration_ms", nothing)
+        error_text = get(entry, "error_text", nothing)
+
+        # Build per-test result entry
+        test_entry = Dict{String, Any}(
+            "test_id" => test_id,
+            "outcome" => outcome
+        )
+        if duration_ms !== nothing
+            test_entry["duration_ms"] = duration_ms
+        end
+        if error_text !== nothing
+            test_entry["error_text"] = error_text
+        end
+        push!(test_results, test_entry)
+
+        # Record coverage for this test item
+        coverage = _record_item_for_ingest(parent, test_id)
+
+        if coverage !== nothing
+            # Build runtime edges from coverage
+            _append_runtime_edges(coverage, test_id, edge_dicts)
+        end
+    end
+
+    return JSON.json(Dict{String, Any}(
+        "ok" => true,
+        "result" => Dict{String, Any}(
+            "runtime_edges" => edge_dicts,
+            "per_test_results" => test_results,
+            "external_inputs" => String[]
+        )
+    ))
+end
+
+"""
+    _record_item_for_ingest(parent, test_id) -> Union{ItemCoverage, Nothing}
+
+Record coverage for a single test item identified by node_id (file:line).
+Returns the ItemCoverage or nothing on failure. Also accumulates in
+session_coverage for downstream static-deps queries.
+"""
+function _record_item_for_ingest(parent, test_id)
+    # Parse node ID: file:line
+    parts = split(test_id, ":", limit=2)
+    if length(parts) != 2
+        return nothing
+    end
+
+    line_num = try
+        parse(Int, parts[2])
+    catch
+        return nothing
+    end
+
+    # Resolve the node ID to a TestItemRef by scanning the file
+    ref = _resolve_node_id(parent, parts[1], line_num)
+    if ref === nothing
+        return nothing
+    end
+
+    # Record coverage for this item
+    coverage = try
+        parent.record_item(ref)
+    catch
+        return nothing
+    end
+
+    if coverage === nothing
+        return nothing
+    end
+
+    # Accumulate in session_coverage
+    session_coverage[test_id] = coverage
+
+    return coverage
+end
+
+"""
+    _append_runtime_edges(coverage, test_id, edge_dicts)
+
+Build DepEdge entries from coverage data and append to edge_dicts.
+Each covered or uncovered line becomes a DepEdge:
+{from: test_id, to: "source_file:line", weight: 1000000, origin: "runtime"}
+"""
+function _append_runtime_edges(coverage, test_id, edge_dicts)
+    # Normalize the source file path
+    file = _normalize_path(coverage.item.file)
+    if file === nothing
+        file = coverage.item.file
+    end
+
+    for line in coverage.covered_lines
+        push!(edge_dicts, Dict{String, Any}(
+            "from" => test_id,
+            "to" => "$(file):$(line)",
+            "weight" => 1000000,
+            "origin" => "runtime"
+        ))
+    end
+    for line in coverage.uncovered_lines
+        push!(edge_dicts, Dict{String, Any}(
+            "from" => test_id,
+            "to" => "$(file):$(line)",
+            "weight" => 1000000,
+            "origin" => "runtime"
+        ))
+    end
 end
 
 """
