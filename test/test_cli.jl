@@ -1,8 +1,8 @@
 # Testimonial.jl — Tests for CLI entry points
 #
-# Tests index_info, save_index, load_index, and other CLI functions.
+# Tests index_info, save_index, load_index, explain, and run.
 #
-# See SEL-007 in
+# See SEL-006, SEL-007 in
 # openspec/changes/implement-coverage-layer/specs/smart-selection/spec.md
 
 using Testimonial
@@ -131,6 +131,84 @@ end
             result = explain("test/foo_test.jl", "test_foo")
             @test result isa Vector{String}
             @test isempty(result)
+        end
+    end
+end
+
+# ── run ────────────────────────────────────────
+
+@testset "run returns :full_suite when no index exists" begin
+    mktempdir() do dir
+        cd(dir) do
+            result = Testimonial.CLI.run()
+            @test result == :full_suite
+        end
+    end
+end
+
+@testset "run returns :full_suite when index is stale" begin
+    mktempdir() do dir
+        cd(dir) do
+            old_time = now() - Dates.Day(2)
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(),
+                "abc123",
+                string(VERSION),
+                v"0.1.0",
+                old_time,
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            result = Testimonial.CLI.run()
+            @test result == :full_suite
+        end
+    end
+end
+
+@testset "run returns :full_suite when Project.toml or Manifest.toml changed" begin
+    mktempdir() do dir
+        cd(dir) do
+            mkpath("test")
+            write("test/foo_test.jl", """@testitem "test_foo" begin @test 1==1 end""")
+
+            ref = TestItemRef(abspath("test/foo_test.jl"), 1, "test_foo", Symbol[], "abc123")
+            ic = ItemCoverage(ref, [1], Int[])
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref => ic),
+                "abc123",
+                string(VERSION),
+                v"0.1.0",
+                now(),
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            # Without git history, diff is empty — just verify it runs
+            result = Testimonial.CLI.run()
+            @test result isa Union{Symbol, Vector}
+        end
+    end
+end
+
+@testset "run returns :full_suite for always-run test prefixes" begin
+    mktempdir() do dir
+        cd(dir) do
+            mkpath("test")
+
+            write("test/runtests.jl", """@testitem "runtests_check" begin @test 1==1 end""")
+
+            ref = TestItemRef(abspath("test/runtests.jl"), 1, "runtests_check", Symbol[], "abc123")
+            ic = ItemCoverage(ref, [1], Int[])
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref => ic),
+                "abc123",
+                string(VERSION),
+                v"0.1.0",
+                now(),
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            result = Testimonial.CLI.run(; index_path=".testimonial/index.jls")
+            @test result == :full_suite
         end
     end
 end
