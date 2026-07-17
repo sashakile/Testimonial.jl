@@ -3,6 +3,8 @@
 
 using Testimonial, Test, Dates
 
+include("helpers.jl")
+
 @testset "Quick tests" begin
     include("test_types.jl")
     include("test_persistence.jl")
@@ -17,4 +19,5 @@ using Testimonial, Test, Dates
     include("test_changed_detection.jl")
     include("test_query.jl")
     include("test_driver.jl")
+    include("test_record_all.jl")
 end

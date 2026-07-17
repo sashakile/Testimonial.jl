@@ -2,6 +2,8 @@ using Testimonial
 using Test
 using Dates
 
+include("helpers.jl")
+
 include("test_types.jl")
 include("test_persistence.jl")
 include("test_protocol.jl")
@@ -18,3 +20,4 @@ include("test_timeout.jl")
 include("test_subprocess_record.jl")
 include("test_changed_detection.jl")
 include("test_query.jl")
+include("test_record_all.jl")
