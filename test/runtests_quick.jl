@@ -20,4 +20,5 @@ include("helpers.jl")
     include("test_query.jl")
     include("test_driver.jl")
     include("test_record_all.jl")
+    include("test_build_index_integration.jl")
 end
