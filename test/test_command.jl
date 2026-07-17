@@ -18,7 +18,7 @@ using Test
     # First arg should be julia
     @test occursin("julia", cmd[1])
 
-    # Should include --code-coverage=user
+    # Should include --code-coverage (user on <1.12, tracefile.info on 1.12+)
     @test any(c -> occursin("--code-coverage", c), cmd)
 
     # Should include --project pointing to runner directory
