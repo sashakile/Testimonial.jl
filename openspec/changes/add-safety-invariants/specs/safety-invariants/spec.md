@@ -43,6 +43,12 @@ When an analysis layer cannot determine dependencies for changed content (e.g., 
 - **THEN** all components SHALL fall back to a full run
 - **AND** a warning SHALL be logged indicating that component scoping requires the component boundary feature
 
+#### Scenario: No git repository
+- **GIVEN** `smart_run` is invoked in a directory that is not a git repository
+- **WHEN** change detection is attempted
+- **THEN** the system SHALL fall back to running the full test suite
+- **AND** a warning SHALL be logged indicating git is required for change-based selection
+
 ### Requirement: [SAFE-004] Environment change fallback
 
 When the project environment changes (e.g., `Project.toml`, `Manifest.toml`, Julia version), the system SHALL fall back to running the full test suite for the affected environment.

@@ -24,18 +24,6 @@ In a single-package project (no Julia workspace), the system SHALL infer the com
 - **THEN** the component name SHALL be inferred from `Project.toml`'s `name` field
 - **AND** a single component index SHALL exist under `.testimonial/components/<name>/`
 
-### Requirement: [COMP-007] Missing git repository fallback
-
-The system SHALL fall back to running the full test suite when the working
-directory is not a git repository. This SHALL be a separate concern from
-component scoping.
-
-#### Scenario: No git repository
-- **GIVEN** `smart_run` is invoked in a directory that is not a git repository
-- **WHEN** change detection is attempted
-- **THEN** the system SHALL fall back to running the full test suite
-- **AND** a warning SHALL be logged indicating git is required for change-based selection
-
 ### Requirement: [COMP-002] Component graph
 
 The system SHALL maintain a component graph separate from the fine-grained coverage index. The graph records which component depends on which, at file level.
