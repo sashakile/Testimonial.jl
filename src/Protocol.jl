@@ -172,14 +172,17 @@ Errors on missing params, invalid directory, or non-existent path.
 function handle_discover(cmd)
     params = get(cmd, "params", nothing)
 
-    # Default to current working directory (project being tested) when no params provided.
-    # testaruda spawns the adapter from the project directory, so pwd() is the correct root.
+    # Default to the project's test directory when no params provided.
+    # Use @__DIR__ (src/) rather than pwd() because Pkg.test() on Julia 1.12+
+    # sets pwd() to the test/ subdirectory, making joinpath(pwd(), "test") wrong.
+    _project_root = dirname(@__DIR__)
+    _default_test_dir = joinpath(_project_root, "test")
     if params === nothing
-        dirs = [joinpath(pwd(), "test")]
+        dirs = [_default_test_dir]
     else
         dirs = get(params, "test_directories", nothing)
         if dirs === nothing || !isa(dirs, Vector)
-            dirs = [joinpath(pwd(), "test")]
+            dirs = [_default_test_dir]
         end
     end
 
