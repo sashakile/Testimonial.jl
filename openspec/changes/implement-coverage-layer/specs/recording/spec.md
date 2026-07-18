@@ -242,3 +242,11 @@ is testable via mock runners without spawning actual processes in unit tests.
 - **AND** the constructed command SHALL include the correct test file path and item name
 - **AND** the mock SHALL NOT execute any external process
 
+#### Scenario: AbstractRunner type hierarchy
+- **GIVEN** the module defines a trait-based runner interface
+- **WHEN** a new runner type is defined
+- **THEN** it SHALL subtype `AbstractRunner`
+- **AND** the `SubprocessRunner` SHALL be the concrete default implementation
+- **AND** `record_item(ref)` SHALL dispatch to `record_item(SubprocessRunner(), ref)` by default
+- **AND** any runner type SHALL implement the `record_item` method specific to its type
+
