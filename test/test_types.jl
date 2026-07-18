@@ -74,7 +74,7 @@ end
 
 @testset "ItemCoverage" begin
     ref = TestItemRef("test/bar.jl", 10, "test_bar")
-    cov = ItemCoverage(ref, [1, 2, 3], [4, 5])
+    cov = ItemCoverage(ref, [1, 2, 3], [4, 5], Dict())
     @test cov.item == ref
     @test cov.covered_lines == [1, 2, 3]
     @test cov.uncovered_lines == [4, 5]

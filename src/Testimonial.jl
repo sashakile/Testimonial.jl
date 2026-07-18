@@ -74,6 +74,7 @@ struct ItemCoverage
     item :: TestItemRef
     covered_lines :: Vector{Int}
     uncovered_lines :: Vector{Int}
+    source_files :: Dict{String, Tuple{Vector{Int}, Vector{Int}}}
 end
 
 """The full coverage index for a project snapshot."""

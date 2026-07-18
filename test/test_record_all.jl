@@ -153,8 +153,8 @@ end
         ref1 = TestItemRef("/proj/test/foo_test.jl", 10, "test_a", Symbol[], "abc123")
         ref2 = TestItemRef("/proj/test/bar_test.jl", 5, "test_b", Symbol[], "def456")
 
-        ic1 = ItemCoverage(ref1, [1, 2, 3], [4, 5])
-        ic2 = ItemCoverage(ref2, [10, 11, 12], [13])
+        ic1 = ItemCoverage(ref1, [1, 2, 3], [4, 5], Dict())
+        ic2 = ItemCoverage(ref2, [10, 11, 12], [13], Dict())
 
         open(joinpath(items_dir, "abc123-test_a.jls"), "w") do io
             serialize(io, ic1)
@@ -193,7 +193,7 @@ end
 
         # Create a valid record
         ref = TestItemRef("/proj/test/foo_test.jl", 10, "test_a", Symbol[], "abc123")
-        ic = ItemCoverage(ref, [1, 2], Int[])
+        ic = ItemCoverage(ref, [1, 2], Int[], Dict())
         open(joinpath(items_dir, "abc123-test_a.jls"), "w") do io
             serialize(io, ic)
         end

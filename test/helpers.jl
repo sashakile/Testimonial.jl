@@ -24,5 +24,5 @@ function Testimonial.record_item(runner::MockRunner, ref::Testimonial.TestItemRe
         push!(runner.captured_cmd, cmd...)
         merge!(runner.captured_env, env)
     end
-    return Testimonial.ItemCoverage(ref, Int[], Int[])
+    return Testimonial.ItemCoverage(ref, Int[], Int[], Dict())
 end

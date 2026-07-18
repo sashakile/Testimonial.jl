@@ -15,7 +15,7 @@ using Test
 
             # Create a simple CoverageIndex and persist it
             ref = TestItemRef("test/foo.jl", 10, "test_a", Symbol[], "abc123")
-            ic = ItemCoverage(ref, [1, 2, 3], [4, 5])
+            ic = ItemCoverage(ref, [1, 2, 3], [4, 5], Dict())
             index = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(ref => ic),
                 "abc123",
@@ -60,8 +60,8 @@ end
             # Items from two files
             ref1 = TestItemRef("test/a_test.jl", 10, "test_a", Symbol[], "abc123")
             ref2 = TestItemRef("test/b_test.jl", 5, "test_b", Symbol[], "def456")
-            ic1 = ItemCoverage(ref1, [1], Int[])
-            ic2 = ItemCoverage(ref2, [10], Int[])
+            ic1 = ItemCoverage(ref1, [1], Int[], Dict())
+            ic2 = ItemCoverage(ref2, [10], Int[], Dict())
             index = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(ref1 => ic1, ref2 => ic2),
                 "abc123",
@@ -84,7 +84,7 @@ end
     mktempdir() do dir
         cd(dir) do
             ref = TestItemRef("test/foo_test.jl", 10, "test_foo", Symbol[], "abc123")
-            ic = ItemCoverage(ref, [1, 2, 3], [4, 5])
+            ic = ItemCoverage(ref, [1, 2, 3], [4, 5], Dict())
             index = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(ref => ic),
                 "abc123",
@@ -108,7 +108,7 @@ end
     mktempdir() do dir
         cd(dir) do
             ref = TestItemRef("test/foo_test.jl", 10, "test_foo", Symbol[], "abc123")
-            ic = ItemCoverage(ref, [1, 2, 3], [4, 5])
+            ic = ItemCoverage(ref, [1, 2, 3], [4, 5], Dict())
             index = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(ref => ic),
                 "abc123",
@@ -172,7 +172,7 @@ end
             write("test/foo_test.jl", """@testitem "test_foo" begin @test 1==1 end""")
 
             ref = TestItemRef(abspath("test/foo_test.jl"), 1, "test_foo", Symbol[], "abc123")
-            ic = ItemCoverage(ref, [1], Int[])
+            ic = ItemCoverage(ref, [1], Int[], Dict())
             index = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(ref => ic),
                 "abc123",
@@ -197,7 +197,7 @@ end
             write("test/runtests.jl", """@testitem "runtests_check" begin @test 1==1 end""")
 
             ref = TestItemRef(abspath("test/runtests.jl"), 1, "runtests_check", Symbol[], "abc123")
-            ic = ItemCoverage(ref, [1], Int[])
+            ic = ItemCoverage(ref, [1], Int[], Dict())
             index = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(ref => ic),
                 "abc123",

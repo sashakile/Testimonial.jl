@@ -509,23 +509,33 @@ Convert an ItemCoverage to runtime edges: for each covered and uncovered
 line in the coverage, map file→line→[item_id]. Modifies `edges` in place.
 """
 function _build_edges_for_item(coverage, item_id, edges)
-    # Normalize file path to absolute form
+    # Add edges for the test file itself (test file's line coverage)
     abs_file = _normalize_path(coverage.item.file)
-    if abs_file === nothing
-        # If realpath fails (e.g., file deleted between discovery and ingest),
-        # skip this item and use the original path as-is
-        push!(edges, "_unresolved_$(item_id)" => Dict{String, Vector{String}}())
-        return
+    if abs_file !== nothing
+        if !haskey(edges, abs_file)
+            edges[abs_file] = Dict{String, Vector{String}}()
+        end
+        file_edges = edges[abs_file]
+        _add_line_edges(file_edges, coverage.covered_lines, item_id)
+        _add_line_edges(file_edges, coverage.uncovered_lines, item_id)
     end
 
-    if !haskey(edges, abs_file)
-        edges[abs_file] = Dict{String, Vector{String}}()
+    # Add edges for each source file that was exercised by this test item.
+    # On Julia 1.12+, the LCOV tracefile contains entries for source files
+    # (e.g., src/foo.jl) that were compiled and executed, not the test file
+    # itself (which is loaded via eval by ReTestItems).
+    for (src_path, (covered, uncovered)) in coverage.source_files
+        norm_src = _normalize_path(src_path)
+        if norm_src === nothing
+            continue
+        end
+        if !haskey(edges, norm_src)
+            edges[norm_src] = Dict{String, Vector{String}}()
+        end
+        src_edges = edges[norm_src]
+        _add_line_edges(src_edges, covered, item_id)
+        _add_line_edges(src_edges, uncovered, item_id)
     end
-
-    file_edges = edges[abs_file]
-
-    _add_line_edges(file_edges, coverage.covered_lines, item_id)
-    _add_line_edges(file_edges, coverage.uncovered_lines, item_id)
 end
 
 """
@@ -767,17 +777,30 @@ function _build_static_edges(changed_files)
     file_edges = Dict{String, Dict{String, Vector{String}}}()
 
     for (node_id, coverage) in session_coverage
+        # Add edges for the test file itself
         file = _normalize_path(coverage.item.file)
-        # If normalization fails, use the original path as-is
-        if file === nothing
-            file = coverage.item.file
+        if file !== nothing
+            if !haskey(file_edges, file)
+                file_edges[file] = Dict{String, Vector{String}}()
+            end
+            inner = file_edges[file]
+            _add_line_edges(inner, coverage.covered_lines, node_id)
+            _add_line_edges(inner, coverage.uncovered_lines, node_id)
         end
-        if !haskey(file_edges, file)
-            file_edges[file] = Dict{String, Vector{String}}()
+
+        # Add edges for each source file exercised by this test item
+        for (src_path, (covered, uncovered)) in coverage.source_files
+            norm_src = _normalize_path(src_path)
+            if norm_src === nothing
+                continue
+            end
+            if !haskey(file_edges, norm_src)
+                file_edges[norm_src] = Dict{String, Vector{String}}()
+            end
+            src_inner = file_edges[norm_src]
+            _add_line_edges(src_inner, covered, node_id)
+            _add_line_edges(src_inner, uncovered, node_id)
         end
-        inner = file_edges[file]
-        _add_line_edges(inner, coverage.covered_lines, node_id)
-        _add_line_edges(inner, coverage.uncovered_lines, node_id)
     end
 
     # For each changed file, normalize path and return edges or unresolved

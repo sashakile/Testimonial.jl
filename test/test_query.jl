@@ -18,7 +18,7 @@ function make_test_index(pairs::Vector{Tuple{String, String, Vector{Int}}})
     items = Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}()
     for (file, name, covered) in pairs
         ref = Testimonial.TestItemRef(file, 1, name)
-        items[ref] = Testimonial.ItemCoverage(ref, covered, Int[])
+        items[ref] = Testimonial.ItemCoverage(ref, covered, Int[], Dict())
     end
     return Testimonial.CoverageIndex(
         items,

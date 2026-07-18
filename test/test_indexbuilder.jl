@@ -49,7 +49,7 @@ end
     mktempdir() do dir
         path = joinpath(dir, "index.jls")
         ref = TestItemRef("test/foo.jl", 10, "test_a", Symbol[], "abc123")
-        ic = ItemCoverage(ref, [1, 2, 3], [4, 5])
+        ic = ItemCoverage(ref, [1, 2, 3], [4, 5], Dict())
         index = CoverageIndex(
             Dict{TestItemRef, ItemCoverage}(ref => ic),
             "abc123",
@@ -184,7 +184,7 @@ end
     mktempdir() do dir
         cd(dir) do
             ref = TestItemRef("test/foo.jl", 10, "test_a", Symbol[], "abc123")
-            ic = ItemCoverage(ref, [1, 2, 3], [4, 5])
+            ic = ItemCoverage(ref, [1, 2, 3], [4, 5], Dict())
             original = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(ref => ic),
                 "abc123",
@@ -228,7 +228,7 @@ end
             ref = items[1]
 
             # Create a valid current record using the real hash
-            ic = ItemCoverage(ref, [1], Int[])
+            ic = ItemCoverage(ref, [1], Int[], Dict())
             key = "$(ref.file_hash)-$(ref.name)"
             open(".testimonial/items/$(key).jls", "w") do io
                 serialize(io, ic)
@@ -236,7 +236,7 @@ end
 
             # Create an orphaned record (no matching @testitem)
             orphan_ref = TestItemRef("/gone/test.jl", 1, "orphaned", Symbol[], "deadbeef")
-            orphan_ic = ItemCoverage(orphan_ref, [1], Int[])
+            orphan_ic = ItemCoverage(orphan_ref, [1], Int[], Dict())
             open(".testimonial/items/deadbeef-orphaned.jls", "w") do io
                 serialize(io, orphan_ic)
             end
@@ -270,7 +270,7 @@ end
 
             # Create cache records that match current items
             for ref in items
-                ic = ItemCoverage(ref, [1], Int[])
+                ic = ItemCoverage(ref, [1], Int[], Dict())
                 open(".testimonial/items/$(ref.file_hash)-$(ref.name).jls", "w") do io
                     serialize(io, ic)
                 end
