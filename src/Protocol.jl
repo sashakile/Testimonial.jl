@@ -412,27 +412,53 @@ Each covered or uncovered line becomes a DepEdge:
 {from: test_id, to: "source_file:line", weight: 1000000, origin: "runtime"}
 """
 function _append_runtime_edges(coverage, test_id, edge_dicts)
-    # Normalize the source file path
-    file = _normalize_path(coverage.item.file)
-    if file === nothing
-        file = coverage.item.file
+    # Emit per-source-file edges from source_files map (Julia 1.12+ LCOV).
+    # This contains the actual source files that the test exercised (e.g., src/foo.jl).
+    # The tracefile only tracks source files, not test files loaded via eval.
+    for (src_file, (covered, uncovered)) in coverage.source_files
+        norm_file = _normalize_path(src_file)
+        src = norm_file === nothing ? src_file : norm_file
+        for line in covered
+            push!(edge_dicts, Dict{String, Any}(
+                "from" => test_id,
+                "to" => "$(src):$(line)",
+                "weight" => 1000000,
+                "origin" => "runtime"
+            ))
+        end
+        for line in uncovered
+            push!(edge_dicts, Dict{String, Any}(
+                "from" => test_id,
+                "to" => "$(src):$(line)",
+                "weight" => 1000000,
+                "origin" => "runtime"
+            ))
+        end
     end
 
-    for line in coverage.covered_lines
-        push!(edge_dicts, Dict{String, Any}(
-            "from" => test_id,
-            "to" => "$(file):$(line)",
-            "weight" => 1000000,
-            "origin" => "runtime"
-        ))
-    end
-    for line in coverage.uncovered_lines
-        push!(edge_dicts, Dict{String, Any}(
-            "from" => test_id,
-            "to" => "$(file):$(line)",
-            "weight" => 1000000,
-            "origin" => "runtime"
-        ))
+    # Also emit edges for the test file's own covered/uncovered lines (Julia < 1.12)
+    # Only do this when source_files is empty to avoid duplication.
+    if isempty(coverage.source_files)
+        file = _normalize_path(coverage.item.file)
+        if file === nothing
+            file = coverage.item.file
+        end
+        for line in coverage.covered_lines
+            push!(edge_dicts, Dict{String, Any}(
+                "from" => test_id,
+                "to" => "$(file):$(line)",
+                "weight" => 1000000,
+                "origin" => "runtime"
+            ))
+        end
+        for line in coverage.uncovered_lines
+            push!(edge_dicts, Dict{String, Any}(
+                "from" => test_id,
+                "to" => "$(file):$(line)",
+                "weight" => 1000000,
+                "origin" => "runtime"
+            ))
+        end
     end
 end
 
