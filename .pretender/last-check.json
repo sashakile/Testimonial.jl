@@ -14,15 +14,30 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 472.0,
+          "actual": 530.0,
           "limit": 400.0
         }
       ],
       "units": [
         {
+          "name": "_find_tracefile",
+          "kind": "Function",
+          "start_line": 108,
+          "metrics": {
+            "cyclomatic": 2,
+            "cognitive": 1,
+            "assertions": 0,
+            "function_lines": 8,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 4.242640687119285
+          },
+          "violations": []
+        },
+        {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 259,
+          "start_line": 276,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -37,7 +52,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 274,
+          "start_line": 291,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -52,30 +67,35 @@
         {
           "name": "_collect_coverage",
           "kind": "Function",
-          "start_line": 313,
+          "start_line": 342,
           "metrics": {
-            "cyclomatic": 14,
-            "cognitive": 13,
+            "cyclomatic": 19,
+            "cognitive": 18,
             "assertions": 0,
-            "function_lines": 75,
+            "function_lines": 104,
             "params": 0,
             "nesting_max": 0,
-            "abc": 45.28796749689701
+            "abc": 61.84658438426491
           },
           "violations": [
             {
               "metric": "cyclomatic",
-              "actual": 14.0,
+              "actual": 19.0,
               "limit": 10.0
             },
             {
+              "metric": "cognitive",
+              "actual": 18.0,
+              "limit": 15.0
+            },
+            {
               "metric": "function_lines",
-              "actual": 75.0,
+              "actual": 104.0,
               "limit": 40.0
             },
             {
               "metric": "abc",
-              "actual": 45.28796749689701,
+              "actual": 61.84658438426491,
               "limit": 30.0
             }
           ]
@@ -83,7 +103,7 @@
         {
           "name": "with_retry",
           "kind": "Function",
-          "start_line": 457,
+          "start_line": 515,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -228,7 +248,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 799.0,
+          "actual": 822.0,
           "limit": 400.0
         }
       ],
@@ -422,20 +442,20 @@
           "kind": "Function",
           "start_line": 511,
           "metrics": {
-            "cyclomatic": 3,
-            "cognitive": 2,
+            "cyclomatic": 6,
+            "cognitive": 5,
             "assertions": 0,
-            "function_lines": 19,
+            "function_lines": 29,
             "params": 3,
             "nesting_max": 0,
-            "abc": 8.774964387392123
+            "abc": 13.490737563232042
           },
           "violations": []
         },
         {
           "name": "_normalize_path",
           "kind": "Function",
-          "start_line": 537,
+          "start_line": 547,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -450,7 +470,7 @@
         {
           "name": "_add_line_edges",
           "kind": "Function",
-          "start_line": 547,
+          "start_line": 557,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -465,7 +485,7 @@
         {
           "name": "_resolve_node_id",
           "kind": "Function",
-          "start_line": 563,
+          "start_line": 573,
           "metrics": {
             "cyclomatic": 5,
             "cognitive": 4,
@@ -480,7 +500,7 @@
         {
           "name": "handle_run_args",
           "kind": "Function",
-          "start_line": 599,
+          "start_line": 609,
           "metrics": {
             "cyclomatic": 15,
             "cognitive": 14,
@@ -511,7 +531,7 @@
         {
           "name": "json_error",
           "kind": "Function",
-          "start_line": 687,
+          "start_line": 697,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -526,7 +546,7 @@
         {
           "name": "handle_static_deps",
           "kind": "Function",
-          "start_line": 706,
+          "start_line": 716,
           "metrics": {
             "cyclomatic": 7,
             "cognitive": 6,
@@ -541,20 +561,25 @@
         {
           "name": "_build_static_edges",
           "kind": "Function",
-          "start_line": 752,
+          "start_line": 762,
           "metrics": {
-            "cyclomatic": 9,
-            "cognitive": 8,
+            "cyclomatic": 12,
+            "cognitive": 11,
             "assertions": 0,
-            "function_lines": 46,
+            "function_lines": 59,
             "params": 1,
             "nesting_max": 0,
-            "abc": 17.4928556845359
+            "abc": 23.366642891095847
           },
           "violations": [
             {
+              "metric": "cyclomatic",
+              "actual": 12.0,
+              "limit": 10.0
+            },
+            {
               "metric": "function_lines",
-              "actual": 46.0,
+              "actual": 59.0,
               "limit": 40.0
             }
           ]
@@ -608,7 +633,7 @@
         {
           "name": "atomic_write",
           "kind": "Function",
-          "start_line": 93,
+          "start_line": 94,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -623,7 +648,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 299,
+          "start_line": 300,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -864,7 +889,7 @@
             "function_lines": 14,
             "params": 0,
             "nesting_max": 0,
-            "abc": 7.681145747868608
+            "abc": 8.602325267042627
           },
           "violations": []
         }

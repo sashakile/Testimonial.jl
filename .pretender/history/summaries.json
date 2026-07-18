@@ -2,9 +2,18 @@
   "top_hotspots": [
     {
       "fingerprint": "src/GitDiff.jl::_parse_diff_section::cognitive_max",
-      "count": 34,
-      "distinct_days": 2
+      "count": 35,
+      "distinct_days": 3
     }
   ],
-  "top_patterns": []
+  "top_patterns": [
+    {
+      "rule_key": "cognitive_max",
+      "role": "app",
+      "area": "src",
+      "count": 37,
+      "distinct_files": 3,
+      "distinct_days": 3
+    }
+  ]
 }
