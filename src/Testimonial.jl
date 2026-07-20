@@ -13,6 +13,17 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        AlwaysRunReason, LAST_RUN_FAILED, NEWLY_ADDED, NO_HISTORY, MUST_RUN, QUARANTINED,
        select_changed_items, _discover_in_file
 
+# ── Enums (defined before structs that reference them) ──
+
+"""Why a test is unconditionally included in the selection (always-run set)."""
+@enum AlwaysRunReason begin
+    LAST_RUN_FAILED
+    NEWLY_ADDED
+    NO_HISTORY
+    MUST_RUN
+    QUARANTINED
+end
+
 # ── Basic structs ──────────────────────────────
 
 """Reference to a single @testitem in a source file."""
@@ -22,10 +33,14 @@ struct TestItemRef
     name :: String
     tags :: Vector{Symbol}
     file_hash :: String
+    always_run_reason :: Union{Nothing, AlwaysRunReason}
 end
 
-# Convenience constructor without tags/file_hash
-TestItemRef(file, line, name) = TestItemRef(file, line, name, Symbol[], "")
+# Convenience constructor without tags, file_hash, always_run_reason
+TestItemRef(file, line, name) = TestItemRef(file, line, name, Symbol[], "", nothing)
+
+# Convenience constructor without always_run_reason (for backward compat)
+TestItemRef(file, line, name, tags, file_hash) = TestItemRef(file, line, name, tags, file_hash, nothing)
 
 # Equality by identity (file, name) — excludes line, tags, and file_hash
 Base.:(==)(a::TestItemRef, b::TestItemRef) = a.file == b.file && a.name == b.name
@@ -39,15 +54,6 @@ Base.hash(r::TestItemRef, h::UInt) = hash(r.file, hash(r.name, h))
     DependencyChange
     AlwaysRun
     Unresolved
-end
-
-"""Why a test is unconditionally included in the selection (always-run set)."""
-@enum AlwaysRunReason begin
-    LAST_RUN_FAILED
-    NEWLY_ADDED
-    NO_HISTORY
-    MUST_RUN
-    QUARANTINED
 end
 
 # ── Reason and result types ────────────────────

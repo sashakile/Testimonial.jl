@@ -28,6 +28,18 @@
 
     ref5 = TestItemRef("src/foo.jl", 10, "other_test")
     @test ref != ref5
+
+    # always_run_reason defaults to nothing
+    @test ref.always_run_reason === nothing
+
+    # Can set always_run_reason explicitly
+    ref6 = TestItemRef("src/foo.jl", 42, "test_bar", Symbol[], "", LAST_RUN_FAILED)
+    @test ref6.always_run_reason == LAST_RUN_FAILED
+
+    # Equality ignores always_run_reason (same identity)
+    ref7 = TestItemRef("src/foo.jl", 42, "test_bar", Symbol[], "", NEWLY_ADDED)
+    @test ref6 == ref7
+    @test hash(ref6) == hash(ref7)
 end
 
 @testset "ImpactReasonKind" begin
