@@ -11,6 +11,8 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        ImpactResult, CoverageGap, ItemCoverage, CoverageIndex,
        DirectChange, DependencyChange, AlwaysRun, Unresolved,
        AlwaysRunReason, LAST_RUN_FAILED, NEWLY_ADDED, NO_HISTORY, MUST_RUN, QUARANTINED,
+       DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD,
+       consecutive_passes, record_run, should_evict, reset_always_run_state,
        select_changed_items, _discover_in_file
 
 # ── Enums (defined before structs that reference them) ──
@@ -270,6 +272,61 @@ function select_changed_items(changed_files::Vector{String}, test_dirs::Vector{S
     end
 
     return items
+end
+
+# ── Always-run set eviction tracking ──────────
+
+"""Default number of consecutive passing runs before a test is evicted from the always-run set."""
+const DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD = 5
+
+"""In-memory store mapping (file, name) → consecutive pass count."""
+const _ALWAYS_RUN_PASS_COUNTS = Dict{Tuple{String, String}, Int}()
+
+"""
+    consecutive_passes(ref) -> Int
+
+Get the number of consecutive passing runs for a test item.
+Returns 0 for tests with no recorded history.
+"""
+function consecutive_passes(ref::TestItemRef)::Int
+    return get(_ALWAYS_RUN_PASS_COUNTS, (ref.file, ref.name), 0)
+end
+
+"""
+    record_run(ref, passed::Bool; threshold=DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD)
+
+Record a run outcome for a test item.
+- If `passed` is true, increment the consecutive pass counter.
+- If `passed` is false, reset the counter to 0.
+"""
+function record_run(ref::TestItemRef, passed::Bool; threshold::Int=DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD)
+    key = (ref.file, ref.name)
+    if passed
+        _ALWAYS_RUN_PASS_COUNTS[key] = get(_ALWAYS_RUN_PASS_COUNTS, key, 0) + 1
+    else
+        _ALWAYS_RUN_PASS_COUNTS[key] = 0
+    end
+    return nothing
+end
+
+"""
+    should_evict(ref; threshold=DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD) -> Bool
+
+Check whether a test item should be removed from the always-run set.
+Returns true if consecutive passes >= threshold.
+"""
+function should_evict(ref::TestItemRef; threshold::Int=DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD)::Bool
+    return consecutive_passes(ref) >= threshold
+end
+
+"""
+    reset_always_run_state(ref)
+
+Reset the always-run pass counter for a test item to 0.
+"""
+function reset_always_run_state(ref::TestItemRef)
+    delete!(_ALWAYS_RUN_PASS_COUNTS, (ref.file, ref.name))
+    return nothing
 end
 
 # ════════════════════════════════════════════

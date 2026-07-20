@@ -23,4 +23,5 @@ include("helpers.jl")
     include("test_build_index_integration.jl")
     include("test_cli.jl")
     include("test_lcov_tracefile.jl")
+    include("test_always_run.jl")
 end
