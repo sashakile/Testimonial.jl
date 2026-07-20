@@ -44,6 +44,21 @@ end
     @test Int(Unresolved) == 3
 end
 
+@testset "AlwaysRunReason" begin
+    @test AlwaysRunReason isa DataType
+    @test LAST_RUN_FAILED isa AlwaysRunReason
+    @test NEWLY_ADDED isa AlwaysRunReason
+    @test NO_HISTORY isa AlwaysRunReason
+    @test MUST_RUN isa AlwaysRunReason
+    @test QUARANTINED isa AlwaysRunReason
+
+    @test Int(LAST_RUN_FAILED) == 0
+    @test Int(NEWLY_ADDED) == 1
+    @test Int(NO_HISTORY) == 2
+    @test Int(MUST_RUN) == 3
+    @test Int(QUARANTINED) == 4
+end
+
 @testset "ImpactReason" begin
     reason = ImpactReason(DirectChange, "src/foo.jl was modified")
     @test reason.kind == DirectChange

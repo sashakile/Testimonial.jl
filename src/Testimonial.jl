@@ -10,6 +10,7 @@ using SHA
 export TestItemRef, ImpactReasonKind, ImpactReason,
        ImpactResult, CoverageGap, ItemCoverage, CoverageIndex,
        DirectChange, DependencyChange, AlwaysRun, Unresolved,
+       AlwaysRunReason, LAST_RUN_FAILED, NEWLY_ADDED, NO_HISTORY, MUST_RUN, QUARANTINED,
        select_changed_items, _discover_in_file
 
 # ── Basic structs ──────────────────────────────
@@ -38,6 +39,15 @@ Base.hash(r::TestItemRef, h::UInt) = hash(r.file, hash(r.name, h))
     DependencyChange
     AlwaysRun
     Unresolved
+end
+
+"""Why a test is unconditionally included in the selection (always-run set)."""
+@enum AlwaysRunReason begin
+    LAST_RUN_FAILED
+    NEWLY_ADDED
+    NO_HISTORY
+    MUST_RUN
+    QUARANTINED
 end
 
 # ── Reason and result types ────────────────────
