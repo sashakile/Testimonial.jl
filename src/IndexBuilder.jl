@@ -442,16 +442,71 @@ function load_index(path::AbstractString)
     if !isfile(p)
         return nothing
     end
+
+    parent = Base.parentmodule(@__MODULE__)
+
+    # First pass: try deserializing as a flat CoverageIndex (old format)
     try
         result = open(deserialize, p, "r")
-        parent = Base.parentmodule(@__MODULE__)
         if result isa parent.CoverageIndex
             return result
+        end
+        # If it's a Vector{Symbol}, it's a routing file — proceed to load per-component
+        if result isa Vector{Symbol}
+            return _load_per_component_indices(parent, result)
         end
         return nothing
     catch
         return nothing
     end
+end
+
+"""
+    _load_per_component_indices(parent, components::Vector{Symbol}) -> CoverageIndex
+
+Load per-component CoverageIndex files and merge them into a single index.
+
+Reads each component's index from `.testimonial/components/<name>/index.jls`
+and merges all items into a flat CoverageIndex. Components without an index
+file are silently skipped.
+
+Returns an empty CoverageIndex if no component indices can be loaded.
+"""
+function _load_per_component_indices(parent::Module, components::Vector{Symbol})::Any
+    merged_items = Dict{parent.TestItemRef, parent.ItemCoverage}()
+    merged_git_hash = ""
+    merged_julia_version = string(VERSION)
+    merged_created_at = now()
+
+    for comp in components
+        comp_path = parent.component_index_path(string(comp))
+        if !isfile(comp_path)
+            continue
+        end
+
+        try
+            comp_index = open(deserialize, comp_path, "r")
+            if comp_index isa parent.CoverageIndex
+                for (ref, ic) in comp_index.items
+                    merged_items[ref] = ic
+                end
+                # Use the most recent created_at
+                if comp_index.created_at > merged_created_at
+                    merged_created_at = comp_index.created_at
+                end
+                # Use the first non-empty git_hash found
+                if isempty(merged_git_hash) && !isempty(comp_index.git_hash)
+                    merged_git_hash = comp_index.git_hash
+                end
+            end
+        catch
+            continue
+        end
+    end
+
+    return parent.CoverageIndex(
+        merged_items, merged_git_hash, merged_julia_version, v"0.1.0", merged_created_at
+    )
 end
 
 """
