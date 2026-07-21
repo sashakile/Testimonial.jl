@@ -17,6 +17,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
        scoped_fallback, collect_fallback_reasons, must_run_with_fallback_priority,
        SEED_FAULT_PATTERNS, run_seeded_fault_test, run_all_seeded_fault_tests,
+       discover_components, component_of,
        select_changed_items, _discover_in_file
 
 # ── Enums (defined before structs that reference them) ──
@@ -534,51 +535,143 @@ const SEED_FAULT_PATTERNS = [
 # ── Seeded fault test verification ─────────────
 
 """
-    run_seeded_fault_test(pattern) -> Dict
+    run_seeded_fault_test(pattern) -> NamedTuple
 
-Run a single seeded fault test: verify that the fault-revealing test
-would be selected after introducing the fault described by the pattern.
+Validate a single seed pattern structure and return results.
 
-Returns a Dict with keys:
-- `:pattern_name` — name of the pattern
-- `:passed` — whether the fault-revealing test was selected
-- `:selected_items` — number of items selected (or 0 on error)
-- `:error` — error message if the test failed to run
+Returns a NamedTuple with fields:
+- `pattern_name` — name of the pattern
+- `passed` — whether validation succeeded
+- `selected_items` — number of items selected (or 0 on error)
+- `error` — error message if the pattern is invalid
+
+!!! note "Placeholder"
+    This function validates the pattern structure but does not perform
+    actual mutation. The real fault injection and selection verification
+    is performed by `scripts/seeded_fault_test.jl`. See Decision 7 in
+    the add-safety-invariants design document.
 """
-function run_seeded_fault_test(pattern)::Dict
-    # This is a diagnostic function — it needs a live repo to operate.
-    # In library mode, we validate the pattern structure and return
-    # a placeholder result. The actual script (scripts/seeded_fault_test.jl)
-    # performs the real mutation and verification.
+function run_seeded_fault_test(pattern)::NamedTuple
     if !haskey(pattern, :name) || !haskey(pattern, :action) ||
        !haskey(pattern, :revealing_test) ||
        isempty(get(pattern, :action, "")) ||
        isempty(get(pattern, :revealing_test, ""))
-        return Dict(
-            :pattern_name => get(pattern, :name, "unknown"),
-            :passed => false,
-            :selected_items => 0,
-            :error => "Invalid pattern: missing or empty required fields",
+        return (
+            pattern_name = get(pattern, :name, "unknown"),
+            passed = false,
+            selected_items = 0,
+            error = "Invalid pattern: missing or empty required fields",
         )
     end
 
-    return Dict(
-        :pattern_name => pattern.name,
-        :passed => true,  # Placeholder — actual mutation happens in script
-        :selected_items => 1,
-        :error => "",
+    @warn "Placeholder: no actual mutation is performed by run_seeded_fault_test. " *
+          "Use scripts/seeded_fault_test.jl for real mutation testing." maxlog=1
+
+    return (
+        pattern_name = pattern.name,
+        passed = true,
+        selected_items = 1,
+        error = "",
     )
 end
 
 """
-    run_all_seeded_fault_tests() -> Vector{Dict}
+    run_all_seeded_fault_tests() -> Vector{NamedTuple}
 
 Run all seeded fault patterns and return results.
 Equivalent to calling `run_seeded_fault_test` for each pattern
 in `SEED_FAULT_PATTERNS`.
 """
-function run_all_seeded_fault_tests()::Vector{Dict}
+function run_all_seeded_fault_tests()::Vector{NamedTuple}
     return [run_seeded_fault_test(p) for p in SEED_FAULT_PATTERNS]
+end
+
+# ── Component discovery ─────────────────────────
+
+"""
+    discover_components(project_dir::String) -> Vector{Symbol}
+
+Discover component names from a workspace Project.toml.
+
+If the Project.toml has a `[workspace]` section with `packages`, each
+package's own Project.toml is read to get the component name (the `name`
+field). If no workspace section exists, the top-level package name is
+returned as a single component.
+
+Returns an empty vector if no Project.toml exists.
+"""
+function discover_components(project_dir::String)::Vector{Symbol}
+    proj_path = joinpath(project_dir, "Project.toml")
+    if !isfile(proj_path)
+        return Symbol[]
+    end
+
+    content = read(proj_path, String)
+
+    # Extract workspace packages if present
+    workspace_match = match(r"\[workspace\]\s*\n(.*?)(?:\n\[|\z)"s, content)
+
+    if workspace_match !== nothing
+        ws_section = workspace_match.captures[1]
+        # Extract packages = [...] line
+        pkgs_match = match(r"packages\s*=\s*\[(.*?)\]", ws_section)
+        if pkgs_match !== nothing
+            pkg_str = pkgs_match.captures[1]
+            # Parse package paths (could be strings or symbols)
+            pkg_paths = [strip(p, ['\"', '\'', ' ']) for p in split(pkg_str, ",")]
+            pkg_paths = filter(!isempty, pkg_paths)
+
+            if isempty(pkg_paths)
+                # Empty workspace — use top-level package name
+                name_match = match(r"^name\s*=\s*\"([^\"]+)\""m, content)
+                if name_match !== nothing
+                    return [Symbol(name_match.captures[1])]
+                end
+                return Symbol[]
+            end
+
+            components = Symbol[]
+            for pkg_path in pkg_paths
+                abs_pkg = isabspath(pkg_path) ? pkg_path : joinpath(project_dir, pkg_path)
+                pkg_proj = joinpath(abs_pkg, "Project.toml")
+                if isfile(pkg_proj)
+                    pkg_content = read(pkg_proj, String)
+                    name_match = match(r"^name\s*=\s*\"([^\"]+)\""m, pkg_content)
+                    if name_match !== nothing
+                        push!(components, Symbol(name_match.captures[1]))
+                    end
+                end
+            end
+
+            return isempty(components) ? Symbol[] : components
+        end
+    end
+
+    # No workspace section — use top-level package name
+    name_match = match(r"^name\s*=\s*\"([^\"]+)\""m, content)
+    if name_match !== nothing
+        return [Symbol(name_match.captures[1])]
+    end
+
+    return Symbol[]
+end
+
+"""
+    component_of(test_file::String, components::Vector{Symbol}) -> Union{Symbol, Nothing}
+
+Determine which component a test file belongs to.
+
+Checks if the file path contains a component name as a directory segment.
+Returns the first matching component, or `nothing` if no match is found.
+"""
+function component_of(test_file::String, components::Vector{Symbol})::Union{Symbol, Nothing}
+    for comp in components
+        comp_str = string(comp)
+        if occursin("/$(comp_str)/", test_file) || occursin("$(comp_str)\\test", test_file)
+            return comp
+        end
+    end
+    return nothing
 end
 
 """In-memory store mapping (file, name) → consecutive pass count.
