@@ -13,6 +13,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        AlwaysRunReason, LAST_RUN_FAILED, NEWLY_ADDED, NO_HISTORY, MUST_RUN, QUARANTINED,
        DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD,
        consecutive_passes, record_run, should_evict, reset_always_run_state,
+       compute_environment_fingerprint, environment_matches,
        select_changed_items, _discover_in_file
 
 # ── Enums (defined before structs that reference them) ──
@@ -102,7 +103,12 @@ struct CoverageIndex
     julia_version :: String
     schema_version :: VersionNumber
     created_at :: DateTime
+    environment_fingerprint :: String
 end
+
+# Convenience constructor without environment_fingerprint
+CoverageIndex(items, git_hash, julia_version, schema_version, created_at) =
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, "")
 
 # ── Persistence ────────────────────────────────
 
@@ -272,6 +278,41 @@ function select_changed_items(changed_files::Vector{String}, test_dirs::Vector{S
     end
 
     return items
+end
+
+# ── Environment fingerprint ─────────────────────
+
+"""
+    compute_environment_fingerprint(project_dir::String) -> String
+
+Compute an environment fingerprint that captures the Julia version and
+Project.toml contents. Used to detect environment changes that invalidate
+the coverage index.
+
+The fingerprint format is: "<julia_version>+<project_toml_hash>"
+where project_toml_hash is the SHA-256 hex prefix (first 12 chars) of
+Project.toml, or empty if Project.toml doesn't exist.
+"""
+function compute_environment_fingerprint(project_dir::String)::String
+    proj_path = joinpath(project_dir, "Project.toml")
+    proj_hash = if isfile(proj_path)
+        bytes2hex(sha256(read(proj_path, String)))[1:12]
+    else
+        ""
+    end
+    return string(VERSION, "+", proj_hash)
+end
+
+"""
+    environment_matches(index, expected_fp::String) -> Bool
+
+Check whether the environment fingerprint in the coverage index matches
+the expected fingerprint. Returns false if the index has no fingerprint
+(empty string), indicating the fingerprint was never set.
+"""
+function environment_matches(index::CoverageIndex, expected_fp::String)::Bool
+    return !isempty(index.environment_fingerprint) &&
+           index.environment_fingerprint == expected_fp
 end
 
 # ── Always-run set eviction tracking ──────────
