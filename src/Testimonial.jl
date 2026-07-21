@@ -2,6 +2,7 @@ module Testimonial
 
 using Dates
 using SHA
+using Serialization
 using TOML
 
 # ════════════════════════════════════════════
@@ -14,6 +15,8 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        AlwaysRunReason, LAST_RUN_FAILED, NEWLY_ADDED, NO_HISTORY, MUST_RUN, QUARANTINED,
        DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD,
        consecutive_passes, record_run, should_evict, reset_always_run_state,
+       RunEntry, RunHistory, record_duration!, read_durations,
+       save_run_history, load_run_history, DEFAULT_RUN_HISTORY_PATH,
        compute_environment_fingerprint, environment_matches,
        MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
        scoped_fallback, collect_fallback_reasons, must_run_with_fallback_priority,
@@ -905,6 +908,119 @@ Reset the always-run pass counter for a test item to 0.
 function reset_always_run_state(ref::TestItemRef)
     delete!(_ALWAYS_RUN_PASS_COUNTS, (ref.file, ref.name))
     return nothing
+end
+
+# ── Run history (duration tracking for shard balancing) ───────
+
+"""Default path for the run history persistence file."""
+const DEFAULT_RUN_HISTORY_PATH = ".testimonial/run_history.jls"
+
+"""A single entry in the run history."""
+struct RunEntry
+    mean_duration :: Float64
+    count :: Int
+    last_duration :: Float64
+end
+
+"""
+    RunHistory
+
+Collects per-test execution durations for shard balancing.
+
+Persisted to `.testimonial/run_history.jls` for cross-session tracking.
+See openspec/changes/add-component-boundary/design.md Decision 4.
+"""
+struct RunHistory
+    entries :: Dict{Tuple{String, String}, RunEntry}
+end
+
+# Convenience constructor
+RunHistory() = RunHistory(Dict{Tuple{String, String}, RunEntry}())
+
+"""
+    record_duration!(history::RunHistory, ref::TestItemRef, duration::Float64)
+
+Record a test execution duration in the run history.
+
+Updates the running mean duration, increments the count, and stores the
+most recent duration. The running mean is computed as:
+    new_mean = old_mean + (duration - old_mean) / count
+
+This is an online algorithm (O(1) memory, no sum overflow) suitable for
+streaming updates.
+"""
+function record_duration!(history::RunHistory, ref::TestItemRef, duration::Float64)
+    key = (ref.file, ref.name)
+    if haskey(history.entries, key)
+        entry = history.entries[key]
+        new_count = entry.count + 1
+        new_mean = entry.mean_duration + (duration - entry.mean_duration) / new_count
+        history.entries[key] = RunEntry(new_mean, new_count, duration)
+    else
+        history.entries[key] = RunEntry(duration, 1, duration)
+    end
+    return nothing
+end
+
+"""
+    read_durations(history::RunHistory) -> Dict{Tuple{String, String}, Float64}
+
+Read per-test mean durations from the run history.
+
+Returns a dict mapping each test item (identified by file, name) to its
+recorded mean duration in seconds. This is the data used by the shard
+balancing algorithm (see testimonial-13f).
+
+Returns an empty dict if the history is empty.
+"""
+function read_durations(history::RunHistory)::Dict{Tuple{String, String}, Float64}
+    result = Dict{Tuple{String, String}, Float64}()
+    for (key, entry) in history.entries
+        result[key] = entry.mean_duration
+    end
+    return result
+end
+
+"""
+    save_run_history(history::RunHistory, path::String=DEFAULT_RUN_HISTORY_PATH)
+
+Persist the run history to disk via serialization.
+
+Creates parent directories if needed and writes atomically via
+temp-file + rename.
+"""
+function save_run_history(history::RunHistory, path::String=DEFAULT_RUN_HISTORY_PATH)
+    dir = dirname(path)
+    mkpath(dir)
+    tmppath = path * ".tmp"
+    open(tmppath, "w") do io
+        serialize(io, history)
+    end
+    mv(tmppath, path; force=true)
+    return nothing
+end
+
+"""
+    load_run_history(path::String=DEFAULT_RUN_HISTORY_PATH) -> RunHistory
+
+Load a persisted run history from disk.
+
+Returns an empty `RunHistory` if the file doesn't exist, can't be read,
+or fails deserialization.
+"""
+function load_run_history(path::String=DEFAULT_RUN_HISTORY_PATH)::RunHistory
+    if !isfile(path)
+        return RunHistory()
+    end
+    try
+        result = open(deserialize, path, "r")
+        if result isa RunHistory
+            return result
+        end
+        return RunHistory()
+    catch
+        return RunHistory()
+    end
 end
 
 # ════════════════════════════════════════════
