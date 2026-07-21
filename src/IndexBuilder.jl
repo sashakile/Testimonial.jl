@@ -326,13 +326,16 @@ function _save_per_component_indices(
     _save_graph_file(edges)
 
     # Group items by component
+    abs_project_dir = abspath(project_dir)
     comp_groups = Dict{String, Vector{Pair{Any, Any}}}()
     for (ref, ic) in item_map
         # Determine component for this item
         comp = if ref.component != ""
             ref.component
         else
-            result = parent.component_of(ref.file, path_map)
+            # Normalize to absolute path for component matching
+            abs_file = isabspath(ref.file) ? ref.file : joinpath(abs_project_dir, ref.file)
+            result = isempty(path_map) ? nothing : parent.component_of(abs_file, path_map)
             result === nothing ? "__unmapped__" : string(result)
         end
 
@@ -365,6 +368,9 @@ function _save_per_component_indices(
     # Save routing file with all component names (excluding unmapped)
     component_names = [Symbol(k) for k in keys(comp_groups) if k != "__unmapped__"]
     save_routing(".testimonial", component_names)
+
+    # Invalidate all selection caches — fingerprints have been recomputed
+    invalidate_all_selection_caches()
 
     return nothing
 end
@@ -908,6 +914,9 @@ function migrate_index(testimonial_dir::AbstractString, project_dir::AbstractStr
     # Save component graph alongside routing file
     _save_graph_file(edges)
 
+    # Invalidate all selection caches — fingerprints have been recomputed
+    invalidate_all_selection_caches()
+
     return nothing
 end
 
@@ -1104,9 +1113,46 @@ function load_selection_cache(component_name::String)::Union{Tuple{String, Vecto
     end
 end
 
+# ── Cache invalidation ───────────────────────────
+
+"""
+    invalidate_selection_cache(component_name::String) -> Nothing
+
+Delete the selection cache file for a component.
+
+Removes `.testimonial/components/<component_name>/selection.jls` if it exists.
+No-op if the file doesn't exist.
+"""
+function invalidate_selection_cache(component_name::String)::Nothing
+    cache_path = joinpath(".testimonial", "components", component_name, "selection.jls")
+    if isfile(cache_path)
+        rm(cache_path; force=true)
+    end
+    return nothing
+end
+
+"""
+    invalidate_all_selection_caches() -> Nothing
+
+Delete all per-component selection cache files.
+
+Reads the routing file at `.testimonial/index.jls` to discover components,
+then deletes each component's `selection.jls`. No-op if no routing file
+or no components are registered.
+"""
+function invalidate_all_selection_caches()::Nothing
+    parent = Base.parentmodule(@__MODULE__)
+    components = parent.load_routing(".testimonial")
+    for comp in components
+        invalidate_selection_cache(string(comp))
+    end
+    return nothing
+end
+
 export migrate_index, build_component_graph!,
        save_component_graph, load_component_graph,
        compute_dependency_fingerprint, save_fingerprint, load_fingerprint,
-       save_selection_cache, load_selection_cache
+       save_selection_cache, load_selection_cache,
+       invalidate_selection_cache, invalidate_all_selection_caches
 
 end # module IndexBuilder
