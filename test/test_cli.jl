@@ -212,3 +212,23 @@ end
         end
     end
 end
+
+@testset "run accepts shadow keyword argument" begin
+    mktempdir() do dir
+        cd(dir) do
+            # No index exists — should return :full_suite regardless of shadow
+            result = Testimonial.CLI.run(; shadow=true)
+            @test result == :full_suite
+        end
+    end
+end
+
+@testset "run defaults shadow to false" begin
+    mktempdir() do dir
+        cd(dir) do
+            # No index exists — should return :full_suite
+            result = Testimonial.CLI.run()
+            @test result == :full_suite
+        end
+    end
+end

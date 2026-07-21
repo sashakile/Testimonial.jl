@@ -177,7 +177,8 @@ function run(; base_ref::String="origin/main",
                index_path::String=".testimonial/index.jls",
                test_dirs::Vector{String}=String["test/"],
                project_dir::Union{String,Nothing}=nothing,
-               n_shards::Int=0)::Union{Symbol, Vector}
+               n_shards::Int=0,
+               shadow::Bool=false)::Union{Symbol, Vector}
     parent = Base.parentmodule(@__MODULE__)
 
     # Step 1: Load index
