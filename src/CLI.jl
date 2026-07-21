@@ -10,10 +10,12 @@
 module CLI
 
 using Dates
+using Serialization
 import ..Testimonial: CoverageIndex, TestItemRef, ItemCoverage,
     discover_testitems
 
-export index_info, explain, run, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS
+export index_info, explain, run, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS,
+       _write_shard_files, _read_shard_manifest, _clean_shard_files
 
 # ── Constants ──────────────────────────────────
 
@@ -174,7 +176,8 @@ Only components that transitively depend on changed code are searched.
 function run(; base_ref::String="origin/main",
                index_path::String=".testimonial/index.jls",
                test_dirs::Vector{String}=String["test/"],
-               project_dir::Union{String,Nothing}=nothing)::Union{Symbol, Vector}
+               project_dir::Union{String,Nothing}=nothing,
+               n_shards::Int=0)::Union{Symbol, Vector}
     parent = Base.parentmodule(@__MODULE__)
 
     # Step 1: Load index
@@ -267,6 +270,18 @@ function run(; base_ref::String="origin/main",
             @warn "Coverage gaps detected in source files — running full suite"
             return :full_suite
         end
+    end
+
+    # Step 8: Write shard files if requested
+    if n_shards > 0 && filtered isa Vector && !isempty(filtered)
+        items = [r.item for r in filtered]
+        parent = Base.parentmodule(@__MODULE__)
+        history = parent.load_run_history()
+        durations = parent.read_durations(history)
+        _write_shard_files(items, n_shards, durations)
+    elseif n_shards > 0
+        # No items selected — write empty shards
+        _write_shard_files(TestItemRef[], n_shards, Dict{Tuple{String, String}, Float64}())
     end
 
     return filtered
@@ -455,6 +470,134 @@ function _git_repo_root()::String
     catch
         return "."
     end
+end
+
+# ── Shard file helpers ──────────────────────────
+
+"""
+    _write_shard_files(items, n_shards, durations=Dict())
+
+Write balanced shard files to `.testimonial/shard_<N>.jls`.
+
+Each shard file contains a serialized `Vector{TestItemRef}` for
+consumption by a CI worker. Also writes a manifest file at
+`.testimonial/shard_manifest.jls` listing all shard file paths.
+"""
+function _write_shard_files(
+    items::Vector{TestItemRef},
+    n_shards::Int,
+    durations::Dict{Tuple{String, String}, Float64}=Dict{Tuple{String, String}, Float64}(),
+)::Nothing
+    parent = Base.parentmodule(@__MODULE__)
+
+    # Clean any previous shard files
+    _clean_shard_files()
+
+    mkpath(".testimonial")
+
+    # Balance shards
+    shards = parent.balance_shards(items, durations, n_shards)
+
+    # Write each shard
+    shard_paths = String[]
+    for i in 1:n_shards
+        shard_path = joinpath(".testimonial", "shard_$(i).jls")
+        tmppath = shard_path * ".tmp"
+        open(tmppath, "w") do io
+            serialize(io, shards[i])
+        end
+        mv(tmppath, shard_path; force=true)
+        push!(shard_paths, shard_path)
+    end
+
+    # Write manifest
+    manifest_path = joinpath(".testimonial", "shard_manifest.jls")
+    tmppath = manifest_path * ".tmp"
+    open(tmppath, "w") do io
+        serialize(io, shard_paths)
+    end
+    mv(tmppath, manifest_path; force=true)
+
+    return nothing
+end
+
+"""
+    _read_shard_manifest() -> Vector{String}
+
+Read the shard manifest file listing all shard file paths.
+
+Returns an empty vector if no manifest exists or it cannot be read.
+"""
+function _read_shard_manifest()::Vector{String}
+    manifest_path = joinpath(".testimonial", "shard_manifest.jls")
+    if !isfile(manifest_path)
+        return String[]
+    end
+    try
+        result = open(deserialize, manifest_path, "r")
+        if result isa Vector{String}
+            return result
+        end
+        return String[]
+    catch
+        return String[]
+    end
+end
+
+"""
+    _load_shard(n::Int) -> Vector{TestItemRef}
+
+Load a shard file by its 1-indexed number.
+
+Returns an empty vector if the file doesn't exist or can't be read.
+"""
+function _load_shard(n::Int)::Vector{TestItemRef}
+    shard_path = joinpath(".testimonial", "shard_$(n).jls")
+    if !isfile(shard_path)
+        return TestItemRef[]
+    end
+    try
+        result = open(deserialize, shard_path, "r")
+        if result isa Vector{TestItemRef}
+            return result
+        end
+        return TestItemRef[]
+    catch
+        return TestItemRef[]
+    end
+end
+
+"""
+    _clean_shard_files()
+
+Remove all shard files and the shard manifest.
+"""
+function _clean_shard_files()::Nothing
+    # Remove any existing shard files from manifest
+    existing = _read_shard_manifest()
+    for path in existing
+        if isfile(path)
+            rm(path; force=true)
+        end
+    end
+
+    # Also remove the manifest itself
+    manifest_path = joinpath(".testimonial", "shard_manifest.jls")
+    if isfile(manifest_path)
+        rm(manifest_path; force=true)
+    end
+
+    # Clean up any orphaned shard files (in case manifest is stale)
+    testimonial_dir = ".testimonial"
+    if isdir(testimonial_dir)
+        for entry in readdir(testimonial_dir)
+            if startswith(entry, "shard_") && endswith(entry, ".jls")
+                rm(joinpath(testimonial_dir, entry); force=true)
+            end
+        end
+    end
+
+    return nothing
 end
 
 end # module CLI
