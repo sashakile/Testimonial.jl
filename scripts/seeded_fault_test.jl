@@ -24,10 +24,10 @@ function run_pattern(pattern)
     # Run the verification
     result = Testimonial.run_seeded_fault_test(pattern)
 
-    if result[:passed]
-        println("✓ PASSED — $(result[:selected_items]) item(s) selected")
+    if result.passed
+        println("✓ PASSED — $(result.selected_items) item(s) selected")
     else
-        println("✗ FAILED — $(result[:error])")
+        println("✗ FAILED — $(result.error)")
     end
     println()
 

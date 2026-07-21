@@ -581,7 +581,12 @@ function run_all_seeded_fault_tests()::Vector{Dict}
     return [run_seeded_fault_test(p) for p in SEED_FAULT_PATTERNS]
 end
 
-"""In-memory store mapping (file, name) → consecutive pass count."""
+"""In-memory store mapping (file, name) → consecutive pass count.
+
+Note: This is per-process state. Counters reset when the Julia process restarts.
+For cross-session persistence, this should be written to .testimonial/run_history.jls
+(see add-runtime-feedback epic).
+"""
 const _ALWAYS_RUN_PASS_COUNTS = Dict{Tuple{String, String}, Int}()
 
 """

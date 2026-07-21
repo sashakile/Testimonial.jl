@@ -31,4 +31,5 @@ include("helpers.jl")
     include("test_must_run_priority.jl")
     include("test_seeded_fault.jl")
     include("test_seeded_fault_verify.jl")
+    include("test_must_run_integration.jl")
 end
