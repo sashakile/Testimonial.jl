@@ -322,6 +322,9 @@ function _save_per_component_indices(
     # Build component graph from coverage data
     edges = _build_component_graph(parent, item_map, path_map)
 
+    # Save component graph alongside routing file
+    _save_graph_file(edges)
+
     # Group items by component
     comp_groups = Dict{String, Vector{Pair{Any, Any}}}()
     for (ref, ic) in item_map
@@ -358,6 +361,60 @@ function _save_per_component_indices(
     save_routing(".testimonial", component_names)
 
     return nothing
+end
+
+"""
+    _save_graph_file(edges::Dict{String, Set{String}}) -> Nothing
+
+Save the component graph to `.testimonial/graph.jls` alongside the routing file.
+
+Creates the .testimonial directory if needed.
+"""
+function _save_graph_file(edges::Dict{String, Set{String}})::Nothing
+    mkpath(".testimonial")
+    tmppath = joinpath(".testimonial", "graph.jls.tmp")
+    graph_path = joinpath(".testimonial", "graph.jls")
+    open(tmppath, "w") do io
+        serialize(io, edges)
+    end
+    mv(tmppath, graph_path; force=true)
+    return nothing
+end
+
+"""
+    save_component_graph(edges::Dict{String, Set{String}}) -> Nothing
+
+Save the component graph to `.testimonial/graph.jls`.
+
+Public API for saving inter-component dependency edges.
+"""
+function save_component_graph(edges::Dict{String, Set{String}})::Nothing
+    _save_graph_file(edges)
+    return nothing
+end
+
+"""
+    load_component_graph() -> Dict{String, Set{String}}
+
+Load the component graph from `.testimonial/graph.jls`.
+
+Returns an empty dict if the file doesn't exist, is corrupted, or
+deserialization fails.
+"""
+function load_component_graph()::Dict{String, Set{String}}
+    graph_path = joinpath(".testimonial", "graph.jls")
+    if !isfile(graph_path)
+        return Dict{String, Set{String}}()
+    end
+    try
+        result = open(deserialize, graph_path, "r")
+        if result isa Dict{String, Set{String}}
+            return result
+        end
+        return Dict{String, Set{String}}()
+    catch
+        return Dict{String, Set{String}}()
+    end
 end
 
 """
@@ -820,9 +877,15 @@ function migrate_index(testimonial_dir::AbstractString, project_dir::AbstractStr
         save_index(comp_index, comp_idx_path)
     end
 
+    # Build component graph from coverage data
+    edges = isempty(path_map) ? Dict{String, Set{String}}() : _build_component_graph(parent, flat_index.items, path_map)
+
     # Save routing file (excluding unmapped)
     component_names = [Symbol(k) for k in keys(comp_groups) if k != "__unmapped__"]
     save_routing(testimonial_dir, component_names)
+
+    # Save component graph alongside routing file
+    _save_graph_file(edges)
 
     return nothing
 end
@@ -846,6 +909,7 @@ function build_component_graph!(index, path_map::Dict{Symbol, String})::Dict{Str
     return _build_component_graph(parent, index.items, path_map)
 end
 
-export migrate_index, build_component_graph!
+export migrate_index, build_component_graph!,
+       save_component_graph, load_component_graph
 
 end # module IndexBuilder
