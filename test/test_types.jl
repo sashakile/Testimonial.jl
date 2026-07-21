@@ -119,3 +119,34 @@ end
     @test index.git_hash == "abc123"
     @test index.schema_version == v"0.1.0"
 end
+
+@testset "MustRunRule" begin
+    rule = MustRunRule("src/critical/*.jl", :critical)
+
+    @test rule isa MustRunRule
+    @test rule.changed_glob == "src/critical/*.jl"
+    @test rule.test_tag == :critical
+end
+
+@testset "MustRunRule matches changed file" begin
+    rule = MustRunRule("src/critical/*.jl", :critical)
+
+    @test Testimonial.matches_must_run_rule(rule, "src/critical/payment.jl")
+    @test Testimonial.matches_must_run_rule(rule, "src/critical/auth.jl")
+    @test !Testimonial.matches_must_run_rule(rule, "src/notcritical/foo.jl")
+    @test !Testimonial.matches_must_run_rule(rule, "test/critical_test.jl")
+end
+
+@testset "MustRunRule matches_must_run with multiple rules" begin
+    rules = [
+        MustRunRule("src/critical/*.jl", :critical),
+        MustRunRule("config/*.toml", :config),
+    ]
+
+    changed_files = ["src/critical/payment.jl", "src/notcritical/foo.jl"]
+    matched_tags = Testimonial.must_run_tags(rules, changed_files)
+
+    @test :critical in matched_tags
+    @test :config ∉ matched_tags
+    @test length(matched_tags) == 1
+end

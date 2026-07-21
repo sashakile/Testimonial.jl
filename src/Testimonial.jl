@@ -14,6 +14,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD,
        consecutive_passes, record_run, should_evict, reset_always_run_state,
        compute_environment_fingerprint, environment_matches,
+       MustRunRule, matches_must_run_rule, must_run_tags,
        select_changed_items, _discover_in_file
 
 # ── Enums (defined before structs that reference them) ──
@@ -319,6 +320,56 @@ end
 
 """Default number of consecutive passing runs before a test is evicted from the always-run set."""
 const DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD = 5
+
+# ── Must-run rules ──────────────────────────────
+
+"""A rule that force-selects tests with a specific tag when a changed file matches a glob pattern."""
+struct MustRunRule
+    changed_glob :: String
+    test_tag :: Symbol
+end
+
+"""
+    matches_must_run_rule(rule::MustRunRule, changed_file::String) -> Bool
+
+Check whether a changed file path matches a must-run rule's glob pattern.
+Supports a single * wildcard in the pattern (matches any sequence of characters).
+"""
+function matches_must_run_rule(rule::MustRunRule, changed_file::String)::Bool
+    pattern = rule.changed_glob
+    star_idx = findfirst('*', pattern)
+    if star_idx === nothing
+        return changed_file == pattern
+    end
+    prefix = pattern[1:star_idx-1]
+    suffix = pattern[star_idx+1:end]
+    if isempty(prefix)
+        return endswith(changed_file, suffix)
+    elseif isempty(suffix)
+        return startswith(changed_file, prefix)
+    else
+        return startswith(changed_file, prefix) && endswith(changed_file, suffix)
+    end
+end
+
+"""
+    must_run_tags(rules::Vector{MustRunRule}, changed_files::Vector{String}) -> Vector{Symbol}
+
+Given a list of must-run rules and changed files, return the set of test tags
+that should be force-selected (deduplicated).
+"""
+function must_run_tags(rules::Vector{MustRunRule}, changed_files::Vector{String})::Vector{Symbol}
+    tags = Set{Symbol}()
+    for rule in rules
+        for file in changed_files
+            if matches_must_run_rule(rule, file)
+                push!(tags, rule.test_tag)
+                break
+            end
+        end
+    end
+    return collect(tags)
+end
 
 """In-memory store mapping (file, name) → consecutive pass count."""
 const _ALWAYS_RUN_PASS_COUNTS = Dict{Tuple{String, String}, Int}()
