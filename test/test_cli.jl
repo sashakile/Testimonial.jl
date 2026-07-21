@@ -232,3 +232,67 @@ end
         end
     end
 end
+
+@testset "shadow=true returns :full_suite when selection would be returned" begin
+    mktempdir() do dir
+        cd(dir) do
+            # Set up git repo
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+
+            mkpath("test")
+            mkpath("src")
+
+            # Test file A
+            write("test/test_a.jl", """
+            @testitem "test_a" begin
+                @test 1 == 1
+            end
+            """)
+
+            # Test file B (not changed)
+            write("test/test_b.jl", """
+            @testitem "test_b" begin
+                @test 2 == 2
+            end
+            """)
+
+            run(`git add .`)
+            run(`git commit -m "initial"`)
+
+            # Build index with both items
+            ref_a = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
+            ref_b = TestItemRef(abspath("test/test_b.jl"), 1, "test_b", Symbol[], "def")
+            ic_a = ItemCoverage(ref_a, [1, 2], Int[], Dict())
+            ic_b = ItemCoverage(ref_b, [3, 4], Int[], Dict())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref_a => ic_a, ref_b => ic_b),
+                readchomp(`git rev-parse HEAD`),
+                string(VERSION),
+                v"0.1.0",
+                now(),
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            # Modify test_a to trigger selection
+            write("test/test_a.jl", """
+            @testitem "test_a" begin
+                @test 1 == 2
+            end
+            """)
+
+            run(`git add .`)
+            run(`git commit -m "modify test_a"`)
+
+            # Normal mode should return a selection containing test_a
+            normal_result = Testimonial.CLI.run(; base_ref="HEAD~1", shadow=false)
+            @test normal_result isa Vector
+            @test !isempty(normal_result)
+
+            # Shadow mode should return :full_suite
+            shadow_result = Testimonial.CLI.run(; base_ref="HEAD~1", shadow=true)
+            @test shadow_result == :full_suite
+        end
+    end
+end

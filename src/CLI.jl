@@ -266,7 +266,10 @@ function run(; base_ref::String="origin/main",
     source_files = [f for f in changed_files
                     if endswith(f, ".jl") && !any(startswith(f, d) for d in abs_test_dirs)]
     if !isempty(source_files)
-        gaps = parent.coverage_gaps(index, source_files)
+        source_changed = Dict{String, Set{Int}}(
+            f => get(changed, f, Set{Int}()) for f in source_files
+        )
+        gaps = parent.coverage_gaps(index, source_changed)
         if !isempty(gaps)
             @warn "Coverage gaps detected in source files — running full suite"
             return :full_suite
@@ -283,6 +286,13 @@ function run(; base_ref::String="origin/main",
     elseif n_shards > 0
         # No items selected — write empty shards
         _write_shard_files(TestItemRef[], n_shards, Dict{Tuple{String, String}, Float64}())
+    end
+
+    # Step 9: Shadow mode — log selection and run all tests
+    if shadow
+        n_selected = filtered isa Vector ? length(filtered) : 0
+        @info "Shadow mode: selected $n_selected items, running full suite"
+        return :full_suite
     end
 
     return filtered
