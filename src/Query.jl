@@ -10,7 +10,8 @@
 module Query
 
 export query_files, coverage_gaps, nearest_covered_lines,
-       query, direct_change_provider, unresolved_provider
+       query, direct_change_provider, unresolved_provider,
+       must_run_provider
 
 # ── Helpers ───────────────────────────────────
 
@@ -306,6 +307,53 @@ function unresolved_provider(index, changed_files::Vector{String})::Vector
         ref = parent.TestItemRef(norm_file, 0, "")
         reason = parent.ImpactReason(parent.Unresolved, "file not tracked in coverage index: $(norm_file)")
         push!(results, parent.ImpactResult(ref, [reason], false))
+    end
+
+    return results
+end
+
+"""
+    must_run_provider(index, changed_files; must_run_rules=MustRunRule[]) -> Vector{ImpactResult}
+
+Provider: for files matching must-run rules, returns `AlwaysRun` reasons for
+test items with matching tags. Only applies when one or more must_run_rules
+are provided.
+
+This is a provider function suitable for use with `query`.
+"""
+function must_run_provider(index, changed_files::Vector{String}; must_run_rules::Vector=parent.MustRunRule[])
+    parent = _parent()
+    isempty(must_run_rules) && return parent.ImpactResult[]
+
+    # Collect tags from matching rules
+    matched_tags = Set{Symbol}()
+    for rule in must_run_rules
+        for file in changed_files
+            if parent.matches_must_run_rule(rule, file)
+                push!(matched_tags, rule.test_tag)
+                break
+            end
+        end
+    end
+
+    isempty(matched_tags) && return parent.ImpactResult[]
+
+    # Find all test items with matching tags
+    results = parent.ImpactResult[]
+    seen = Set{Pair{String, String}}()
+
+    for (ref, _) in index.items
+        if !isempty(intersect(ref.tags, matched_tags))
+            key = ref.file => ref.name
+            if key in seen
+                continue
+            end
+            push!(seen, key)
+
+            tag_str = join(string.(intersect(ref.tags, matched_tags)), ", ")
+            reason = parent.ImpactReason(parent.AlwaysRun, "must-run rule matched (tag: $(tag_str))")
+            push!(results, parent.ImpactResult(ref, [reason], true))
+        end
     end
 
     return results
