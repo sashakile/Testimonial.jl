@@ -15,6 +15,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        consecutive_passes, record_run, should_evict, reset_always_run_state,
        compute_environment_fingerprint, environment_matches,
        MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
+       scoped_fallback, collect_fallback_reasons,
        select_changed_items, _discover_in_file
 
 # ── Enums (defined before structs that reference them) ──
@@ -409,6 +410,43 @@ function parse_must_run_rules(config::Dict)::Vector{MustRunRule}
         end
     end
     return rules
+end
+
+# ── Scoped fallback ─────────────────────────────
+
+"""
+    scoped_fallback(fallback_reasons::Vector{String}, component_mode::Symbol) -> Union{Nothing, Symbol}
+
+Determine whether to fall back to a full suite run based on fallback reasons
+and the current component mode.
+
+Before component boundary is deployed (`:no_component_boundary`), any fallback
+reason triggers a global full suite (`:full_suite`). After component boundary
+(`:per_component`), only the affected component falls back.
+
+Returns `nothing` if no fallback is needed.
+Accepts `fallback_reasons` from `collect_fallback_reasons`.
+"""
+function scoped_fallback(fallback_reasons::Vector{String}, component_mode::Symbol=:no_component_boundary)::Union{Nothing, Symbol}
+    isempty(fallback_reasons) && return nothing
+    # Before component boundary: any fallback = global full suite
+    return :full_suite
+end
+
+"""
+    collect_fallback_reasons(results::Vector{ImpactResult}) -> Vector{String}
+
+Collect non-nothing fallback_reason values from a vector of ImpactResults.
+Returns only reasons that are set (not nothing).
+"""
+function collect_fallback_reasons(results::Vector{ImpactResult})::Vector{String}
+    reasons = String[]
+    for r in results
+        if r.fallback_reason !== nothing
+            push!(reasons, r.fallback_reason)
+        end
+    end
+    return reasons
 end
 
 """In-memory store mapping (file, name) → consecutive pass count."""

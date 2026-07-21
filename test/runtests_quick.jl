@@ -27,4 +27,5 @@ include("helpers.jl")
     include("test_environment_fingerprint.jl")
     include("test_must_run_config.jl")
     include("test_must_run_query.jl")
+    include("test_scoped_fallback.jl")
 end
