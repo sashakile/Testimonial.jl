@@ -246,7 +246,7 @@ function run(; base_ref::String="origin/main",
             ]
         else
             filtered = _run_component_aware(
-                index, changed, changed_files, abs_test_dirs, path_map, component_edges,
+                index, changed, changed_files, abs_test_dirs, path_map, component_edges, proj_root,
             )
         end
     else
@@ -345,14 +345,18 @@ end
 # ── Component-aware query orchestration ────────
 
 """
-    _run_component_aware(index, changed, changed_files, abs_test_dirs, path_map, edges) -> Vector{ImpactResult}
+    _run_component_aware(index, changed, changed_files, abs_test_dirs, path_map, edges, project_dir) -> Vector{ImpactResult}
 
 Run per-component queries in parallel for all components transitively
 affected by the changed files.
 
 Resolves the affected component set via `_resolve_affected_components`,
-then runs per-component queries using `Threads.@threads`. Results are
-merged and filtered to only include items in test directories.
+then runs per-component queries using `Threads.@threads`. Before running
+each query, checks the selection cache: if the component's dependency
+fingerprint matches the cached value, the cached results are reused and
+the query is skipped.
+
+Results are merged and filtered to only include items in test directories.
 
 Returns an empty `ImpactResult[]` if no components are affected.
 """
@@ -363,6 +367,7 @@ function _run_component_aware(
     abs_test_dirs::Vector{String},
     path_map::Dict{Symbol, String},
     edges::Dict{String, Set{String}},
+    project_dir::String,
 )::Vector
     parent = Base.parentmodule(@__MODULE__)
 
@@ -380,13 +385,24 @@ function _run_component_aware(
 
     Threads.@threads for i in 1:n_comps
         comp = comps[i]
-        results = parent.query(
-            [parent.direct_change_provider, parent.unresolved_provider],
-            index,
-            changed;
-            component=comp,
-        )
-        comp_results[i] = results
+
+        # Check selection cache: skip query if fingerprint unchanged
+        cached = parent.load_selection_cache(comp)
+        current_fp = parent.compute_dependency_fingerprint(comp, path_map, edges, project_dir)
+
+        if cached !== nothing && cached[1] == current_fp
+            comp_results[i] = cached[2]
+        else
+            results = parent.query(
+                [parent.direct_change_provider, parent.unresolved_provider],
+                index,
+                changed;
+                component=comp,
+            )
+            # Cache the fresh results
+            parent.save_selection_cache(comp, current_fp, results)
+            comp_results[i] = results
+        end
     end
 
     # Merge results and filter by test directories

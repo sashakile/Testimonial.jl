@@ -1055,8 +1055,58 @@ function load_fingerprint(component_name::String)::Union{String, Nothing}
     end
 end
 
+# ── Selection cache ────────────────────────────
+
+"""
+    save_selection_cache(component_name, fingerprint, results) -> Nothing
+
+Save the selection results for a component, keyed on its dependency
+fingerprint, to `.testimonial/components/<component_name>/selection.jls`.
+
+The cache stores a tuple `(fingerprint, results)` where `results` is a
+`Vector{ImpactResult}`.
+
+Creates parent directories if needed and writes atomically.
+"""
+function save_selection_cache(component_name::String, fingerprint::String, results::Vector)::Nothing
+    cache_path = joinpath(".testimonial", "components", component_name, "selection.jls")
+    mkpath(dirname(cache_path))
+    tmppath = cache_path * ".tmp"
+    open(tmppath, "w") do io
+        serialize(io, (fingerprint, results))
+    end
+    mv(tmppath, cache_path; force=true)
+    return nothing
+end
+
+"""
+    load_selection_cache(component_name::String) -> Union{Tuple{String, Vector}, Nothing}
+
+Load the cached selection results for a component.
+
+Returns a tuple `(fingerprint, results)` where `results` is a
+`Vector{ImpactResult}`, or `nothing` if no cache exists, the file is
+corrupted, or deserialization fails.
+"""
+function load_selection_cache(component_name::String)::Union{Tuple{String, Vector}, Nothing}
+    cache_path = joinpath(".testimonial", "components", component_name, "selection.jls")
+    if !isfile(cache_path)
+        return nothing
+    end
+    try
+        result = open(deserialize, cache_path, "r")
+        if result isa Tuple{String, Vector}
+            return result
+        end
+        return nothing
+    catch
+        return nothing
+    end
+end
+
 export migrate_index, build_component_graph!,
        save_component_graph, load_component_graph,
-       compute_dependency_fingerprint, save_fingerprint, load_fingerprint
+       compute_dependency_fingerprint, save_fingerprint, load_fingerprint,
+       save_selection_cache, load_selection_cache
 
 end # module IndexBuilder
