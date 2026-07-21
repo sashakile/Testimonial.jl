@@ -40,6 +40,17 @@
     ref7 = TestItemRef("src/foo.jl", 42, "test_bar", Symbol[], "", NEWLY_ADDED)
     @test ref6 == ref7
     @test hash(ref6) == hash(ref7)
+
+    # component defaults to ""
+    @test ref.component == ""
+
+    # Can set component explicitly
+    ref8 = TestItemRef("src/foo.jl", 42, "test_bar", Symbol[], "", nothing, "MyPkg")
+    @test ref8.component == "MyPkg"
+
+    # Equality ignores component (same identity)
+    @test ref == ref8
+    @test hash(ref) == hash(ref8)
 end
 
 @testset "ImpactReasonKind" begin

@@ -41,13 +41,17 @@ struct TestItemRef
     tags :: Vector{Symbol}
     file_hash :: String
     always_run_reason :: Union{Nothing, AlwaysRunReason}
+    component :: String
 end
 
-# Convenience constructor without tags, file_hash, always_run_reason
-TestItemRef(file, line, name) = TestItemRef(file, line, name, Symbol[], "", nothing)
+# Convenience constructor without tags, file_hash, always_run_reason, component
+TestItemRef(file, line, name) = TestItemRef(file, line, name, Symbol[], "", nothing, "")
 
-# Convenience constructor without always_run_reason (for backward compat)
-TestItemRef(file, line, name, tags, file_hash) = TestItemRef(file, line, name, tags, file_hash, nothing)
+# Convenience constructor without always_run_reason and component (for backward compat)
+TestItemRef(file, line, name, tags, file_hash) = TestItemRef(file, line, name, tags, file_hash, nothing, "")
+
+# Convenience constructor without component (for backward compat with 6-arg form)
+TestItemRef(file, line, name, tags, file_hash, always_run_reason) = TestItemRef(file, line, name, tags, file_hash, always_run_reason, "")
 
 # Equality by identity (file, name) — excludes line, tags, and file_hash
 Base.:(==)(a::TestItemRef, b::TestItemRef) = a.file == b.file && a.name == b.name
