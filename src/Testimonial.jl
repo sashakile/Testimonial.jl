@@ -117,11 +117,16 @@ struct CoverageIndex
     schema_version :: VersionNumber
     created_at :: DateTime
     environment_fingerprint :: String
+    inter_component_edges :: Dict{String, Set{String}}
 end
 
-# Convenience constructor without environment_fingerprint
+# Convenience constructor without environment_fingerprint and inter_component_edges
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, "")
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, "", Dict{String, Set{String}}())
+
+# Convenience constructor without inter_component_edges
+CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint) =
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, Dict{String, Set{String}}())
 
 # ── Persistence ────────────────────────────────
 
