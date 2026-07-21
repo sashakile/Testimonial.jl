@@ -607,7 +607,10 @@ function _load_per_component_indices(parent::Module, components::Vector{Symbol})
                 if isempty(merged_git_hash) && !isempty(comp_index.git_hash)
                     merged_git_hash = comp_index.git_hash
                 end
-                # Capture the first non-empty component graph
+                # Capture the first non-empty component graph.
+                # Invariant: all per-component indices share the same full
+                # inter_component_edges (the graph is built once and saved
+                # identically to each). Taking the first non-empty one is safe.
                 if isempty(merged_edges) && !isempty(comp_index.inter_component_edges)
                     merged_edges = comp_index.inter_component_edges
                 end

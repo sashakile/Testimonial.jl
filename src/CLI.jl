@@ -166,7 +166,7 @@ Only components that transitively depend on changed code are searched.
 3. Get git diff — `:full_suite` if diff fails or is empty
 4. Check for suite-trigger files (Project.toml, Manifest.toml)
 5. Check for always-run prefixes (runtests.jl)
-6. Resolve affected components (bottom-up) — `:full_suite` if component mode and no changed components
+6. Resolve affected components (bottom-up) — returns empty list if no components are affected
 7. Run per-component queries in parallel (component mode) or single query (flat mode)
 8. Check coverage gaps — `:full_suite` if gaps exist
 9. Return selected items
@@ -222,63 +222,33 @@ function run(; base_ref::String="origin/main",
     end
 
     # Step 6: Determine if component-aware mode
-    has_component_data = !isempty(index.inter_component_edges)
+    component_edges = if !isempty(index.inter_component_edges)
+        index.inter_component_edges
+    else
+        loaded = parent.load_component_graph()
+        isempty(loaded) ? nothing : loaded
+    end
 
     abs_test_dirs = [isabspath(d) ? d : abspath(d) for d in test_dirs]
 
-    if has_component_data
+    if component_edges !== nothing
         # Step 6a: Load component path map
-        proj_root = if project_dir !== nothing
-            String(project_dir)
-        else
-            try
-                _git_repo_root()
-            catch
-                pwd()
-            end
-        end
+        proj_root = project_dir !== nothing ? String(project_dir) : _git_repo_root()
         path_map = parent.component_paths(proj_root)
 
-        # Step 6b: Resolve affected components (bottom-up)
-        affected = _resolve_affected_components(
-            index.inter_component_edges, changed_files, path_map,
-        )
-
-        if isempty(affected)
-            # Changed files don't belong to any known component — safe to skip
-            return TestItemRef[]
-        end
-
-        # Step 6c: Run per-component queries in parallel
-        comps = collect(affected)
-        n_comps = length(comps)
-        comp_results = Vector{Union{Vector, Nothing}}(undef, n_comps)
-
-        Threads.@threads for i in 1:n_comps
-            comp = comps[i]
-            results = parent.query(
-                [parent.direct_change_provider, parent.unresolved_provider],
-                index,
-                changed;
-                component=comp,
+        if isempty(path_map)
+            # Project.toml missing — fall back to flat mode
+            @warn "No components discovered — falling back to flat mode"
+            selected = parent.query_files(index, changed_files)
+            filtered = [
+                item for item in selected
+                if any(startswith(item.item.file, d) for d in abs_test_dirs)
+            ]
+        else
+            filtered = _run_component_aware(
+                index, changed, changed_files, abs_test_dirs, path_map, component_edges,
             )
-            comp_results[i] = results
         end
-
-        # Merge results and filter by test directories
-        selected = parent.ImpactResult[]
-        for i in 1:n_comps
-            results = comp_results[i]
-            if results !== nothing
-                for r in results
-                    if r.selected && any(startswith(r.item.file, d) for d in abs_test_dirs)
-                        push!(selected, r)
-                    end
-                end
-            end
-        end
-
-        filtered = selected
     else
         # Step 6: Flat mode — single query
         selected = parent.query_files(index, changed_files)
@@ -370,6 +340,69 @@ function _resolve_affected_components(
     end
 
     return affected
+end
+
+# ── Component-aware query orchestration ────────
+
+"""
+    _run_component_aware(index, changed, changed_files, abs_test_dirs, path_map, edges) -> Vector{ImpactResult}
+
+Run per-component queries in parallel for all components transitively
+affected by the changed files.
+
+Resolves the affected component set via `_resolve_affected_components`,
+then runs per-component queries using `Threads.@threads`. Results are
+merged and filtered to only include items in test directories.
+
+Returns an empty `ImpactResult[]` if no components are affected.
+"""
+function _run_component_aware(
+    index,
+    changed::Dict{String, Set{Int}},
+    changed_files::Vector{String},
+    abs_test_dirs::Vector{String},
+    path_map::Dict{Symbol, String},
+    edges::Dict{String, Set{String}},
+)::Vector
+    parent = Base.parentmodule(@__MODULE__)
+
+    # Resolve affected components (bottom-up)
+    affected = _resolve_affected_components(edges, changed_files, path_map)
+
+    if isempty(affected)
+        return parent.ImpactResult[]
+    end
+
+    # Run per-component queries in parallel
+    comps = collect(affected)
+    n_comps = length(comps)
+    comp_results = Vector{Union{Vector, Nothing}}(undef, n_comps)
+
+    Threads.@threads for i in 1:n_comps
+        comp = comps[i]
+        results = parent.query(
+            [parent.direct_change_provider, parent.unresolved_provider],
+            index,
+            changed;
+            component=comp,
+        )
+        comp_results[i] = results
+    end
+
+    # Merge results and filter by test directories
+    selected = parent.ImpactResult[]
+    for i in 1:n_comps
+        results = comp_results[i]
+        if results !== nothing
+            for r in results
+                if r.selected && any(startswith(r.item.file, d) for d in abs_test_dirs)
+                    push!(selected, r)
+                end
+            end
+        end
+    end
+
+    return selected
 end
 
 # ── Git helpers ────────────────────────────────
