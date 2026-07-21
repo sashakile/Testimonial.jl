@@ -168,7 +168,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 851.0,
+          "actual": 915.0,
           "limit": 400.0
         }
       ],
@@ -227,7 +227,7 @@
         {
           "name": "load_index",
           "kind": "Function",
-          "start_line": 491,
+          "start_line": 548,
           "metrics": {
             "cyclomatic": 5,
             "cognitive": 4,
@@ -820,6 +820,13 @@
       "units": []
     },
     {
+      "path": "test/test_component_graph_persistence.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
       "path": "test/test_cov_sidecar.jl",
       "role": "app",
       "diagnostics": [],
@@ -1159,52 +1166,52 @@
     "top_hotspots": [
       {
         "fingerprint": "src/GitDiff.jl::_parse_diff_section::cognitive_max",
-        "count": 60,
+        "count": 61,
         "distinct_days": 5
       },
       {
         "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cognitive_max",
-        "count": 26,
+        "count": 27,
         "distinct_days": 3
       },
       {
-        "fingerprint": "src/Protocol.jl::_build_static_edges::function_lines_max",
-        "count": 24,
+        "fingerprint": "src/Protocol.jl::handle_run_args::function_lines_max",
+        "count": 25,
         "distinct_days": 2
       },
       {
-        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cyclomatic_max",
-        "count": 24,
+        "fingerprint": "src/GitDiff.jl::_parse_diff_section::function_lines_max",
+        "count": 25,
         "distinct_days": 2
       },
       {
-        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::abc_max",
-        "count": 24,
-        "distinct_days": 2
-      },
-      {
-        "fingerprint": "src/Protocol.jl::_append_runtime_edges::function_lines_max",
-        "count": 24,
-        "distinct_days": 2
-      },
-      {
-        "fingerprint": "src/Protocol.jl::_ingest_one_item::function_lines_max",
-        "count": 24,
-        "distinct_days": 2
-      },
-      {
-        "fingerprint": "src/GitDiff.jl::_parse_diff_section::abc_max",
-        "count": 24,
+        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::cyclomatic_max",
+        "count": 25,
         "distinct_days": 2
       },
       {
         "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::function_lines_max",
-        "count": 24,
+        "count": 25,
         "distinct_days": 2
       },
       {
-        "fingerprint": "src/Protocol.jl::handle_run_args::function_lines_max",
-        "count": 24,
+        "fingerprint": "src/Protocol.jl::_append_runtime_edges::function_lines_max",
+        "count": 25,
+        "distinct_days": 2
+      },
+      {
+        "fingerprint": "src/Protocol.jl::_build_static_edges::cyclomatic_max",
+        "count": 25,
+        "distinct_days": 2
+      },
+      {
+        "fingerprint": "src/Protocol.jl::_build_static_edges::function_lines_max",
+        "count": 25,
+        "distinct_days": 2
+      },
+      {
+        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::function_lines_max",
+        "count": 25,
         "distinct_days": 2
       }
     ],
@@ -1213,7 +1220,7 @@
         "rule_key": "function_lines_max",
         "role": "app",
         "area": "src",
-        "count": 240,
+        "count": 250,
         "distinct_files": 4,
         "distinct_days": 2
       },
@@ -1221,7 +1228,7 @@
         "rule_key": "cyclomatic_max",
         "role": "app",
         "area": "src",
-        "count": 120,
+        "count": 125,
         "distinct_files": 3,
         "distinct_days": 2
       },
@@ -1229,7 +1236,7 @@
         "rule_key": "abc_max",
         "role": "app",
         "area": "src",
-        "count": 96,
+        "count": 100,
         "distinct_files": 3,
         "distinct_days": 2
       },
@@ -1237,7 +1244,7 @@
         "rule_key": "cognitive_max",
         "role": "app",
         "area": "src",
-        "count": 87,
+        "count": 89,
         "distinct_files": 3,
         "distinct_days": 5
       }
