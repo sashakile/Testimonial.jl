@@ -38,4 +38,5 @@ include("helpers.jl")
     include("test_load_index_components.jl")
     include("test_migrate_index.jl")
     include("test_inter_component_edges.jl")
+    include("test_component_graph.jl")
 end

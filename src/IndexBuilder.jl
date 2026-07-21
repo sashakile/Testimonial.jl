@@ -319,6 +319,9 @@ function _save_per_component_indices(
     # If no components discovered, nothing to save
     isempty(path_map) && return nothing
 
+    # Build component graph from coverage data
+    edges = _build_component_graph(parent, item_map, path_map)
+
     # Group items by component
     comp_groups = Dict{String, Vector{Pair{Any, Any}}}()
     for (ref, ic) in item_map
@@ -336,14 +339,16 @@ function _save_per_component_indices(
         push!(comp_groups[comp], ref => ic)
     end
 
-    # Build and save per-component indices
+    # Build and save per-component indices with component graph
     for (comp_name, pairs) in comp_groups
         comp_map = Dict{typeof(first(pairs).first), typeof(first(pairs).second)}()
         for (ref, ic) in pairs
             comp_map[ref] = ic
         end
 
-        comp_index = parent.CoverageIndex(comp_map, git_sha, string(VERSION), v"0.1.0", now())
+        comp_index = parent.CoverageIndex(
+            comp_map, git_sha, string(VERSION), v"0.1.0", now(), "", edges
+        )
         comp_path = parent.component_index_path(comp_name)
         save_index(comp_index, comp_path)
     end
@@ -353,6 +358,52 @@ function _save_per_component_indices(
     save_routing(".testimonial", component_names)
 
     return nothing
+end
+
+"""
+    _build_component_graph(parent, item_map, path_map) -> Dict{String, Set{String}}
+
+Build inter-component dependency edges from coverage data.
+
+For each item in the index, examines its covered source files. If a test
+in component B covers a file in component A, records edge B → A.
+
+Returns a dict mapping each component to the set of components it depends on.
+"""
+function _build_component_graph(
+    parent::Module,
+    item_map::Dict,
+    path_map::Dict{Symbol, String}
+)::Dict{String, Set{String}}
+    edges = Dict{String, Set{String}}()
+
+    for (ref, ic) in item_map
+        # Determine test's component
+        test_comp = if ref.component != ""
+            ref.component
+        else
+            result = parent.component_of(ref.file, path_map)
+            result === nothing ? nothing : string(result)
+        end
+        test_comp === nothing && continue
+
+        # Check each source file this test covers
+        for (src_file, _) in ic.source_files
+            src_comp = parent.component_of(src_file, path_map)
+            src_comp === nothing && continue
+            src_comp_str = string(src_comp)
+
+            # If cross-component: test component depends on source component
+            if src_comp_str != test_comp
+                if !haskey(edges, test_comp)
+                    edges[test_comp] = Set{String}()
+                end
+                push!(edges[test_comp], src_comp_str)
+            end
+        end
+    end
+
+    return edges
 end
 
 export record_all, build_index
@@ -775,5 +826,26 @@ function migrate_index(testimonial_dir::AbstractString, project_dir::AbstractStr
 
     return nothing
 end
+
+"""
+    build_component_graph!(index::CoverageIndex, path_map::Dict{Symbol, String}) -> Dict{String, Set{String}}
+
+Compute inter-component edges from a CoverageIndex's coverage data.
+
+For each test item, examines its recorded `source_files`. When a test in
+component B covers a file in component A, records edge B → A.
+Intra-component coverage is ignored.
+
+Returns a dict mapping each component to the set of components it depends on.
+The caller should assign this to `index.inter_component_edges` when creating
+a new CoverageIndex (note: CoverageIndex is immutable, so this function
+returns the dict rather than mutating in place).
+"""
+function build_component_graph!(index, path_map::Dict{Symbol, String})::Dict{String, Set{String}}
+    parent = Base.parentmodule(@__MODULE__)
+    return _build_component_graph(parent, index.items, path_map)
+end
+
+export migrate_index, build_component_graph!
 
 end # module IndexBuilder
