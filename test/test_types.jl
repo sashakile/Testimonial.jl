@@ -169,3 +169,33 @@ end
     @test :config ∉ matched_tags
     @test length(matched_tags) == 1
 end
+
+@testset "MissedSelectionIncident struct and IncidentStatus enum" begin
+    # IncidentStatus values exist
+    @test Candidate isa IncidentStatus
+    @test Promoted isa IncidentStatus
+    @test Dismissed isa IncidentStatus
+
+    # MissedSelectionIncident constructor
+    ref = TestItemRef("test/foo.jl", 42, "test_missed")
+    incident = MissedSelectionIncident("src/lib.jl", ref, now(), Candidate)
+
+    @test incident isa MissedSelectionIncident
+    @test incident.changed_content == "src/lib.jl"
+    @test incident.missed_test == ref
+    @test incident.timestamp isa DateTime
+    @test incident.status == Candidate
+
+    # Equality based on (changed_content, missed_test, status)
+    inc2 = MissedSelectionIncident("src/lib.jl", ref, now(), Candidate)
+    @test incident == inc2
+    @test hash(incident) == hash(inc2)
+
+    # Different status → different identity
+    inc3 = MissedSelectionIncident("src/lib.jl", ref, now(), Promoted)
+    @test incident != inc3
+
+    # Different content → different identity
+    inc4 = MissedSelectionIncident("src/other.jl", ref, now(), Candidate)
+    @test incident != inc4
+end

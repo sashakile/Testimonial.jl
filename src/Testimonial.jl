@@ -13,6 +13,8 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        ImpactResult, CoverageGap, ItemCoverage, CoverageIndex,
        DirectChange, DependencyChange, AlwaysRun, Unresolved,
        AlwaysRunReason, LAST_RUN_FAILED, NEWLY_ADDED, NO_HISTORY, MUST_RUN, QUARANTINED,
+       IncidentStatus, Candidate, Promoted, Dismissed,
+       MissedSelectionIncident,
        DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD,
        consecutive_passes, record_run, should_evict, reset_always_run_state,
        RunEntry, RunHistory, record_duration!, read_durations,
@@ -36,6 +38,13 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
     NO_HISTORY
     MUST_RUN
     QUARANTINED
+end
+
+"""Status of a missed-selection incident."""
+@enum IncidentStatus begin
+    Candidate
+    Promoted
+    Dismissed
 end
 
 # ── Basic structs ──────────────────────────────
@@ -105,6 +114,29 @@ struct CoverageGap
     file :: String
     start_line :: Int
     end_line :: Int
+end
+
+"""A candidate or promoted missed-selection incident.
+
+Records when a full run revealed a test failure that the most recent
+selection would have skipped. Equality is based on (changed_content,
+missed_test, status) — timestamp is excluded from identity.
+"""
+struct MissedSelectionIncident
+    changed_content :: String
+    missed_test :: TestItemRef
+    timestamp :: DateTime
+    status :: IncidentStatus
+end
+
+function Base.:(==)(a::MissedSelectionIncident, b::MissedSelectionIncident)
+    return a.changed_content == b.changed_content &&
+           a.missed_test == b.missed_test &&
+           a.status == b.status
+end
+
+function Base.hash(a::MissedSelectionIncident, h::UInt)
+    return hash(a.changed_content, hash(a.missed_test, hash(a.status, h)))
 end
 
 """Coverage data for a single test item."""
