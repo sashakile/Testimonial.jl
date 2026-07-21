@@ -306,7 +306,7 @@ function unresolved_provider(index, changed_files::Vector{String})::Vector
 
         ref = parent.TestItemRef(norm_file, 0, "")
         reason = parent.ImpactReason(parent.Unresolved, "file not tracked in coverage index: $(norm_file)")
-        push!(results, parent.ImpactResult(ref, [reason], false))
+        push!(results, parent.ImpactResult(ref, [reason], false, "unresolved file: $(norm_file)"))
     end
 
     return results

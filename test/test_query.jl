@@ -331,6 +331,8 @@ end
     @test length(result) == 1
     @test result[1].selected == false
     @test result[1].reasons[1].kind == Testimonial.Unresolved
+    @test result[1].fallback_reason !== nothing
+    @test occursin("unresolved file", result[1].fallback_reason)
 end
 
 @testset "unresolved_provider skips files tracked in index" begin
