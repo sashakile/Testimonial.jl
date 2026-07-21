@@ -2,6 +2,7 @@ module Testimonial
 
 using Dates
 using SHA
+using TOML
 
 # ════════════════════════════════════════════
 # 1. Core types — no dependencies on sub-modules
@@ -19,7 +20,8 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        SEED_FAULT_PATTERNS, run_seeded_fault_test, run_all_seeded_fault_tests,
        discover_components, component_of, component_paths,
        component_index_dir, component_index_path, save_routing, load_routing,
-       select_changed_items, _discover_in_file
+       select_changed_items, _discover_in_file,
+       read_testimonial_config, parse_components_override
 
 # ── Enums (defined before structs that reference them) ──
 
@@ -596,6 +598,58 @@ function run_all_seeded_fault_tests()::Vector{NamedTuple}
     return [run_seeded_fault_test(p) for p in SEED_FAULT_PATTERNS]
 end
 
+# ── TOML config ─────────────────────────────────
+
+"""
+    read_testimonial_config(project_dir::String) -> Dict{String, Any}
+
+Read the Testimonial.toml configuration file from the project directory.
+
+Returns an empty Dict if the file doesn't exist or cannot be parsed.
+"""
+function read_testimonial_config(project_dir::String)::Dict{String, Any}
+    config_path = joinpath(project_dir, "Testimonial.toml")
+    if !isfile(config_path)
+        return Dict{String, Any}()
+    end
+    try
+        return TOML.parsefile(config_path)
+    catch
+        @warn "Failed to parse Testimonial.toml at $config_path"
+        return Dict{String, Any}()
+    end
+end
+
+"""
+    parse_components_override(config::Dict) -> Dict{Symbol, String}
+
+Parse the `[components]` section from a Testimonial.toml config dict.
+
+Expected format:
+```toml
+[components]
+PkgA = "pkgs/PkgA"
+PkgB = "pkgs/PkgB"
+```
+
+Each key-value pair maps a component name (Symbol) to its workspace
+directory path (relative to the project root).
+
+Returns an empty Dict if no `[components]` section exists or the section
+is empty.
+"""
+function parse_components_override(config::Dict{String, Any})::Dict{Symbol, String}
+    if !haskey(config, "components") || !isa(config["components"], Dict)
+        return Dict{Symbol, String}()
+    end
+    components = config["components"]
+    path_map = Dict{Symbol, String}()
+    for (name, path) in components
+        push!(path_map, Symbol(name) => String(path))
+    end
+    return path_map
+end
+
 # ── Component discovery ─────────────────────────
 
 """
@@ -701,6 +755,19 @@ top-level package name is mapped to the project directory itself.
 Returns an empty dict if no Project.toml exists.
 """
 function component_paths(project_dir::String)::Dict{Symbol, String}
+    # Check Testimonial.toml for components override first
+    config = read_testimonial_config(project_dir)
+    if haskey(config, "components") && !isempty(config["components"])
+        raw = parse_components_override(config)
+        # Resolve relative paths against project_dir
+        path_map = Dict{Symbol, String}()
+        for (comp, rel_path) in raw
+            abs_path = isabspath(rel_path) ? rel_path : joinpath(project_dir, rel_path)
+            path_map[comp] = abs_path
+        end
+        return path_map
+    end
+
     proj_path = joinpath(project_dir, "Project.toml")
     if !isfile(proj_path)
         return Dict{Symbol, String}()
