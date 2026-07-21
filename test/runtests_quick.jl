@@ -41,4 +41,5 @@ include("helpers.jl")
     include("test_component_graph.jl")
     include("test_component_graph_persistence.jl")
 include("test_run_history.jl")
+include("test_shard_balance.jl")
 end

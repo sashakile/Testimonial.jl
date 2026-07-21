@@ -17,6 +17,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        consecutive_passes, record_run, should_evict, reset_always_run_state,
        RunEntry, RunHistory, record_duration!, read_durations,
        save_run_history, load_run_history, DEFAULT_RUN_HISTORY_PATH,
+       balance_shards,
        compute_environment_fingerprint, environment_matches,
        MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
        scoped_fallback, collect_fallback_reasons, must_run_with_fallback_priority,
@@ -1021,6 +1022,84 @@ function load_run_history(path::String=DEFAULT_RUN_HISTORY_PATH)::RunHistory
     catch
         return RunHistory()
     end
+end
+
+# ── Shard balancing (duration-based) ──────────────
+
+"""
+    balance_shards(items, durations, n_shards) -> Vector{Vector{TestItemRef}}
+
+Assign test items to shards using greedy duration-balancing.
+
+Sorts items by descending mean duration, then assigns each item to the
+shard with the lowest current total wall-clock time. Items without a
+recorded duration (not in the `durations` dict) are treated as having
+duration 0 and are assigned round-robin after duration-bearing items.
+
+See Decision 4 in openspec/changes/add-component-boundary/design.md:
+"Tests in the selected set are assigned to shards using a greedy
+duration-balancing algorithm (sort by descending mean duration, assign
+each to the currently lightest shard)."
+
+# Arguments
+- `items::Vector{TestItemRef}`: the tests to distribute across shards.
+- `durations::Dict{Tuple{String, String}, Float64}`: per-test mean
+  durations, keyed by `(file, name)` — as returned by `read_durations`.
+- `n_shards::Int`: number of shards to create (must be ≥ 1).
+
+# Returns
+A vector of `n_shards` vectors, each containing the `TestItemRef`s
+assigned to that shard. Shards are ordered by index 1..n_shards.
+
+# Examples
+```julia
+items = [TestItemRef("test/a.jl", 10, "test_a"), TestItemRef("test/b.jl", 5, "test_b")]
+durs = Dict(("test/a.jl", "test_a") => 5.0, ("test/b.jl", "test_b") => 3.0)
+shards = balance_shards(items, durs, 2)
+# shards[1] = [TestItemRef("test/a.jl", ...)]  # total 5.0
+# shards[2] = [TestItemRef("test/b.jl", ...)]  # total 3.0
+```
+"""
+function balance_shards(
+    items::Vector{TestItemRef},
+    durations::Dict{Tuple{String, String}, Float64},
+    n_shards::Int
+)::Vector{Vector{TestItemRef}}
+    n_shards <= 0 && throw(ArgumentError("n_shards must be ≥ 1, got $n_shards"))
+
+    shards = [TestItemRef[] for _ in 1:n_shards]
+    shard_totals = zeros(Float64, n_shards)
+
+    # Separate items with and without known durations
+    has_duration = TestItemRef[]
+    no_duration = TestItemRef[]
+    for item in items
+        key = (item.file, item.name)
+        if haskey(durations, key) && durations[key] > 0
+            push!(has_duration, item)
+        else
+            push!(no_duration, item)
+        end
+    end
+
+    # Sort items with durations by descending duration
+    sort!(has_duration; by=item -> -get(durations, (item.file, item.name), 0.0))
+
+    # Greedy assignment: each item goes to the currently lightest shard
+    for item in has_duration
+        dur = durations[(item.file, item.name)]
+        idx = argmin(shard_totals)
+        push!(shards[idx], item)
+        shard_totals[idx] += dur
+    end
+
+    # Items without recorded durations: round-robin across shards
+    for (i, item) in enumerate(no_duration)
+        idx = ((i - 1) % n_shards) + 1
+        push!(shards[idx], item)
+    end
+
+    return shards
 end
 
 # ════════════════════════════════════════════
