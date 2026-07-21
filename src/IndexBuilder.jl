@@ -354,6 +354,12 @@ function _save_per_component_indices(
         )
         comp_path = parent.component_index_path(comp_name)
         save_index(comp_index, comp_path)
+
+        # Compute and save dependency fingerprint for this component
+        if comp_name != "__unmapped__"
+            fp = compute_dependency_fingerprint(comp_name, path_map, edges, project_dir)
+            save_fingerprint(comp_name, fp)
+        end
     end
 
     # Save routing file with all component names (excluding unmapped)
@@ -866,6 +872,9 @@ function migrate_index(testimonial_dir::AbstractString, project_dir::AbstractStr
         push!(comp_groups[comp], ref => ic)
     end
 
+    # Build component graph from coverage data (before the loop — fingerprints need it)
+    edges = isempty(path_map) ? Dict{String, Set{String}}() : _build_component_graph(parent, flat_index.items, path_map)
+
     # Build and save per-component indices
     comp_dir = joinpath(testimonial_dir, "components")
     for (comp_name, pairs) in comp_groups
@@ -884,10 +893,13 @@ function migrate_index(testimonial_dir::AbstractString, project_dir::AbstractStr
             flat_index.environment_fingerprint,
         )
         save_index(comp_index, comp_idx_path)
-    end
 
-    # Build component graph from coverage data
-    edges = isempty(path_map) ? Dict{String, Set{String}}() : _build_component_graph(parent, flat_index.items, path_map)
+        # Compute and save dependency fingerprint during migration
+        if comp_name != "__unmapped__" && !isempty(path_map)
+            fp = compute_dependency_fingerprint(comp_name, path_map, edges, String(project_dir))
+            save_fingerprint(comp_name, fp)
+        end
+    end
 
     # Save routing file (excluding unmapped)
     component_names = [Symbol(k) for k in keys(comp_groups) if k != "__unmapped__"]
@@ -918,7 +930,133 @@ function build_component_graph!(index, path_map::Dict{Symbol, String})::Dict{Str
     return _build_component_graph(parent, index.items, path_map)
 end
 
+# ── Dependency fingerprint computation ──────────
+
+"""
+    _find_transitive_deps(component_name, edges) -> Set{String}
+
+Find all transitive dependencies of a component, including itself.
+
+`edges[B] = Set([A, C])` means B depends on A and C.
+`_find_transitive_deps("B", edges)` returns `Set(["B", "A", "C"])`.
+"""
+function _find_transitive_deps(component_name::String, edges::Dict{String, Set{String}})::Set{String}
+    deps = Set{String}([component_name])
+    queue = [component_name]
+
+    while !isempty(queue)
+        comp = popfirst!(queue)
+        if haskey(edges, comp)
+            for dep in edges[comp]
+                if dep ∉ deps
+                    push!(deps, dep)
+                    push!(queue, dep)
+                end
+            end
+        end
+    end
+
+    return deps
+end
+
+"""
+    compute_dependency_fingerprint(component_name, path_map, edges, project_dir) -> String
+
+Compute the dependency fingerprint for a component.
+
+The fingerprint is the SHA-256 hash of all source files (`.jl` files under
+`src/`) in the component's transitive dependency closure, combined with the
+environment fingerprint (Julia version + Project.toml hash).
+
+This is used at query time to detect whether a component's dependencies have
+changed: if the stored fingerprint matches the current fingerprint, the cached
+selection can be reused.
+
+Returns a 64-character hex string (SHA-256).
+"""
+function compute_dependency_fingerprint(
+    component_name::String,
+    path_map::Dict{Symbol, String},
+    edges::Dict{String, Set{String}},
+    project_dir::String,
+)::String
+    parent = Base.parentmodule(@__MODULE__)
+
+    # Step 1: Find all transitive dependencies (including the component itself)
+    deps = _find_transitive_deps(component_name, edges)
+
+    # Step 2: Collect all source files from these components
+    source_files = String[]
+    for (comp, ws_path) in path_map
+        comp_str = string(comp)
+        if comp_str in deps
+            src_dir = joinpath(ws_path, "src")
+            if isdir(src_dir)
+                append!(source_files, parent._walk_jl_files(src_dir))
+            end
+        end
+    end
+
+    # Step 3: Hash all source files (sorted by path for determinism)
+    hasher = SHA.SHA256_CTX()
+    for f in sort(source_files)
+        content = read(f)
+        SHA.update!(hasher, content)
+    end
+
+    # Step 4: Include environment fingerprint
+    env_fp = parent.compute_environment_fingerprint(project_dir)
+    SHA.update!(hasher, codeunits(env_fp))
+
+    return bytes2hex(SHA.digest!(hasher))
+end
+
+"""
+    save_fingerprint(component_name::String, fingerprint::String) -> Nothing
+
+Save the dependency fingerprint for a component to
+`.testimonial/components/<component_name>/fingerprint.jls`.
+
+Creates parent directories if needed and writes atomically.
+"""
+function save_fingerprint(component_name::String, fingerprint::String)::Nothing
+    fp_path = joinpath(".testimonial", "components", component_name, "fingerprint.jls")
+    mkpath(dirname(fp_path))
+    tmppath = fp_path * ".tmp"
+    open(tmppath, "w") do io
+        serialize(io, fingerprint)
+    end
+    mv(tmppath, fp_path; force=true)
+    return nothing
+end
+
+"""
+    load_fingerprint(component_name::String) -> Union{String, Nothing}
+
+Load the dependency fingerprint for a component from
+`.testimonial/components/<component_name>/fingerprint.jls`.
+
+Returns `nothing` if the file doesn't exist, is corrupted, or
+deserialization fails.
+"""
+function load_fingerprint(component_name::String)::Union{String, Nothing}
+    fp_path = joinpath(".testimonial", "components", component_name, "fingerprint.jls")
+    if !isfile(fp_path)
+        return nothing
+    end
+    try
+        result = open(deserialize, fp_path, "r")
+        if result isa String
+            return result
+        end
+        return nothing
+    catch
+        return nothing
+    end
+end
+
 export migrate_index, build_component_graph!,
-       save_component_graph, load_component_graph
+       save_component_graph, load_component_graph,
+       compute_dependency_fingerprint, save_fingerprint, load_fingerprint
 
 end # module IndexBuilder

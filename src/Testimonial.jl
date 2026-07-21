@@ -870,7 +870,7 @@ export record_item, build_driver_command, AbstractRunner, SubprocessRunner, pars
 
 include("IndexBuilder.jl")
 using .IndexBuilder
-export record_all, build_index, save_index, load_index, is_index_stale, clean_cache, migrate_index, build_component_graph!, save_component_graph, load_component_graph
+export record_all, build_index, save_index, load_index, is_index_stale, clean_cache, migrate_index, build_component_graph!, save_component_graph, load_component_graph, compute_dependency_fingerprint, save_fingerprint, load_fingerprint
 
 include("Query.jl")
 using .Query
