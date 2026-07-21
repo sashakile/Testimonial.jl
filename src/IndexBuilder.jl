@@ -678,6 +678,102 @@ function load_routing(dir::AbstractString)::Vector{Symbol}
     end
 end
 
-export component_index_dir, component_index_path, save_routing, load_routing
+export component_index_dir, component_index_path, save_routing, load_routing,
+       migrate_index
+
+"""
+    migrate_index(testimonial_dir::AbstractString, project_dir::AbstractString) -> Nothing
+
+Migrate a flat CoverageIndex to the per-component layout.
+
+Reads the old flat index from `<testimonial_dir>/index.jls`, groups items by
+component (using `component_paths` and `component_of`), writes per-component
+indices to `<testimonial_dir>/components/<name>/index.jls`, and writes
+the routing file at `<testimonial_dir>/index.jls`.
+
+If the index is already migrated (routing file exists), this is a no-op.
+If no Project.toml exists, items are saved under a single default component.
+"""
+function migrate_index(testimonial_dir::AbstractString, project_dir::AbstractString)::Nothing
+    testimonial_dir = String(testimonial_dir)
+    project_dir = String(project_dir)
+    parent = Base.parentmodule(@__MODULE__)
+
+    routing_path = joinpath(testimonial_dir, "index.jls")
+
+    # Check if already migrated (routing file is a Vector{Symbol})
+    if isfile(routing_path)
+        try
+            existing = open(deserialize, routing_path, "r")
+            if existing isa Vector{Symbol}
+                return nothing  # Already migrated
+            end
+        catch
+            # Corrupted or old format — proceed with migration
+        end
+    end
+
+    # Load the flat index (old format or direct path)
+    flat_index = if isfile(routing_path)
+        try
+            result = open(deserialize, routing_path, "r")
+            result isa parent.CoverageIndex ? result : nothing
+        catch
+            nothing
+        end
+    else
+        nothing
+    end
+
+    flat_index === nothing && return nothing
+
+    # Discover components
+    path_map = parent.component_paths(project_dir)
+    abs_project_dir = abspath(project_dir)
+
+    # Group items by component
+    comp_groups = Dict{String, Vector{Pair{Any, Any}}}()
+    for (ref, ic) in flat_index.items
+        comp = if ref.component != ""
+            ref.component
+        else
+            # Resolve file to absolute path for component matching
+            abs_file = isabspath(ref.file) ? ref.file : joinpath(abs_project_dir, ref.file)
+            result = isempty(path_map) ? nothing : parent.component_of(abs_file, path_map)
+            result === nothing ? "__unmapped__" : string(result)
+        end
+
+        if !haskey(comp_groups, comp)
+            comp_groups[comp] = Pair{Any, Any}[]
+        end
+        push!(comp_groups[comp], ref => ic)
+    end
+
+    # Build and save per-component indices
+    comp_dir = joinpath(testimonial_dir, "components")
+    for (comp_name, pairs) in comp_groups
+        comp_map = Dict{typeof(first(pairs).first), typeof(first(pairs).second)}()
+        for (ref, ic) in pairs
+            comp_map[ref] = ic
+        end
+
+        comp_idx_path = joinpath(comp_dir, comp_name, "index.jls")
+        comp_index = parent.CoverageIndex(
+            comp_map,
+            flat_index.git_hash,
+            flat_index.julia_version,
+            flat_index.schema_version,
+            flat_index.created_at,
+            flat_index.environment_fingerprint,
+        )
+        save_index(comp_index, comp_idx_path)
+    end
+
+    # Save routing file (excluding unmapped)
+    component_names = [Symbol(k) for k in keys(comp_groups) if k != "__unmapped__"]
+    save_routing(testimonial_dir, component_names)
+
+    return nothing
+end
 
 end # module IndexBuilder

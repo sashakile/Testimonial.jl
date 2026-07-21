@@ -36,4 +36,5 @@ include("helpers.jl")
     include("test_component_directory.jl")
     include("test_record_all_components.jl")
     include("test_load_index_components.jl")
+    include("test_migrate_index.jl")
 end

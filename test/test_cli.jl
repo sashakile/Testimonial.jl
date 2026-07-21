@@ -30,7 +30,7 @@ using Test
             @test info.index_present == true
             @test info.git_sha == "abc123"
             @test info.julia_version == string(VERSION)
-            @test info.schema_version == 1
+            @test info.schema_version == 2
             @test info.item_count == 1
             @test info.file_count == 1
             @test info.age_hours isa Float64

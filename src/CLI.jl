@@ -18,7 +18,7 @@ export index_info, explain, run, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS
 # ── Constants ──────────────────────────────────
 
 """Current schema version for CoverageIndex. Bump on breaking changes."""
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 
 """Default staleness threshold in hours. Beyond this, full suite runs."""
 const STALE_INDEX_THRESHOLD_HOURS = 24
