@@ -73,12 +73,16 @@ struct ImpactResult
     item :: TestItemRef
     reasons :: Vector{ImpactReason}
     selected :: Bool
+    fallback_reason :: Union{Nothing, String}
 end
 
-# Default: selected = true when reasons are present
+# Default: selected = true when reasons are present, fallback_reason = nothing
 function ImpactResult(item::TestItemRef, reasons::Vector{ImpactReason})
-    ImpactResult(item, reasons, !isempty(reasons))
+    ImpactResult(item, reasons, !isempty(reasons), nothing)
 end
+
+# Convenience constructor without fallback_reason (for backward compat)
+ImpactResult(item, reasons, selected) = ImpactResult(item, reasons, selected, nothing)
 
 # ── Coverage types ─────────────────────────────
 

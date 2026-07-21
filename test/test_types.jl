@@ -84,12 +84,20 @@ end
     @test result.item == ref
     @test length(result.reasons) == 1
     @test result.selected == true
+    @test result.fallback_reason === nothing
 end
 
 @testset "ImpactResult not selected when no reasons" begin
     ref = TestItemRef("test/bar.jl", 10, "test_bar")
     result = ImpactResult(ref, ImpactReason[])
     @test result.selected == false
+    @test result.fallback_reason === nothing
+end
+
+@testset "ImpactResult with fallback_reason" begin
+    ref = TestItemRef("test/bar.jl", 10, "test_bar")
+    result = ImpactResult(ref, ImpactReason[], false, "unresolved file: src/lib.jl")
+    @test result.fallback_reason == "unresolved file: src/lib.jl"
 end
 
 @testset "CoverageGap" begin
