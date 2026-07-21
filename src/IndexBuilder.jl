@@ -478,4 +478,75 @@ function clean_cache(; test_dirs::Vector{String}=String["test/"],
     return removed
 end
 
+# ── Per-component index directory structure ───
+
+"""
+    component_index_dir() -> String
+
+Return the base directory for per-component coverage indices.
+
+Indices are stored under `.testimonial/components/<component_name>/index.jls`.
+"""
+function component_index_dir()::String
+    return joinpath(".testimonial", "components")
+end
+
+"""
+    component_index_path(component::String) -> String
+
+Return the path to a component's coverage index file.
+
+Returns `.testimonial/components/<component>/index.jls`.
+"""
+function component_index_path(component::String)::String
+    return joinpath(component_index_dir(), component, "index.jls")
+end
+
+"""
+    save_routing(dir::AbstractString, components::Vector{Symbol}) -> Nothing
+
+Save a routing file at `<dir>/index.jls` enumerating available components.
+
+The routing file is a serialized `Vector{Symbol}` that lists all component
+names whose indices are stored under `<dir>/components/<name>/`.
+
+Creates parent directories if needed and writes atomically.
+"""
+function save_routing(dir::AbstractString, components::Vector{Symbol})::Nothing
+    routing_path = joinpath(String(dir), "index.jls")
+    mkpath(String(dir))
+    tmppath = routing_path * ".tmp"
+    open(tmppath, "w") do io
+        serialize(io, components)
+    end
+    mv(tmppath, routing_path; force=true)
+    return nothing
+end
+
+"""
+    load_routing(dir::AbstractString) -> Vector{Symbol}
+
+Load the routing file from `<dir>/index.jls`.
+
+Returns the list of available component names, or an empty vector if no
+routing file exists, is corrupted, or deserialization fails.
+"""
+function load_routing(dir::AbstractString)::Vector{Symbol}
+    routing_path = joinpath(String(dir), "index.jls")
+    if !isfile(routing_path)
+        return Symbol[]
+    end
+    try
+        result = open(deserialize, routing_path, "r")
+        if result isa Vector{Symbol}
+            return result
+        end
+        return Symbol[]
+    catch
+        return Symbol[]
+    end
+end
+
+export component_index_dir, component_index_path, save_routing, load_routing
+
 end # module IndexBuilder

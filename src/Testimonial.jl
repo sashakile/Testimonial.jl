@@ -18,6 +18,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        scoped_fallback, collect_fallback_reasons, must_run_with_fallback_priority,
        SEED_FAULT_PATTERNS, run_seeded_fault_test, run_all_seeded_fault_tests,
        discover_components, component_of, component_paths,
+       component_index_dir, component_index_path, save_routing, load_routing,
        select_changed_items, _discover_in_file
 
 # ── Enums (defined before structs that reference them) ──
