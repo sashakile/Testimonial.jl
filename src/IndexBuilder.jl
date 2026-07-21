@@ -585,6 +585,7 @@ function _load_per_component_indices(parent::Module, components::Vector{Symbol})
     merged_git_hash = ""
     merged_julia_version = string(VERSION)
     merged_created_at = now()
+    merged_edges = Dict{String, Set{String}}()
 
     for comp in components
         comp_path = parent.component_index_path(string(comp))
@@ -606,6 +607,10 @@ function _load_per_component_indices(parent::Module, components::Vector{Symbol})
                 if isempty(merged_git_hash) && !isempty(comp_index.git_hash)
                     merged_git_hash = comp_index.git_hash
                 end
+                # Capture the first non-empty component graph
+                if isempty(merged_edges) && !isempty(comp_index.inter_component_edges)
+                    merged_edges = comp_index.inter_component_edges
+                end
             end
         catch
             continue
@@ -613,7 +618,8 @@ function _load_per_component_indices(parent::Module, components::Vector{Symbol})
     end
 
     return parent.CoverageIndex(
-        merged_items, merged_git_hash, merged_julia_version, v"0.1.0", merged_created_at
+        merged_items, merged_git_hash, merged_julia_version, v"0.1.0",
+        merged_created_at, "", merged_edges
     )
 end
 

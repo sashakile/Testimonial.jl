@@ -145,7 +145,8 @@ end
 """
     run(; base_ref::String="origin/main",
           index_path::String=".testimonial/index.jls",
-          test_dirs::Vector{String}=String["test/"]) -> Union{Symbol, Vector}
+          test_dirs::Vector{String}=String["test/"],
+          project_dir::Union{String,Nothing}=nothing) -> Union{Symbol, Vector}
 
 Run the smart test selection pipeline.
 
@@ -155,19 +156,25 @@ Loads the coverage index, checks staleness, parses git diff against
   coverage gaps, or always-run file changed)
 - `Vector{TestItemRef}` — the selected items to run
 
+When the index has component data (non-empty `inter_component_edges`),
+runs per-component queries in parallel using `Threads.@threads`.
+Only components that transitively depend on changed code are searched.
+
 # Pipeline
 1. Load index — `:full_suite` if missing
 2. Check staleness — `:full_suite` if stale
 3. Get git diff — `:full_suite` if diff fails or is empty
 4. Check for suite-trigger files (Project.toml, Manifest.toml)
 5. Check for always-run prefixes (runtests.jl)
-6. Query index for changed files
-7. Check coverage gaps — `:full_suite` if gaps exist
-8. Return selected items
+6. Resolve affected components (bottom-up) — `:full_suite` if component mode and no changed components
+7. Run per-component queries in parallel (component mode) or single query (flat mode)
+8. Check coverage gaps — `:full_suite` if gaps exist
+9. Return selected items
 """
 function run(; base_ref::String="origin/main",
                index_path::String=".testimonial/index.jls",
-               test_dirs::Vector{String}=String["test/"])::Union{Symbol, Vector}
+               test_dirs::Vector{String}=String["test/"],
+               project_dir::Union{String,Nothing}=nothing)::Union{Symbol, Vector}
     parent = Base.parentmodule(@__MODULE__)
 
     # Step 1: Load index
@@ -214,13 +221,72 @@ function run(; base_ref::String="origin/main",
         end
     end
 
-    # Step 6: Query index for changed files in test directories
-    selected = parent.query_files(index, changed_files)
+    # Step 6: Determine if component-aware mode
+    has_component_data = !isempty(index.inter_component_edges)
+
     abs_test_dirs = [isabspath(d) ? d : abspath(d) for d in test_dirs]
-    filtered = [
-        item for item in selected
-        if any(startswith(item.item.file, d) for d in abs_test_dirs)
-    ]
+
+    if has_component_data
+        # Step 6a: Load component path map
+        proj_root = if project_dir !== nothing
+            String(project_dir)
+        else
+            try
+                _git_repo_root()
+            catch
+                pwd()
+            end
+        end
+        path_map = parent.component_paths(proj_root)
+
+        # Step 6b: Resolve affected components (bottom-up)
+        affected = _resolve_affected_components(
+            index.inter_component_edges, changed_files, path_map,
+        )
+
+        if isempty(affected)
+            # Changed files don't belong to any known component — safe to skip
+            return TestItemRef[]
+        end
+
+        # Step 6c: Run per-component queries in parallel
+        comps = collect(affected)
+        n_comps = length(comps)
+        comp_results = Vector{Union{Vector, Nothing}}(undef, n_comps)
+
+        Threads.@threads for i in 1:n_comps
+            comp = comps[i]
+            results = parent.query(
+                [parent.direct_change_provider, parent.unresolved_provider],
+                index,
+                changed;
+                component=comp,
+            )
+            comp_results[i] = results
+        end
+
+        # Merge results and filter by test directories
+        selected = parent.ImpactResult[]
+        for i in 1:n_comps
+            results = comp_results[i]
+            if results !== nothing
+                for r in results
+                    if r.selected && any(startswith(r.item.file, d) for d in abs_test_dirs)
+                        push!(selected, r)
+                    end
+                end
+            end
+        end
+
+        filtered = selected
+    else
+        # Step 6: Flat mode — single query
+        selected = parent.query_files(index, changed_files)
+        filtered = [
+            item for item in selected
+            if any(startswith(item.item.file, d) for d in abs_test_dirs)
+        ]
+    end
 
     # Step 7: Check coverage gaps in changed source files
     source_files = [f for f in changed_files
@@ -234,6 +300,76 @@ function run(; base_ref::String="origin/main",
     end
 
     return filtered
+end
+
+# ── Component-aware bottom-up resolution ────────
+
+"""
+    _resolve_affected_components(edges, changed_files, path_map) -> Set{String}
+
+Resolve which components are affected by the given changed files,
+using bottom-up traversal of the component dependency graph.
+
+For each changed file, determines its owning component via
+`component_of(file, path_map)`. Then for each affected component,
+finds all components that transitively depend on it (using the
+component graph's reverse edges).
+
+Returns the set of affected component names (strings). Returns an
+empty set if no changed files belong to any known component.
+
+# Component graph convention
+`edges[B] = Set([A, C])` means component B depends on A and C.
+If A is changed, B (and components that depend on B) must be searched.
+"""
+function _resolve_affected_components(
+    edges::Dict{String, Set{String}},
+    changed_files::Vector{String},
+    path_map::Dict{Symbol, String},
+)::Set{String}
+    parent = Base.parentmodule(@__MODULE__)
+
+    # Step 1: Find which components own the changed files
+    changed_components = Set{String}()
+    for f in changed_files
+        comp = parent.component_of(f, path_map)
+        if comp !== nothing
+            push!(changed_components, string(comp))
+        end
+    end
+
+    isempty(changed_components) && return changed_components
+
+    # Step 2: Build reverse edge map: component → set of components that depend on it
+    reverse_edges = Dict{String, Set{String}}()
+    for (dep, deps) in edges
+        for d in deps
+            if !haskey(reverse_edges, d)
+                reverse_edges[d] = Set{String}()
+            end
+            push!(reverse_edges[d], dep)
+        end
+    end
+
+    # Step 3: BFS from changed components along reverse edges
+    affected = copy(changed_components)
+    queue = collect(changed_components)
+    visited = Set(changed_components)
+
+    while !isempty(queue)
+        comp = popfirst!(queue)
+        if haskey(reverse_edges, comp)
+            for dependent in reverse_edges[comp]
+                if dependent ∉ visited
+                    push!(visited, dependent)
+                    push!(affected, dependent)
+                    push!(queue, dependent)
+                end
+            end
+        end
+    end
+
+    return affected
 end
 
 # ── Git helpers ────────────────────────────────
