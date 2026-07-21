@@ -36,13 +36,19 @@ For each file:
 Results are deduplicated: if multiple changed files affect the same test
 item, the item appears once with all reasons accumulated.
 """
-function query_files(index, files::Vector{String})::Vector
+function query_files(index, files::Vector{String}; component::Union{String,Nothing}=nothing)::Vector
     parent = _parent()
     isempty(files) && return parent.ImpactResult[]
 
     # Build a reverse index: file_path -> [TestItemRef, ...]
     file_to_items = Dict{String, Vector{parent.TestItemRef}}()
     for (ref, _) in index.items
+        # Filter by component if specified
+        if component !== nothing
+            if ref.component == "" || ref.component != component
+                continue
+            end
+        end
         f = ref.file
         if !haskey(file_to_items, f)
             file_to_items[f] = parent.TestItemRef[]
@@ -67,7 +73,8 @@ function query_files(index, files::Vector{String})::Vector
                 reason = parent.ImpactReason(parent.DirectChange, "file changed: $(norm_file)")
                 push!(results, parent.ImpactResult(ref, [reason], true))
             end
-        else
+        elseif component === nothing
+            # Only emit unresolved when not filtering by component
             ref = parent.TestItemRef(norm_file, 0, "")
             reason = parent.ImpactReason(parent.Unresolved, "file not tracked in coverage index: $(norm_file)")
             push!(results, parent.ImpactResult(ref, [reason], false))
@@ -226,7 +233,7 @@ for r in results
 end
 ```
 """
-function query(providers::Vector{<:Function}, index, changed::Dict{String, Set{Int}})::Vector
+function query(providers::Vector{<:Function}, index, changed::Dict{String, Set{Int}}; component::Union{String,Nothing}=nothing)::Vector
     parent = _parent()
     isempty(changed) && return parent.ImpactResult[]
 
@@ -237,7 +244,7 @@ function query(providers::Vector{<:Function}, index, changed::Dict{String, Set{I
     item_map = Dict{Pair{String, String}, Tuple{Any, Vector{Any}, Bool}}()
 
     for provider in providers
-        provider_results = provider(index, changed_files)
+        provider_results = provider(index, changed_files; component=component)
         for r in provider_results
             key = r.item.file => r.item.name
             if haskey(item_map, key)
@@ -266,8 +273,8 @@ reasons for all items in those files.
 
 This is a provider function suitable for use with `query`.
 """
-function direct_change_provider(index, changed_files::Vector{String})::Vector
-    return query_files(index, changed_files)
+function direct_change_provider(index, changed_files::Vector{String}; component::Union{String,Nothing}=nothing)::Vector
+    return query_files(index, changed_files; component=component)
 end
 
 """
@@ -279,7 +286,7 @@ coverage data.
 
 This is a provider function suitable for use with `query`.
 """
-function unresolved_provider(index, changed_files::Vector{String})::Vector
+function unresolved_provider(index, changed_files::Vector{String}; component::Union{String,Nothing}=nothing)::Vector
     parent = _parent()
 
     # Build set of tracked files
@@ -321,7 +328,7 @@ are provided.
 
 This is a provider function suitable for use with `query`.
 """
-function must_run_provider(index, changed_files::Vector{String}; must_run_rules::Vector=parent.MustRunRule[])
+function must_run_provider(index, changed_files::Vector{String}; must_run_rules::Vector=parent.MustRunRule[], component::Union{String,Nothing}=nothing)
     parent = _parent()
     isempty(must_run_rules) && return parent.ImpactResult[]
 

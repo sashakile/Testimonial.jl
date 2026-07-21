@@ -29,7 +29,7 @@ using Dates
 
     # Step 3: run must_run_provider
     providers = [
-        (idx, files) -> Testimonial.must_run_provider(idx, files; must_run_rules=rules),
+        (idx, files; kw...) -> Testimonial.must_run_provider(idx, files; must_run_rules=rules, kw...),
         Testimonial.direct_change_provider,
     ]
     changed = Dict("src/critical/payment.jl" => Set([1, 2, 3]))

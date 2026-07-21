@@ -29,6 +29,22 @@ function make_test_index(pairs::Vector{Tuple{String, String, Vector{Int}}})
     )
 end
 
+"""Create a CoverageIndex with per-item components, for scope testing."""
+function make_scoped_index(pairs::Vector{Tuple{String, String, Vector{Int}, String}})
+    items = Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}()
+    for (file, name, covered, component) in pairs
+        ref = Testimonial.TestItemRef(file, 1, name, Symbol[], "", nothing, component)
+        items[ref] = Testimonial.ItemCoverage(ref, covered, Int[], Dict())
+    end
+    return Testimonial.CoverageIndex(
+        items,
+        "abc1234",
+        string(VERSION),
+        v"0.1.0",
+        now()
+    )
+end
+
 # ── query_files ───────────────────────────────
 
 @testset "query_files returns DirectChange for tracked test file" begin
@@ -407,4 +423,58 @@ end
 
     results = Testimonial.query(empty_providers, index, changed)
     @test isempty(results)
+end
+
+@testset "query_files with component scope filters results" begin
+    index = make_scoped_index([
+        ("/proj/pkgs/A/test/foo_test.jl", "test_a", [1, 2, 3], "PkgA"),
+        ("/proj/pkgs/B/test/bar_test.jl", "test_b", [4, 5, 6], "PkgB"),
+    ])
+
+    result = Testimonial.query_files(index, ["/proj/pkgs/A/test/foo_test.jl", "/proj/pkgs/B/test/bar_test.jl"]; component="PkgA")
+
+    @test length(result) == 1
+    @test result[1].item.name == "test_a"
+    @test result[1].selected == true
+
+    # PkgB items should not appear
+    @test !any(r -> r.item.name == "test_b", result)
+end
+
+@testset "direct_change_provider with component scope" begin
+    index = make_scoped_index([
+        ("/proj/pkgs/A/test/foo_test.jl", "test_a", [1, 2, 3], "PkgA"),
+        ("/proj/pkgs/B/test/bar_test.jl", "test_b", [4, 5, 6], "PkgB"),
+    ])
+
+    result = Testimonial.direct_change_provider(index, [
+        "/proj/pkgs/A/test/foo_test.jl",
+        "/proj/pkgs/B/test/bar_test.jl",
+    ]; component="PkgB")
+
+    @test length(result) == 1
+    @test result[1].item.name == "test_b"
+end
+
+@testset "query with component scope" begin
+    # Set item components manually
+    ref_a = TestItemRef("/proj/pkgs/A/test/foo_test.jl", 1, "test_a", Symbol[], "", nothing, "PkgA")
+    ref_b = TestItemRef("/proj/pkgs/B/test/bar_test.jl", 1, "test_b", Symbol[], "", nothing, "PkgB")
+    ic_a = ItemCoverage(ref_a, [1, 2, 3], Int[], Dict())
+    ic_b = ItemCoverage(ref_b, [4, 5, 6], Int[], Dict())
+    index = CoverageIndex(
+        Dict{TestItemRef, ItemCoverage}(ref_a => ic_a, ref_b => ic_b),
+        "abc", string(VERSION), v"0.1.0", now()
+    )
+
+    providers = [Testimonial.direct_change_provider, Testimonial.unresolved_provider]
+    changed = Dict{String, Set{Int}}(
+        "/proj/pkgs/A/test/foo_test.jl" => Set([1, 2, 3]),
+        "/proj/pkgs/B/test/bar_test.jl" => Set([4, 5, 6]),
+    )
+
+    results = Testimonial.query(providers, index, changed; component="PkgA")
+
+    @test length(results) == 1
+    @test results[1].item.name == "test_a"
 end

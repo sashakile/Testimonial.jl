@@ -68,7 +68,7 @@ end
     index = CoverageIndex(items, "abc", string(VERSION), v"0.1.0", now())
 
     providers = [
-        (idx, files) -> Testimonial.must_run_provider(idx, files; must_run_rules=rules),
+        (idx, files; kw...) -> Testimonial.must_run_provider(idx, files; must_run_rules=rules, kw...),
         Testimonial.direct_change_provider,
     ]
 
