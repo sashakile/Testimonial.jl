@@ -19,6 +19,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        consecutive_passes, record_run, should_evict, reset_always_run_state,
        RunEntry, RunHistory, record_duration!, read_durations,
        save_run_history, load_run_history, DEFAULT_RUN_HISTORY_PATH,
+       INCIDENTS_PATH, save_incidents, load_incidents, append_incident,
        balance_shards,
        compute_environment_fingerprint, environment_matches,
        MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
@@ -1054,6 +1055,63 @@ function load_run_history(path::String=DEFAULT_RUN_HISTORY_PATH)::RunHistory
     catch
         return RunHistory()
     end
+end
+
+# ── Incident persistence ──────────────────────────
+
+"""Default path for incident storage."""
+const INCIDENTS_PATH = joinpath(".testimonial", "incidents.jls")
+
+"""
+    save_incidents(incidents::Vector{MissedSelectionIncident}, path::String=INCIDENTS_PATH)
+
+Persist a vector of missed-selection incidents to disk.
+Uses atomic write (tmp + rename).
+"""
+function save_incidents(incidents::Vector{MissedSelectionIncident}, path::String=INCIDENTS_PATH)
+    dir = dirname(path)
+    mkpath(dir)
+    tmppath = path * ".tmp"
+    open(tmppath, "w") do io
+        serialize(io, incidents)
+    end
+    mv(tmppath, path; force=true)
+    return nothing
+end
+
+"""
+    load_incidents(path::String=INCIDENTS_PATH) -> Vector{MissedSelectionIncident}
+
+Load persisted incidents from disk.
+Returns an empty vector if the file doesn't exist, can't be read,
+or fails deserialization.
+"""
+function load_incidents(path::String=INCIDENTS_PATH)::Vector{MissedSelectionIncident}
+    if !isfile(path)
+        return MissedSelectionIncident[]
+    end
+    try
+        result = open(deserialize, path, "r")
+        if result isa Vector{MissedSelectionIncident}
+            return result
+        end
+        return MissedSelectionIncident[]
+    catch
+        return MissedSelectionIncident[]
+    end
+end
+
+"""
+    append_incident(incident::MissedSelectionIncident, path::String=INCIDENTS_PATH)
+
+Load existing incidents, append a new one, and save.
+If the file doesn't exist, starts with an empty list.
+"""
+function append_incident(incident::MissedSelectionIncident, path::String=INCIDENTS_PATH)
+    existing = load_incidents(path)
+    push!(existing, incident)
+    save_incidents(existing, path)
+    return nothing
 end
 
 # ── Shard balancing (duration-based) ──────────────
