@@ -17,7 +17,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
        scoped_fallback, collect_fallback_reasons, must_run_with_fallback_priority,
        SEED_FAULT_PATTERNS, run_seeded_fault_test, run_all_seeded_fault_tests,
-       discover_components, component_of,
+       discover_components, component_of, component_paths,
        select_changed_items, _discover_in_file
 
 # ── Enums (defined before structs that reference them) ──
@@ -668,6 +668,107 @@ function component_of(test_file::String, components::Vector{Symbol})::Union{Symb
     for comp in components
         comp_str = string(comp)
         if occursin("/$(comp_str)/", test_file) || occursin("$(comp_str)\\test", test_file)
+            return comp
+        end
+    end
+    return nothing
+end
+
+"""
+    component_paths(project_dir::String) -> Dict{Symbol, String}
+
+Discover component names and their workspace directory paths from a workspace
+Project.toml.
+
+Returns a dict mapping each component name (Symbol) to its absolute workspace
+directory path. Works the same as `discover_components` but preserves the
+path information for proper file-to-component mapping.
+
+If the Project.toml has a `[workspace]` section with `packages`, each
+package's workspace path is resolved. If no workspace section exists, the
+top-level package name is mapped to the project directory itself.
+
+Returns an empty dict if no Project.toml exists.
+"""
+function component_paths(project_dir::String)::Dict{Symbol, String}
+    proj_path = joinpath(project_dir, "Project.toml")
+    if !isfile(proj_path)
+        return Dict{Symbol, String}()
+    end
+
+    content = read(proj_path, String)
+
+    # Extract workspace packages if present
+    workspace_match = match(r"\[workspace\]\s*\n(.*?)(?:\n\[|\z)"s, content)
+
+    if workspace_match !== nothing
+        ws_section = workspace_match.captures[1]
+        # Extract packages = [...] line
+        pkgs_match = match(r"packages\s*=\s*\[(.*?)\]", ws_section)
+        if pkgs_match !== nothing
+            pkg_str = pkgs_match.captures[1]
+            # Parse package paths (could be strings or symbols)
+            pkg_paths = [strip(p, ['"', '\'', ' ']) for p in split(pkg_str, ",")]
+            pkg_paths = filter(!isempty, pkg_paths)
+
+            if isempty(pkg_paths)
+                # Empty workspace — use top-level package name
+                name_match = match(r"^name\s*=\s*\"([^\"]+)\""m, content)
+                if name_match !== nothing
+                    return Dict{Symbol, String}(
+                        Symbol(name_match.captures[1]) => project_dir
+                    )
+                end
+                return Dict{Symbol, String}()
+            end
+
+            path_map = Dict{Symbol, String}()
+            for pkg_path in pkg_paths
+                abs_pkg = isabspath(pkg_path) ? pkg_path : joinpath(project_dir, pkg_path)
+                pkg_proj = joinpath(abs_pkg, "Project.toml")
+                if isfile(pkg_proj)
+                    pkg_content = read(pkg_proj, String)
+                    name_match = match(r"^name\s*=\s*\"([^\"]+)\""m, pkg_content)
+                    if name_match !== nothing
+                        path_map[Symbol(name_match.captures[1])] = abs_pkg
+                    end
+                end
+            end
+
+            return path_map
+        end
+    end
+
+    # No workspace section — use top-level package name
+    name_match = match(r"^name\s*=\s*\"([^\"]+)\""m, content)
+    if name_match !== nothing
+        return Dict{Symbol, String}(
+            Symbol(name_match.captures[1]) => project_dir
+        )
+    end
+
+    return Dict{Symbol, String}()
+end
+
+"""
+    component_of(test_file::String, path_map::Dict{Symbol, String}) -> Union{Symbol, Nothing}
+
+Determine which component a test file belongs to, using workspace path
+prefix matching.
+
+Checks if the test file path starts with any component's workspace
+directory path. This is more robust than the name-based `component_of`
+because it works regardless of whether the component name matches the
+workspace directory name.
+
+Returns the first matching component, or `nothing` if no match is found.
+"""
+function component_of(test_file::String, path_map::Dict{Symbol, String})::Union{Symbol, Nothing}
+    for (comp, ws_path) in path_map
+        # Normalize both paths for comparison
+        norm_file = replace(test_file, '\\' => '/')
+        norm_ws = replace(ws_path, '\\' => '/')
+        if startswith(norm_file, norm_ws)
             return comp
         end
     end

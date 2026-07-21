@@ -87,3 +87,92 @@ end
     result = Testimonial.component_of(test_file, components)
     @test result === nothing
 end
+
+@testset "component_of maps file using workspace path (not just name match)" begin
+    mktempdir() do dir
+        proj = joinpath(dir, "Project.toml")
+        write(proj, """
+name = "WorkspacePkg"
+version = "1.0.0"
+
+[workspace]
+packages = ["pkgs/a", "pkgs/b"]
+""")
+
+        for (pkg, name) in [("pkgs/a", "PkgA"), ("pkgs/b", "PkgB")]
+            pkg_dir = joinpath(dir, pkg)
+            mkpath(pkg_dir)
+            write(joinpath(pkg_dir, "Project.toml"), """
+name = "$name"
+version = "1.0.0"
+""")
+        end
+
+        path_map = Testimonial.component_paths(dir)
+        @test path_map[:PkgA] == joinpath(dir, "pkgs/a")
+        @test path_map[:PkgB] == joinpath(dir, "pkgs/b")
+        @test length(path_map) == 2
+
+        # Map test files using the path map, not just name matching
+        test_a = joinpath(dir, "pkgs/a/test/foo_test.jl")
+        test_b = joinpath(dir, "pkgs/b/test/bar_test.jl")
+        @test Testimonial.component_of(test_a, path_map) == :PkgA
+        @test Testimonial.component_of(test_b, path_map) == :PkgB
+    end
+end
+
+@testset "component_of returns nothing for unknown file via path map" begin
+    mktempdir() do dir
+        proj = joinpath(dir, "Project.toml")
+        write(proj, """
+name = "WorkspacePkg"
+version = "1.0.0"
+
+[workspace]
+packages = ["pkgs/PkgA"]
+""")
+
+        pkg_dir = joinpath(dir, "pkgs/PkgA")
+        mkpath(pkg_dir)
+        write(joinpath(pkg_dir, "Project.toml"), """
+name = "PkgA"
+version = "1.0.0"
+""")
+
+        path_map = Testimonial.component_paths(dir)
+        test_file = joinpath(dir, "pkgs/Unknown/test/foo_test.jl")
+        @test Testimonial.component_of(test_file, path_map) === nothing
+    end
+end
+
+@testset "component_of uses path map for non-matching names" begin
+    mktempdir() do dir
+        proj = joinpath(dir, "Project.toml")
+        write(proj, """
+name = "WorkspacePkg"
+version = "1.0.0"
+
+[workspace]
+packages = ["pkgs/a", "pkgs/b"]
+""")
+
+        for (pkg, name) in [("pkgs/a", "PkgA"), ("pkgs/b", "PkgB")]
+            pkg_dir = joinpath(dir, pkg)
+            mkpath(pkg_dir)
+            write(joinpath(pkg_dir, "Project.toml"), """
+name = "$name"
+version = "1.0.0"
+""")
+        end
+
+        path_map = Testimonial.component_paths(dir)
+
+        # The pure name-based component_of would return nothing here
+        # because "PkgA" doesn't appear in the path "pkgs/a/test/foo_test.jl"
+        test_file = joinpath(dir, "pkgs/a/test/foo_test.jl")
+        @test Testimonial.component_of(test_file, [:PkgA, :PkgB]) === nothing
+
+        # But the path-map based version should find it
+        @test Testimonial.component_of(test_file, path_map) == :PkgA
+    end
+end
