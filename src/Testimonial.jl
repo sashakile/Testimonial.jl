@@ -16,6 +16,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        compute_environment_fingerprint, environment_matches,
        MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
        scoped_fallback, collect_fallback_reasons, must_run_with_fallback_priority,
+       SEED_FAULT_PATTERNS,
        select_changed_items, _discover_in_file
 
 # ── Enums (defined before structs that reference them) ──
@@ -483,6 +484,52 @@ function must_run_with_fallback_priority(
 
     return nothing
 end
+
+# ── Seeded fault test patterns ──────────────────
+
+"""
+Seed patterns for the seeded fault recall test. Each pattern describes a
+fault to inject into the repo and the test that should be selected.
+
+Covers common cases:
+1. New function added to a source file
+2. Modified function body in a source file
+3. New file added to src/
+4. Deleted file from src/
+5. Multiple files changed
+"""
+const SEED_FAULT_PATTERNS = [
+    (
+        name = "new-function",
+        description = "Add a new function to an existing source file",
+        action = "Append a new function definition to a .jl file in src/",
+        revealing_test = "A test that calls the new function should be selected",
+    ),
+    (
+        name = "modified-function",
+        description = "Modify the body of an existing function",
+        action = "Change the implementation of a function in a .jl file in src/",
+        revealing_test = "A test that exercises the changed function should be selected",
+    ),
+    (
+        name = "new-file",
+        description = "Add a new source file to the project",
+        action = "Create a new .jl file in src/ with function definitions",
+        revealing_test = "A test that imports from the new file should be selected",
+    ),
+    (
+        name = "deleted-file",
+        description = "Delete an existing source file from the project",
+        action = "Remove a .jl file from src/",
+        revealing_test = "All tests that covered the deleted file should be selected",
+    ),
+    (
+        name = "multiple-files",
+        description = "Modify multiple source files across different packages",
+        action = "Change functions in two or more .jl files in src/",
+        revealing_test = "Tests that cover any of the modified files should be selected",
+    ),
+]
 
 """In-memory store mapping (file, name) → consecutive pass count."""
 const _ALWAYS_RUN_PASS_COUNTS = Dict{Tuple{String, String}, Int}()

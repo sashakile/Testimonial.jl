@@ -29,4 +29,5 @@ include("helpers.jl")
     include("test_must_run_query.jl")
     include("test_scoped_fallback.jl")
     include("test_must_run_priority.jl")
+    include("test_seeded_fault.jl")
 end
