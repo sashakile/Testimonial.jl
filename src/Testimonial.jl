@@ -15,7 +15,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        consecutive_passes, record_run, should_evict, reset_always_run_state,
        compute_environment_fingerprint, environment_matches,
        MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
-       scoped_fallback, collect_fallback_reasons,
+       scoped_fallback, collect_fallback_reasons, must_run_with_fallback_priority,
        select_changed_items, _discover_in_file
 
 # ── Enums (defined before structs that reference them) ──
@@ -447,6 +447,41 @@ function collect_fallback_reasons(results::Vector{ImpactResult})::Vector{String}
         end
     end
     return reasons
+end
+
+"""
+    must_run_with_fallback_priority(rules, changed_files, fallback_reasons) -> Union{Nothing, Symbol}
+
+Determine whether must-run rules should be applied or fallback takes priority.
+
+Returns:
+- `:must_run` — apply must-run rules (no fallback, rules match changed files)
+- `:fallback` — fallback takes priority, suppress must-run
+- `nothing` — neither applies (no rules matched, no fallback)
+
+Priority: fallback > must-run. If any fallback reason exists, the suite
+falls back and must-run rules are not needed.
+"""
+function must_run_with_fallback_priority(
+    rules::Vector{MustRunRule},
+    changed_files::Vector{String},
+    fallback_reasons::Vector{String},
+)::Union{Nothing, Symbol}
+    # Fallback always wins
+    if !isempty(fallback_reasons)
+        return :fallback
+    end
+
+    # Check if any rules match changed files
+    for rule in rules
+        for file in changed_files
+            if matches_must_run_rule(rule, file)
+                return :must_run
+            end
+        end
+    end
+
+    return nothing
 end
 
 """In-memory store mapping (file, name) → consecutive pass count."""
