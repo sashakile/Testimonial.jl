@@ -601,7 +601,7 @@
         {
           "name": "nearest_covered_lines",
           "kind": "Function",
-          "start_line": 163,
+          "start_line": 170,
           "metrics": {
             "cyclomatic": 8,
             "cognitive": 7,
@@ -616,7 +616,7 @@
         {
           "name": "must_run_provider",
           "kind": "Function",
-          "start_line": 324,
+          "start_line": 331,
           "metrics": {
             "cyclomatic": 9,
             "cognitive": 7,
@@ -1021,7 +1021,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 410.0,
+          "actual": 480.0,
           "limit": 400.0
         }
       ],
@@ -1030,6 +1030,21 @@
           "name": "make_test_index",
           "kind": "Function",
           "start_line": 17,
+          "metrics": {
+            "cyclomatic": 2,
+            "cognitive": 1,
+            "assertions": 0,
+            "function_lines": 14,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 8.602325267042627
+          },
+          "violations": []
+        },
+        {
+          "name": "make_scoped_index",
+          "kind": "Function",
+          "start_line": 33,
           "metrics": {
             "cyclomatic": 2,
             "cognitive": 1,
@@ -1166,52 +1181,52 @@
     "top_hotspots": [
       {
         "fingerprint": "src/GitDiff.jl::_parse_diff_section::cognitive_max",
-        "count": 61,
+        "count": 62,
         "distinct_days": 5
       },
       {
         "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cognitive_max",
-        "count": 27,
+        "count": 28,
         "distinct_days": 3
       },
       {
+        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::abc_max",
+        "count": 26,
+        "distinct_days": 2
+      },
+      {
         "fingerprint": "src/Protocol.jl::handle_run_args::function_lines_max",
-        "count": 25,
+        "count": 26,
         "distinct_days": 2
       },
       {
         "fingerprint": "src/GitDiff.jl::_parse_diff_section::function_lines_max",
-        "count": 25,
+        "count": 26,
         "distinct_days": 2
       },
       {
-        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::cyclomatic_max",
-        "count": 25,
-        "distinct_days": 2
-      },
-      {
-        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::function_lines_max",
-        "count": 25,
+        "fingerprint": "src/Protocol.jl::handle_run_args::cyclomatic_max",
+        "count": 26,
         "distinct_days": 2
       },
       {
         "fingerprint": "src/Protocol.jl::_append_runtime_edges::function_lines_max",
-        "count": 25,
+        "count": 26,
         "distinct_days": 2
       },
       {
-        "fingerprint": "src/Protocol.jl::_build_static_edges::cyclomatic_max",
-        "count": 25,
+        "fingerprint": "src/GitDiff.jl::_parse_diff_section::abc_max",
+        "count": 26,
+        "distinct_days": 2
+      },
+      {
+        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cyclomatic_max",
+        "count": 26,
         "distinct_days": 2
       },
       {
         "fingerprint": "src/Protocol.jl::_build_static_edges::function_lines_max",
-        "count": 25,
-        "distinct_days": 2
-      },
-      {
-        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::function_lines_max",
-        "count": 25,
+        "count": 26,
         "distinct_days": 2
       }
     ],
@@ -1220,7 +1235,7 @@
         "rule_key": "function_lines_max",
         "role": "app",
         "area": "src",
-        "count": 250,
+        "count": 260,
         "distinct_files": 4,
         "distinct_days": 2
       },
@@ -1228,7 +1243,7 @@
         "rule_key": "cyclomatic_max",
         "role": "app",
         "area": "src",
-        "count": 125,
+        "count": 130,
         "distinct_files": 3,
         "distinct_days": 2
       },
@@ -1236,7 +1251,7 @@
         "rule_key": "abc_max",
         "role": "app",
         "area": "src",
-        "count": 100,
+        "count": 104,
         "distinct_files": 3,
         "distinct_days": 2
       },
@@ -1244,7 +1259,7 @@
         "rule_key": "cognitive_max",
         "role": "app",
         "area": "src",
-        "count": 89,
+        "count": 91,
         "distinct_files": 3,
         "distinct_days": 5
       }
