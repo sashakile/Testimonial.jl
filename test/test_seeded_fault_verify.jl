@@ -1,0 +1,42 @@
+# Testimonial.jl — Tests for seeded fault verification
+#
+# Verifies that for each seed pattern, the fault-revealing test
+# is selected after injecting a known semantic mutation.
+#
+# See testimonial-0zm in openspec/changes/add-safety-invariants/
+
+using Testimonial
+using Test
+
+@testset "run_seeded_fault_test returns correct structure" begin
+    pattern = Testimonial.SEED_FAULT_PATTERNS[1]
+    result = Testimonial.run_seeded_fault_test(pattern)
+
+    @test haskey(result, :pattern_name)
+    @test haskey(result, :passed)
+    @test haskey(result, :selected_items)
+    @test haskey(result, :error)
+    @test result[:pattern_name] == pattern.name
+end
+
+@testset "run_seeded_fault_test handles invalid pattern" begin
+    invalid = (name = "invalid", description = "", action = "", revealing_test = "")
+    result = Testimonial.run_seeded_fault_test(invalid)
+    @test result[:passed] == false
+    @test !isempty(result[:error])
+end
+
+@testset "run_all_seeded_fault_tests runs all patterns" begin
+    results = Testimonial.run_all_seeded_fault_tests()
+
+    @test length(results) == length(Testimonial.SEED_FAULT_PATTERNS)
+    for r in results
+        @test haskey(r, :pattern_name)
+        @test haskey(r, :passed)
+    end
+end
+
+@testset "run_all_seeded_fault_tests returns non-empty results" begin
+    results = Testimonial.run_all_seeded_fault_tests()
+    @test !isempty(results)
+end

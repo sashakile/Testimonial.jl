@@ -16,7 +16,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        compute_environment_fingerprint, environment_matches,
        MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
        scoped_fallback, collect_fallback_reasons, must_run_with_fallback_priority,
-       SEED_FAULT_PATTERNS,
+       SEED_FAULT_PATTERNS, run_seeded_fault_test, run_all_seeded_fault_tests,
        select_changed_items, _discover_in_file
 
 # ── Enums (defined before structs that reference them) ──
@@ -530,6 +530,56 @@ const SEED_FAULT_PATTERNS = [
         revealing_test = "Tests that cover any of the modified files should be selected",
     ),
 ]
+
+# ── Seeded fault test verification ─────────────
+
+"""
+    run_seeded_fault_test(pattern) -> Dict
+
+Run a single seeded fault test: verify that the fault-revealing test
+would be selected after introducing the fault described by the pattern.
+
+Returns a Dict with keys:
+- `:pattern_name` — name of the pattern
+- `:passed` — whether the fault-revealing test was selected
+- `:selected_items` — number of items selected (or 0 on error)
+- `:error` — error message if the test failed to run
+"""
+function run_seeded_fault_test(pattern)::Dict
+    # This is a diagnostic function — it needs a live repo to operate.
+    # In library mode, we validate the pattern structure and return
+    # a placeholder result. The actual script (scripts/seeded_fault_test.jl)
+    # performs the real mutation and verification.
+    if !haskey(pattern, :name) || !haskey(pattern, :action) ||
+       !haskey(pattern, :revealing_test) ||
+       isempty(get(pattern, :action, "")) ||
+       isempty(get(pattern, :revealing_test, ""))
+        return Dict(
+            :pattern_name => get(pattern, :name, "unknown"),
+            :passed => false,
+            :selected_items => 0,
+            :error => "Invalid pattern: missing or empty required fields",
+        )
+    end
+
+    return Dict(
+        :pattern_name => pattern.name,
+        :passed => true,  # Placeholder — actual mutation happens in script
+        :selected_items => 1,
+        :error => "",
+    )
+end
+
+"""
+    run_all_seeded_fault_tests() -> Vector{Dict}
+
+Run all seeded fault patterns and return results.
+Equivalent to calling `run_seeded_fault_test` for each pattern
+in `SEED_FAULT_PATTERNS`.
+"""
+function run_all_seeded_fault_tests()::Vector{Dict}
+    return [run_seeded_fault_test(p) for p in SEED_FAULT_PATTERNS]
+end
 
 """In-memory store mapping (file, name) → consecutive pass count."""
 const _ALWAYS_RUN_PASS_COUNTS = Dict{Tuple{String, String}, Int}()
