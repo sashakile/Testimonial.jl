@@ -2,18 +2,87 @@
   "top_hotspots": [
     {
       "fingerprint": "src/GitDiff.jl::_parse_diff_section::cognitive_max",
-      "count": 35,
+      "count": 53,
+      "distinct_days": 5
+    },
+    {
+      "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cognitive_max",
+      "count": 19,
       "distinct_days": 3
+    },
+    {
+      "fingerprint": "src/GitDiff.jl::_parse_diff_section::cyclomatic_max",
+      "count": 17,
+      "distinct_days": 2
+    },
+    {
+      "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::function_lines_max",
+      "count": 17,
+      "distinct_days": 2
+    },
+    {
+      "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cyclomatic_max",
+      "count": 17,
+      "distinct_days": 2
+    },
+    {
+      "fingerprint": "src/Protocol.jl::_build_static_edges::cyclomatic_max",
+      "count": 17,
+      "distinct_days": 2
+    },
+    {
+      "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::cyclomatic_max",
+      "count": 17,
+      "distinct_days": 2
+    },
+    {
+      "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::abc_max",
+      "count": 17,
+      "distinct_days": 2
+    },
+    {
+      "fingerprint": "src/Protocol.jl::_ingest_one_item::function_lines_max",
+      "count": 17,
+      "distinct_days": 2
+    },
+    {
+      "fingerprint": "src/CoverageLayer.jl::_collect_coverage::abc_max",
+      "count": 17,
+      "distinct_days": 2
     }
   ],
   "top_patterns": [
     {
+      "rule_key": "function_lines_max",
+      "role": "app",
+      "area": "src",
+      "count": 170,
+      "distinct_files": 4,
+      "distinct_days": 2
+    },
+    {
+      "rule_key": "cyclomatic_max",
+      "role": "app",
+      "area": "src",
+      "count": 85,
+      "distinct_files": 3,
+      "distinct_days": 2
+    },
+    {
       "rule_key": "cognitive_max",
       "role": "app",
       "area": "src",
-      "count": 37,
+      "count": 73,
       "distinct_files": 3,
-      "distinct_days": 3
+      "distinct_days": 5
+    },
+    {
+      "rule_key": "abc_max",
+      "role": "app",
+      "area": "src",
+      "count": 68,
+      "distinct_files": 3,
+      "distinct_days": 2
     }
   ]
 }
