@@ -36,7 +36,7 @@ jobs:
         run: julia --project=scripts/TestimonialRunner -e 'import Pkg; Pkg.instantiate()'
 
       - name: Record all test items
-        run: julia --project=scripts/TestimonialRunner -e 'using Testimonial; Testimonial.record_all()'
+        run: julia --project -e 'using Testimonial; Testimonial.record_all()'
         timeout-minutes: 30
 
       - name: Save coverage index as artifact

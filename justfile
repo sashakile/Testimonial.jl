@@ -16,31 +16,31 @@ test-quick:
     julia --project test/runtests_quick.jl
 
 coverage:
-    julia --project=scripts/TestimonialRunner -e 'using Testimonial; Testimonial.record_all()'
+    julia --project -e 'using Testimonial; Testimonial.record_all()'
 
 record:
-    julia --project=scripts/TestimonialRunner -e 'using Testimonial; Testimonial.record_all(incremental=true)'
+    julia --project -e 'using Testimonial; Testimonial.record_all(incremental=true)'
 
 run:
-    julia --project=scripts/TestimonialRunner -e 'using Testimonial; Testimonial.smart_run()'
+    julia --project -e 'using Testimonial; Testimonial.smart_run()'
 
 shadow-run:
-    julia --project=scripts/TestimonialRunner -e 'using Testimonial; Testimonial.smart_run(shadow=true)'
+    julia --project -e 'using Testimonial; Testimonial.smart_run(shadow=true)'
 
 reconcile:
-    julia --project=scripts/TestimonialRunner -e 'using Testimonial; Testimonial.reconcile()'
+    julia --project -e 'using Testimonial; Testimonial.reconcile()'
 
 seed-fault-test:
-    julia --project=scripts/TestimonialRunner scripts/seeded_fault_test.jl
+    julia --project scripts/seeded_fault_test.jl
 
 explain *args:
-    julia --project=scripts/TestimonialRunner -e 'using Testimonial; for r in Testimonial.explain(ARGS[1], ARGS[2]); println(r); end' {{args}}
+    julia --project -e 'using Testimonial; for r in Testimonial.explain(ARGS[1], ARGS[2]); println(r); end' {{args}}
 
 history:
-    julia --project=scripts/TestimonialRunner -e 'using Testimonial; Testimonial.history()'
+    julia --project -e 'using Testimonial; Testimonial.history()'
 
 info:
-    julia --project=scripts/TestimonialRunner -e 'using Testimonial; println(Testimonial.index_info())'
+    julia --project -e 'using Testimonial; println(Testimonial.index_info())'
 
 docs:
     julia --project=docs/ -e 'using LiveServer; servedocs()'
