@@ -14,7 +14,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD,
        consecutive_passes, record_run, should_evict, reset_always_run_state,
        compute_environment_fingerprint, environment_matches,
-       MustRunRule, matches_must_run_rule, must_run_tags,
+       MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
        select_changed_items, _discover_in_file
 
 # ── Enums (defined before structs that reference them) ──
@@ -369,6 +369,42 @@ function must_run_tags(rules::Vector{MustRunRule}, changed_files::Vector{String}
         end
     end
     return collect(tags)
+end
+
+"""
+    parse_must_run_rules(config::Dict) -> Vector{MustRunRule}
+
+Parse must-run rules from a config dict (as parsed from Testimonial.toml).
+
+Expected schema:
+```toml
+[must_run]
+rules = [
+    { changed_glob = "src/critical/*.jl", test_tag = "critical" },
+    { changed_glob = "config/*.toml", test_tag = "config" },
+]
+```
+
+Returns an empty vector if the config has no must_run section or no rules.
+Test_tag values are converted from strings to Symbols.
+"""
+function parse_must_run_rules(config::Dict)::Vector{MustRunRule}
+    if !haskey(config, "must_run")
+        return MustRunRule[]
+    end
+    must_run = config["must_run"]
+    if !haskey(must_run, "rules") || !isa(must_run["rules"], Vector)
+        return MustRunRule[]
+    end
+    rules_raw = must_run["rules"]
+    rules = MustRunRule[]
+    for r in rules_raw
+        if isa(r, Dict) && haskey(r, "changed_glob") && haskey(r, "test_tag")
+            tag = isa(r["test_tag"], Symbol) ? r["test_tag"] : Symbol(r["test_tag"])
+            push!(rules, MustRunRule(String(r["changed_glob"]), tag))
+        end
+    end
+    return rules
 end
 
 """In-memory store mapping (file, name) → consecutive pass count."""
