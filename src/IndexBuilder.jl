@@ -167,7 +167,7 @@ end
 # ── record_all ────────────────────────────────
 
 """
-    record_all(items, runner=SubprocessRunner(); incremental=true, force=false, test_dirs=["test/"]) -> CoverageIndex
+    record_all(items, runner=SubprocessRunner(); incremental=true, force=false, test_dirs=["test/"], project_dir=nothing) -> CoverageIndex
 
 Record coverage for all discovered @testitems and build a CoverageIndex.
 
@@ -182,6 +182,9 @@ for testing (see REC-011).
 - `force=false`: if true, re-record all items regardless of cache state.
 - `test_dirs`: directories to search for @testitem files (only used when
   `items` is empty and items are auto-discovered).
+- `project_dir=nothing`: if provided, per-component CoverageIndex files
+  are saved under `.testimonial/components/<name>/index.jls` and a
+  routing file is written at `.testimonial/index.jls`.
 
 ## Returns
 A `CoverageIndex` containing the recorded coverage data for all items.
@@ -193,6 +196,9 @@ index = record_all(discovered_items, SubprocessRunner(); force=true)
 
 # Incremental — only re-record changed items
 index = record_all(discovered_items, SubprocessRunner(); incremental=true)
+
+# Per-component recording
+index = record_all(discovered_items, SubprocessRunner(); force=true, project_dir=pwd())
 ```
 """
 function record_all(
@@ -200,7 +206,8 @@ function record_all(
     runner=nothing;
     incremental::Bool=true,
     force::Bool=false,
-    test_dirs::Vector{String}=String["test/"]
+    test_dirs::Vector{String}=String["test/"],
+    project_dir::Union{String,Nothing}=nothing
 )::Any
     parent = Base.parentmodule(@__MODULE__)
 
@@ -276,7 +283,76 @@ function record_all(
     end
 
     git_sha = _git_hash() * dirty_suffix
+
+    # Save per-component indices if project_dir is provided
+    if project_dir !== nothing
+        _save_per_component_indices(parent, item_map, String(project_dir), git_sha)
+    end
+
     return parent.CoverageIndex(item_map, git_sha, string(VERSION), v"0.1.0", now())
+end
+
+# ── Per-component index persistence ────────────
+
+"""
+    _save_per_component_indices(parent, item_map, project_dir, git_sha)
+
+Build and save per-component CoverageIndex objects from a flat item map.
+
+Groups items by their owning component (using component_paths and
+component_of), creates a CoverageIndex per component, and writes each
+to `.testimonial/components/<name>/index.jls`. Also saves the routing
+file at `.testimonial/index.jls`.
+
+Items that don't belong to any known component are saved under a
+"__unmapped__" component.
+"""
+function _save_per_component_indices(
+    parent::Module,
+    item_map::Dict,
+    project_dir::String,
+    git_sha::String
+)::Nothing
+    # Discover components and their workspace paths
+    path_map = parent.component_paths(project_dir)
+
+    # If no components discovered, nothing to save
+    isempty(path_map) && return nothing
+
+    # Group items by component
+    comp_groups = Dict{String, Vector{Pair{Any, Any}}}()
+    for (ref, ic) in item_map
+        # Determine component for this item
+        comp = if ref.component != ""
+            ref.component
+        else
+            result = parent.component_of(ref.file, path_map)
+            result === nothing ? "__unmapped__" : string(result)
+        end
+
+        if !haskey(comp_groups, comp)
+            comp_groups[comp] = Pair{Any, Any}[]
+        end
+        push!(comp_groups[comp], ref => ic)
+    end
+
+    # Build and save per-component indices
+    for (comp_name, pairs) in comp_groups
+        comp_map = Dict{typeof(first(pairs).first), typeof(first(pairs).second)}()
+        for (ref, ic) in pairs
+            comp_map[ref] = ic
+        end
+
+        comp_index = parent.CoverageIndex(comp_map, git_sha, string(VERSION), v"0.1.0", now())
+        comp_path = parent.component_index_path(comp_name)
+        save_index(comp_index, comp_path)
+    end
+
+    # Save routing file with all component names (excluding unmapped)
+    component_names = [Symbol(k) for k in keys(comp_groups) if k != "__unmapped__"]
+    save_routing(".testimonial", component_names)
+
+    return nothing
 end
 
 export record_all, build_index
