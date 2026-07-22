@@ -20,6 +20,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        RunEntry, RunHistory, record_duration!, read_durations,
        save_run_history, load_run_history, DEFAULT_RUN_HISTORY_PATH,
        INCIDENTS_PATH, save_incidents, load_incidents, append_incident,
+       compare_selection_vs_outcomes,
        balance_shards,
        compute_environment_fingerprint, environment_matches,
        MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
@@ -1112,6 +1113,51 @@ function append_incident(incident::MissedSelectionIncident, path::String=INCIDEN
     push!(existing, incident)
     save_incidents(existing, path)
     return nothing
+end
+
+"""
+    compare_selection_vs_outcomes(selected, all_items, failed_items, changed_content) -> Vector{MissedSelectionIncident}
+
+Compare the selected test set against full-run outcomes and return
+candidate missed-selection incidents.
+
+A candidate incident is recorded for each item that failed in the full
+run but was NOT in the selected set. Items that failed but were selected
+are not considered incidents (the selection worked correctly).
+
+# Arguments
+- `selected::Vector{TestItemRef}`: items that the selection algorithm picked
+- `all_items::Vector{TestItemRef}`: all items that ran in the full suite
+- `failed_items::Vector{TestItemRef}`: items that failed
+- `changed_content::String`: the content unit (file path) that was changed
+"""
+function compare_selection_vs_outcomes(
+    selected::Vector{TestItemRef},
+    all_items::Vector{TestItemRef},
+    failed_items::Vector{TestItemRef},
+    changed_content::String,
+)::Vector{MissedSelectionIncident}
+    isempty(all_items) && return MissedSelectionIncident[]
+    isempty(failed_items) && return MissedSelectionIncident[]
+
+    # Build a set of selected items for O(1) lookup
+    selected_set = Set(selected)
+
+    incidents = MissedSelectionIncident[]
+    now_ts = now()
+
+    for failed in failed_items
+        if failed ∉ selected_set
+            push!(incidents, MissedSelectionIncident(
+                changed_content,
+                failed,
+                now_ts,
+                Candidate,
+            ))
+        end
+    end
+
+    return incidents
 end
 
 # ── Shard balancing (duration-based) ──────────────

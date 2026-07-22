@@ -43,4 +43,5 @@ include("helpers.jl")
 include("test_run_history.jl")
 include("test_shard_balance.jl")
     include("test_shard_files.jl")
+    include("test_shadow_mode.jl")
 end
