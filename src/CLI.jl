@@ -14,7 +14,7 @@ using Serialization
 import ..Testimonial: CoverageIndex, TestItemRef, ItemCoverage,
     discover_testitems
 
-export index_info, explain, run, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS,
+export index_info, explain, run, main, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS,
        _write_shard_files, _read_shard_manifest, _clean_shard_files
 
 # ── Constants ──────────────────────────────────
@@ -296,6 +296,43 @@ function run(; base_ref::String="origin/main",
     end
 
     return filtered
+end
+
+# ── CLI entry point (main) ────────────────────────
+
+"""
+    main(args=ARGS)
+
+Entry point for command-line invocation. Parses flags and calls `run()`.
+
+# Flags
+- `--shadow`: enable shadow mode (compute selection but run all tests)
+- `--base-ref <ref>`: git base ref for diff (default: origin/main)
+- `--n-shards <N>`: number of CI shards (default: 0)
+
+Unknown flags are silently ignored for forward compatibility.
+"""
+function main(args::Vector{String}=ARGS)
+    shadow = false
+    base_ref = "origin/main"
+    n_shards = 0
+
+    i = 1
+    while i <= length(args)
+        arg = args[i]
+        if arg == "--shadow"
+            shadow = true
+        elseif arg == "--base-ref" && i + 1 <= length(args)
+            base_ref = args[i + 1]
+            i += 1
+        elseif arg == "--n-shards" && i + 1 <= length(args)
+            n_shards = parse(Int, args[i + 1])
+            i += 1
+        end
+        i += 1
+    end
+
+    return run(; base_ref=base_ref, n_shards=n_shards, shadow=shadow)
 end
 
 # ── Component-aware bottom-up resolution ────────
