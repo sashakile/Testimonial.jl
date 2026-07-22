@@ -40,3 +40,9 @@ end
     results = Testimonial.run_all_seeded_fault_tests()
     @test !isempty(results)
 end
+
+@testset "run_all_seeded_fault_tests aggregate pass/fail" begin
+    results = Testimonial.run_all_seeded_fault_tests()
+    all_passed = all(r[:passed] for r in results)
+    @test all_passed == true
+end
