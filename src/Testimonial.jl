@@ -17,6 +17,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        MissedSelectionIncident,
        DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD,
        consecutive_passes, record_run, should_evict, reset_always_run_state,
+       get_always_run_tests,
        RunEntry, RunHistory, record_duration!, read_durations,
        save_run_history, load_run_history, DEFAULT_RUN_HISTORY_PATH,
        INCIDENTS_PATH, save_incidents, load_incidents, append_incident,
@@ -974,6 +975,25 @@ Reset the always-run pass counter for a test item to 0.
 function reset_always_run_state(ref::TestItemRef)
     delete!(_ALWAYS_RUN_PASS_COUNTS, (ref.file, ref.name))
     return nothing
+end
+
+"""
+    get_always_run_tests(; threshold=DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD) -> Vector{Tuple{String, String}}
+
+Return the list of `(file, name)` test pairs currently in the always-run
+set — tests with consecutive pass counts below the eviction threshold.
+
+These tests failed recently (or have no history) and should be included
+in every run regardless of the coverage-based selection.
+"""
+function get_always_run_tests(; threshold::Int=DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD)::Vector{Tuple{String, String}}
+    always_run = Tuple{String, String}[]
+    for (key, passes) in _ALWAYS_RUN_PASS_COUNTS
+        if passes < threshold
+            push!(always_run, key)
+        end
+    end
+    return always_run
 end
 
 # ── Run history (duration tracking for shard balancing) ───────

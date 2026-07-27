@@ -291,6 +291,42 @@ function run(; base_ref::String="origin/main",
         end
     end
 
+    # Step 6b: Merge always-run tests into selection
+    if filtered isa Vector
+        always_run_tests = parent.get_always_run_tests()
+        for (file, name) in always_run_tests
+            # Check if already in selection
+            existing_idx = findfirst(x -> x.item.file == file && x.item.name == name, filtered)
+            if existing_idx !== nothing
+                # Already selected — add AlwaysRun reason
+                reason = parent.ImpactReason(parent.AlwaysRun, "always-run: test has recent failures")
+                merged = parent.ImpactResult(
+                    filtered[existing_idx].item,
+                    vcat(filtered[existing_idx].reasons, [reason]),
+                    true,
+                )
+                filtered[existing_idx] = merged
+            else
+                # Find in index to get full TestItemRef
+                ref = nothing
+                for (r, _) in index.items
+                    if r.file == file && r.name == name
+                        ref = r
+                        break
+                    end
+                end
+                if ref === nothing
+                    ref = parent.TestItemRef(file, 0, name)
+                end
+                # Only include if in test directories
+                if any(startswith(file, d) for d in abs_test_dirs)
+                    reason = parent.ImpactReason(parent.AlwaysRun, "always-run: test has recent failures")
+                    push!(filtered, parent.ImpactResult(ref, [reason]))
+                end
+            end
+        end
+    end
+
     # Step 7: Check coverage gaps in changed source files
     source_files = [f for f in changed_files
                     if endswith(f, ".jl") && !any(startswith(f, d) for d in abs_test_dirs)]
