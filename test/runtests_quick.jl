@@ -46,4 +46,5 @@ include("test_shard_balance.jl")
     include("test_shadow_mode.jl")
     include("test_cli_entry.jl")
     include("test_manual_edges.jl")
+    include("test_incident_lifecycle.jl")
 end
