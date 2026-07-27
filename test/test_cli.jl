@@ -7,6 +7,7 @@
 
 using Testimonial
 using Test
+using Dates
 
 @testset "index_info returns metadata for existing index" begin
     mktempdir() do dir
@@ -233,7 +234,7 @@ end
     end
 end
 
-@testset "shadow=true returns :full_suite when selection would be returned" begin
+@testset "run returns :full_suite when shadow=true and selection would be returned" begin
     mktempdir() do dir
         cd(dir) do
             # Set up git repo
@@ -293,6 +294,86 @@ end
             # Shadow mode should return :full_suite
             shadow_result = Testimonial.CLI.run(; base_ref="HEAD~1", shadow=true)
             @test shadow_result == :full_suite
+        end
+    end
+end
+
+@testset "run returns :full_suite when environment fingerprint mismatches" begin
+    mktempdir() do dir
+        cd(dir) do
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+
+            mkpath("test")
+            mkpath("src")
+
+            write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 1 end""")
+            run(`git add .`)
+            run(`git commit -m "initial"`)
+
+            # Build index with a deliberately wrong fingerprint
+            ref = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
+            ic = ItemCoverage(ref, [1], Int[], Dict())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref => ic),
+                readchomp(`git rev-parse HEAD`),
+                string(VERSION),
+                v"0.1.0",
+                now(),
+                "wrong-fingerprint",
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            # Modify test to create a diff
+            write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 2 end""")
+            run(`git add .`)
+            run(`git commit -m "modify test_a"`)
+
+            # Fingerprint mismatch should trigger :full_suite
+            result = Testimonial.CLI.run(; base_ref="HEAD~1")
+            @test result == :full_suite
+        end
+    end
+end
+
+@testset "run proceeds when environment fingerprint matches" begin
+    mktempdir() do dir
+        cd(dir) do
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+
+            mkpath("test")
+            mkpath("src")
+
+            write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 1 end""")
+            run(`git add .`)
+            run(`git commit -m "initial"`)
+
+            # Build index with correct fingerprint
+            current_fp = Testimonial.compute_environment_fingerprint(dir)
+            ref = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
+            ic = ItemCoverage(ref, [1], Int[], Dict())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref => ic),
+                readchomp(`git rev-parse HEAD`),
+                string(VERSION),
+                v"0.1.0",
+                now(),
+                current_fp,
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            # Modify test to create a diff
+            write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 2 end""")
+            run(`git add .`)
+            run(`git commit -m "modify test_a"`)
+
+            # Matching fingerprint should proceed (returns :full_suite because
+            # smart selection finds a selection, but no index for comparison)
+            result = Testimonial.CLI.run(; base_ref="HEAD~1")
+            @test result isa Vector
         end
     end
 end

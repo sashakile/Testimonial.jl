@@ -128,15 +128,15 @@ end
     @test !Testimonial.environment_matches(index, "v1.12.0+newhash")
 end
 
-@testset "environment_matches returns false when fingerprint is empty" begin
+@testset "environment_matches returns true when fingerprint is empty (legacy)" begin
     index = CoverageIndex(
         Dict{TestItemRef, ItemCoverage}(),
         "abc123",
         string(VERSION),
         v"0.1.0",
         now(),
-        "",  # empty = not set
+        "",  # empty = not set, legacy index
     )
 
-    @test !Testimonial.environment_matches(index, "v1.12.0+abc123")
+    @test Testimonial.environment_matches(index, "v1.12.0+abc123")
 end

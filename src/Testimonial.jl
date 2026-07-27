@@ -368,12 +368,14 @@ end
     environment_matches(index, expected_fp::String) -> Bool
 
 Check whether the environment fingerprint in the coverage index matches
-the expected fingerprint. Returns false if the index has no fingerprint
-(empty string), indicating the fingerprint was never set.
+the expected fingerprint. Returns true if the index has no fingerprint
+(empty string), since we cannot verify and should not block on old indexes.
 """
 function environment_matches(index::CoverageIndex, expected_fp::String)::Bool
-    return !isempty(index.environment_fingerprint) &&
-           index.environment_fingerprint == expected_fp
+    if isempty(index.environment_fingerprint)
+        return true  # Legacy index — can't verify, assume match
+    end
+    return index.environment_fingerprint == expected_fp
 end
 
 # ── Always-run set eviction tracking ──────────

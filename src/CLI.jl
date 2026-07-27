@@ -194,6 +194,14 @@ function run(; base_ref::String="origin/main",
         return :full_suite
     end
 
+    # Step 2a: Check environment fingerprint
+    proj_dir = project_dir !== nothing ? String(project_dir) : _git_repo_root()
+    current_fp = parent.compute_environment_fingerprint(proj_dir)
+    if !parent.environment_matches(index, current_fp)
+        @warn "Environment fingerprint mismatch — running full suite"
+        return :full_suite
+    end
+
     # Step 3: Get git diff
     diff_output = _get_git_diff(base_ref)
     if diff_output === nothing
