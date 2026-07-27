@@ -79,6 +79,68 @@ end
     end
 end
 
+@testset "index_info reports promotion readiness" begin
+    mktempdir() do dir
+        cd(dir) do
+            mkpath("test")
+            mkpath(".testimonial")
+
+            # Create a valid index
+            ref = TestItemRef("test/foo_test.jl", 10, "test_foo", Symbol[], "abc123")
+            ic = ItemCoverage(ref, [1], Int[], Dict())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref => ic),
+                "abc123",
+                string(VERSION),
+                v"0.1.0",
+                now(),
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            # Create some incidents
+            ref_missed = TestItemRef("test/bar.jl", 1, "test_bar")
+            inc1 = MissedSelectionIncident("src/lib.jl", ref_missed, now(), Candidate)
+            inc2 = MissedSelectionIncident("src/lib.jl", ref_missed, now(), Candidate)
+            inc3 = MissedSelectionIncident("src/lib.jl", ref_missed, now(), Promoted)
+            save_incidents([inc1, inc2, inc3])
+
+            # Create a manual edge
+            edge = ManualEdge("src/lib.jl", ref_missed, now())
+            save_manual_edges([edge])
+
+            info = index_info()
+            @test info.candidate_count == 2
+            @test info.promoted_count == 1
+            @test info.manual_edge_count == 1
+        end
+    end
+end
+
+@testset "index_info reports zero promotion readiness when no incidents" begin
+    mktempdir() do dir
+        cd(dir) do
+            mkpath("test")
+            mkpath(".testimonial")
+
+            ref = TestItemRef("test/foo_test.jl", 10, "test_foo", Symbol[], "abc123")
+            ic = ItemCoverage(ref, [1], Int[], Dict())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref => ic),
+                "abc123",
+                string(VERSION),
+                v"0.1.0",
+                now(),
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            info = index_info()
+            @test info.candidate_count == 0
+            @test info.promoted_count == 0
+            @test info.manual_edge_count == 0
+        end
+    end
+end
+
 # ── explain ────────────────────────────────────
 
 @testset "explain returns covered files for a known item" begin

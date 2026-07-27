@@ -90,6 +90,13 @@ function index_info(; index_path::String=".testimonial/index.jls",
     failed = total_discovered - item_count
     age = (now() - index.created_at).value / (1000 * 3600)
 
+    # Load promotion readiness info
+    incidents = parent.load_incidents()
+    candidate_count = count(i -> i.status == parent.Candidate, incidents)
+    promoted_count = count(i -> i.status == parent.Promoted, incidents)
+    manual_edges = parent.load_manual_edges()
+    manual_edge_count = length(manual_edges)
+
     return (
         git_sha = index.git_hash,
         julia_version = hasfield(typeof(index), :julia_version) ? index.julia_version : string(VERSION),
@@ -101,6 +108,9 @@ function index_info(; index_path::String=".testimonial/index.jls",
         total_discovered_items = total_discovered,
         failed_item_count = failed,
         index_present = true,
+        candidate_count = candidate_count,
+        promoted_count = promoted_count,
+        manual_edge_count = manual_edge_count,
     )
 end
 
