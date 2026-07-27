@@ -83,3 +83,65 @@ end
     incidents = Testimonial.compare_selection_vs_outcomes(selected, all_items, failed_items, changed_content)
     @test isempty(incidents)
 end
+
+@testset "promote_incidents promotes after threshold" begin
+    ref = TestItemRef("test/foo.jl", 1, "test_foo")
+    content = "src/lib.jl"
+
+    inc1 = MissedSelectionIncident(content, ref, now(), Candidate)
+    inc2 = MissedSelectionIncident(content, ref, now(), Candidate)
+    inc3 = MissedSelectionIncident(content, ref, now(), Candidate)
+
+    result = Testimonial.promote_incidents([inc1, inc2, inc3])
+    @test length(result) == 3
+    @test all(r.status == Promoted for r in result)
+end
+
+@testset "promote_incidents does not promote below threshold" begin
+    ref = TestItemRef("test/foo.jl", 1, "test_foo")
+    content = "src/lib.jl"
+
+    inc1 = MissedSelectionIncident(content, ref, now(), Candidate)
+    inc2 = MissedSelectionIncident(content, ref, now(), Candidate)
+
+    result = Testimonial.promote_incidents([inc1, inc2])
+    @test length(result) == 2
+    @test all(r.status == Candidate for r in result)
+end
+
+@testset "promote_incidents handles multiple distinct pairs" begin
+    ref_a = TestItemRef("test/a.jl", 1, "test_a")
+    ref_b = TestItemRef("test/b.jl", 1, "test_b")
+    content = "src/lib.jl"
+
+    incs = [
+        MissedSelectionIncident(content, ref_a, now(), Candidate),
+        MissedSelectionIncident(content, ref_a, now(), Candidate),
+        MissedSelectionIncident(content, ref_a, now(), Candidate),
+        MissedSelectionIncident(content, ref_b, now(), Candidate),
+    ]
+
+    result = Testimonial.promote_incidents(incs)
+    @test length(result) == 4
+    promoted = filter(r -> r.status == Promoted, result)
+    @test length(promoted) == 3
+    @test all(r.missed_test == ref_a for r in promoted)
+    candidates = filter(r -> r.status == Candidate, result)
+    @test length(candidates) == 1
+    @test candidates[1].missed_test == ref_b
+end
+
+@testset "promote_incidents handles empty input" begin
+    result = Testimonial.promote_incidents(MissedSelectionIncident[])
+    @test isempty(result)
+end
+
+@testset "promote_incidents respects custom threshold" begin
+    ref = TestItemRef("test/foo.jl", 1, "test_foo")
+    content = "src/lib.jl"
+
+    inc = MissedSelectionIncident(content, ref, now(), Candidate)
+    result = Testimonial.promote_incidents([inc], 1)
+    @test length(result) == 1
+    @test all(r.status == Promoted for r in result)
+end

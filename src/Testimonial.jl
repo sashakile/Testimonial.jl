@@ -20,7 +20,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        RunEntry, RunHistory, record_duration!, read_durations,
        save_run_history, load_run_history, DEFAULT_RUN_HISTORY_PATH,
        INCIDENTS_PATH, save_incidents, load_incidents, append_incident,
-       compare_selection_vs_outcomes,
+       compare_selection_vs_outcomes, promote_incidents,
        balance_shards,
        compute_environment_fingerprint, environment_matches,
        MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
@@ -1158,6 +1158,47 @@ function compare_selection_vs_outcomes(
     end
 
     return incidents
+end
+
+"""
+    promote_incidents(incidents, threshold=3) -> Vector{MissedSelectionIncident}
+
+Promote candidate incidents to promoted status when the same
+(changed_content, missed_test) pair appears at least `threshold` times.
+
+Returns a new vector with updated statuses. Incidents below the
+threshold are returned unchanged.
+
+See SAFE-005 (incident promotion after confirmation) in the safety
+invariants spec.
+"""
+function promote_incidents(
+    incidents::Vector{MissedSelectionIncident},
+    threshold::Int=3,
+)::Vector{MissedSelectionIncident}
+    isempty(incidents) && return incidents
+
+    # Count occurrences of each (changed_content, missed_test) pair
+    counts = Dict{Tuple{String, String}, Int}()
+    for inc in incidents
+        key = (inc.changed_content, inc.missed_test.name)
+        counts[key] = get(counts, key, 0) + 1
+    end
+
+    # Build result: promote if count >= threshold
+    result = MissedSelectionIncident[]
+    for inc in incidents
+        key = (inc.changed_content, inc.missed_test.name)
+        new_status = get(counts, key, 0) >= threshold ? Promoted : inc.status
+        push!(result, MissedSelectionIncident(
+            inc.changed_content,
+            inc.missed_test,
+            inc.timestamp,
+            new_status,
+        ))
+    end
+
+    return result
 end
 
 # ── Shard balancing (duration-based) ──────────────
