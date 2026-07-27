@@ -23,12 +23,12 @@ using Dates
     end
 end
 
-@testset "CLI main without --shadow defaults to false" begin
+@testset "CLI main without --shadow defaults to shadow mode from config" begin
     mktempdir() do dir
         cd(dir) do
             mkpath("test")
 
-            # Without --shadow, shadow=false (normal mode)
+            # Without --shadow and no config, defaults to shadow=true
             result = Testimonial.CLI.main(String[])
             @test result == :full_suite
         end
@@ -177,6 +177,115 @@ end
 
             # Verify incident was not removed
             @test length(load_incidents()) == 1
+        end
+    end
+end
+
+@testset "CLI main reads safety.mode=shadow from config" begin
+    mktempdir() do dir
+        cd(dir) do
+            mkpath("test")
+            write("Testimonial.toml", """
+            [safety]
+            mode = "shadow"
+            """)
+
+            # Without --shadow flag, config should set shadow=true
+            # Without an index, run() returns :full_suite regardless
+            result = Testimonial.CLI.main(String[])
+            @test result == :full_suite
+        end
+    end
+end
+
+@testset "CLI main reads safety.mode=enforcing from config" begin
+    mktempdir() do dir
+        cd(dir) do
+            mkpath("test")
+            write("Testimonial.toml", """
+            [safety]
+            mode = "enforcing"
+            """)
+
+            # Without --shadow flag, config should set shadow=false
+            result = Testimonial.CLI.main(String[])
+            @test result == :full_suite
+        end
+    end
+end
+
+@testset "CLI main --shadow flag overrides config mode" begin
+    mktempdir() do dir
+        cd(dir) do
+            mkpath("test")
+            write("Testimonial.toml", """
+            [safety]
+            mode = "enforcing"
+            """)
+
+            # --shadow flag should override the config
+            result = Testimonial.CLI.main(["--shadow"])
+            @test result == :full_suite
+        end
+    end
+end
+
+@testset "CLI main enforces shadow mode in git repo" begin
+    mktempdir() do dir
+        cd(dir) do
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+
+            mkpath("test")
+            mkpath("src")
+
+            write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 1 end""")
+            run(`git add .`)
+            run(`git commit -m "initial"`)
+
+            ref = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
+            ic = ItemCoverage(ref, [1], Int[], Dict())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref => ic),
+                readchomp(`git rev-parse HEAD`),
+                string(VERSION),
+                v"0.1.0",
+                now(),
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 2 end""")
+            run(`git add .`)
+            run(`git commit -m "modify test_a"`)
+
+            # Default (no config) → shadow=true → returns :full_suite
+            result_default = Testimonial.CLI.main(["--base-ref", "HEAD~1"])
+            @test result_default == :full_suite
+
+            # --enforcing flag overrides to shadow=false → returns selection
+            result_enforcing = Testimonial.CLI.main(["--base-ref", "HEAD~1", "--enforcing"])
+            @test result_enforcing isa Vector
+
+            # With mode=enforcing config, shadow=false → returns selection
+            write("Testimonial.toml", """
+            [safety]
+            mode = "enforcing"
+            """)
+            run(`git add Testimonial.toml`)
+            run(`git commit -m "add enforcing config"`)
+            result_config = Testimonial.CLI.main(["--base-ref", "HEAD~1"])
+            @test result_config isa Vector
+
+            # With mode=shadow config, shadow=true → returns :full_suite
+            write("Testimonial.toml", """
+            [safety]
+            mode = "shadow"
+            """)
+            run(`git add Testimonial.toml`)
+            run(`git commit -m "add shadow config"`)
+            result_shadow = Testimonial.CLI.main(["--base-ref", "HEAD~1"])
+            @test result_shadow == :full_suite
         end
     end
 end

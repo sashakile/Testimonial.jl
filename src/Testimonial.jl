@@ -26,6 +26,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        balance_shards,
        compute_environment_fingerprint, environment_matches,
        MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
+       parse_safety_mode,
        scoped_fallback, collect_fallback_reasons, must_run_with_fallback_priority,
        SEED_FAULT_PATTERNS, run_seeded_fault_test, run_all_seeded_fault_tests,
        discover_components, component_of, component_paths,
@@ -688,6 +689,32 @@ function parse_components_override(config::Dict{String, Any})::Dict{Symbol, Stri
         push!(path_map, Symbol(name) => String(path))
     end
     return path_map
+end
+
+"""
+    parse_safety_mode(config::Dict) -> Symbol
+
+Parse the `[safety]` section from a Testimonial.toml config dict.
+
+Expected format:
+```toml
+[safety]
+mode = "shadow"    # or "enforcing"
+```
+
+Returns `:shadow` if mode is "shadow", `:enforcing` if mode is "enforcing".
+Returns `:shadow` as the safe default if the key is missing or invalid.
+"""
+function parse_safety_mode(config::Dict)::Symbol
+    if !haskey(config, "safety") || !isa(config["safety"], Dict)
+        return :shadow
+    end
+    safety = config["safety"]
+    mode = get(safety, "mode", "shadow")
+    if mode == "enforcing"
+        return :enforcing
+    end
+    return :shadow
 end
 
 # ── Component discovery ─────────────────────────

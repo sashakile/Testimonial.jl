@@ -328,8 +328,13 @@ Entry point for command-line invocation. Parses flags and calls `run()`.
 
 # Flags
 - `--shadow`: enable shadow mode (compute selection but run all tests)
+- `--enforcing`: enable enforcing mode (return selected set)
 - `--base-ref <ref>`: git base ref for diff (default: origin/main)
 - `--n-shards <N>`: number of CI shards (default: 0)
+
+The `--shadow` and `--enforcing` flags are mutually exclusive.
+If neither flag is given, the mode is read from `Testimonial.toml`
+`[safety] mode` key (defaults to `:shadow` if absent).
 
 Unknown flags are silently ignored for forward compatibility.
 """
@@ -340,15 +345,21 @@ function main(args::Vector{String}=ARGS)
     end
 
     # Flag parsing for run()
-    shadow = false
+    shadow = nothing  # nothing = use config default
     base_ref = "origin/main"
     n_shards = 0
+    has_shadow_flag = false
+    has_enforcing_flag = false
 
     i = 1
     while i <= length(args)
         arg = args[i]
         if arg == "--shadow"
+            has_shadow_flag = true
             shadow = true
+        elseif arg == "--enforcing"
+            has_enforcing_flag = true
+            shadow = false
         elseif arg == "--base-ref" && i + 1 <= length(args)
             base_ref = args[i + 1]
             i += 1
@@ -357,6 +368,14 @@ function main(args::Vector{String}=ARGS)
             i += 1
         end
         i += 1
+    end
+
+    # If no explicit flag, read from config
+    if !has_shadow_flag && !has_enforcing_flag
+        par = Base.parentmodule(@__MODULE__)
+        config = par.read_testimonial_config(_git_repo_root())
+        mode = par.parse_safety_mode(config)
+        shadow = (mode == :shadow)
     end
 
     return run(; base_ref=base_ref, n_shards=n_shards, shadow=shadow)
@@ -581,7 +600,7 @@ Returns "." if not in a git repo.
 function _git_repo_root()::String
     try
         result = read(`git rev-parse --show-toplevel`, String)
-        return strip(result)
+        return String(strip(result))
     catch
         return "."
     end
