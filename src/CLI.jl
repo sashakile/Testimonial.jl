@@ -12,7 +12,7 @@ module CLI
 using Dates
 using Serialization
 import ..Testimonial: CoverageIndex, TestItemRef, ItemCoverage,
-    discover_testitems
+    discover_testitems, load_incidents, save_incidents
 
 export index_info, explain, run, main, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS,
        _write_shard_files, _read_shard_manifest, _clean_shard_files
@@ -313,6 +313,12 @@ Entry point for command-line invocation. Parses flags and calls `run()`.
 Unknown flags are silently ignored for forward compatibility.
 """
 function main(args::Vector{String}=ARGS)
+    # Check for subcommands
+    if !isempty(args) && args[1] == "incidents"
+        return _handle_incidents(args[2:end])
+    end
+
+    # Flag parsing for run()
     shadow = false
     base_ref = "origin/main"
     n_shards = 0
@@ -333,6 +339,46 @@ function main(args::Vector{String}=ARGS)
     end
 
     return run(; base_ref=base_ref, n_shards=n_shards, shadow=shadow)
+end
+
+"""
+    _handle_incidents(args) -> String
+
+Handle the `incidents` subcommand.
+
+- `incidents`: list all incidents
+- `incidents dismiss <N>`: dismiss incident by 1-indexed position
+"""
+function _handle_incidents(args::Vector{String})::String
+    incidents = load_incidents()
+
+    if !isempty(args) && args[1] == "dismiss"
+        if length(args) < 2
+            return "Usage: testimonial incidents dismiss <index>"
+        end
+        idx = tryparse(Int, args[2])
+        if idx === nothing || idx < 1 || idx > length(incidents)
+            return "Invalid index: $idx (must be 1-$(length(incidents)))"
+        end
+        dismissed = incidents[idx]
+        deleteat!(incidents, idx)
+        save_incidents(incidents)
+        return "Dismissed incident $idx: $(dismissed.changed_content) → $(dismissed.missed_test.name) [$(dismissed.status)]"
+    end
+
+    # List incidents
+    if isempty(incidents)
+        return "No incidents recorded."
+    end
+
+    lines = String[]
+    push!(lines, "Incidents ($(length(incidents))):")
+    for (i, inc) in enumerate(incidents)
+        ts = Dates.format(inc.timestamp, "yyyy-mm-dd HH:MM")
+        push!(lines, "  $i: [$(inc.status)] $(inc.changed_content) → $(inc.missed_test.name) ($ts)")
+    end
+    return join(lines, "
+")
 end
 
 # ── Component-aware bottom-up resolution ────────
