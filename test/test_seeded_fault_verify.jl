@@ -46,3 +46,19 @@ end
     all_passed = all(r[:passed] for r in results)
     @test all_passed == true
 end
+
+@testset "seed patterns have unique names" begin
+    names = [p.name for p in Testimonial.SEED_FAULT_PATTERNS]
+    @test length(names) == length(Set(names))
+end
+
+@testset "seed patterns have non-empty action" begin
+    for pattern in Testimonial.SEED_FAULT_PATTERNS
+        @test !isempty(strip(get(pattern, :action, "")))
+    end
+end
+
+@testset "seeded fault script exists" begin
+    script = joinpath(@__DIR__, "..", "scripts", "seeded_fault_test.jl")
+    @test isfile(script)
+end
