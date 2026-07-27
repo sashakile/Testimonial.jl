@@ -148,3 +148,28 @@ end
     @test length(result) == 1
     @test all(r.status == Promoted for r in result)
 end
+
+@testset "promote_incidents with max_age_days filters old incidents" begin
+    ref = TestItemRef("test/foo.jl", 1, "test_foo")
+    content = "src/lib.jl"
+    old_ts = now() - Dates.Day(10)
+
+    incs = [
+        MissedSelectionIncident(content, ref, old_ts, Candidate),
+        MissedSelectionIncident(content, ref, old_ts, Candidate),
+        MissedSelectionIncident(content, ref, now(), Candidate),
+        MissedSelectionIncident(content, ref, now(), Candidate),
+    ]
+
+    # Default (max_age_days=0): unlimited — counts all 4 → promotes
+    result_default = Testimonial.promote_incidents(incs)
+    @test all(r.status == Promoted for r in result_default)
+
+    # max_age_days=3: only counts 2 recent (within 3 days) → below threshold
+    result_windowed = Testimonial.promote_incidents(incs; max_age_days=3)
+    @test all(r.status == Candidate for r in result_windowed)
+
+    # max_age_days=14: all 4 within window → promotes
+    result_wide = Testimonial.promote_incidents(incs; max_age_days=14)
+    @test all(r.status == Promoted for r in result_wide)
+end

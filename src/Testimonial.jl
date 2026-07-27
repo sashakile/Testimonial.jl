@@ -1202,18 +1202,30 @@ threshold are returned unchanged.
 
 See SAFE-005 (incident promotion after confirmation) in the safety
 invariants spec.
+
+When `max_age_days` > 0, only incidents within the last N days are
+counted toward the promotion threshold. Older incidents are returned
+unchanged (not promoted, not demoted). This implements a rolling
+evaluation window that prevents stale observations from triggering
+premature promotion.
 """
 function promote_incidents(
     incidents::Vector{MissedSelectionIncident},
-    threshold::Int=3,
+    threshold::Int=3;
+    max_age_days::Int=0,
 )::Vector{MissedSelectionIncident}
     isempty(incidents) && return incidents
+
+    # Filter to in-window incidents for counting
+    cutoff = max_age_days > 0 ? now() - Dates.Day(max_age_days) : Dates.DateTime(0)
 
     # Count occurrences of each (changed_content, missed_test) pair
     counts = Dict{Tuple{String, String}, Int}()
     for inc in incidents
         key = (inc.changed_content, inc.missed_test.name)
-        counts[key] = get(counts, key, 0) + 1
+        if max_age_days == 0 || inc.timestamp >= cutoff
+            counts[key] = get(counts, key, 0) + 1
+        end
     end
 
     # Build result: promote if count >= threshold
