@@ -7,6 +7,8 @@
 
 using Testimonial
 using Test
+using Dates
+
 
 @testset "CLI main accepts --shadow flag" begin
     mktempdir() do dir
@@ -120,6 +122,56 @@ end
 
             # Out of bounds
             result = Testimonial.CLI.main(["incidents", "dismiss", "99"])
+            @test result isa String
+            @test contains(lowercase(result), "invalid")
+
+            # Verify incident was not removed
+            @test length(load_incidents()) == 1
+        end
+    end
+end
+
+@testset "CLI incidents dismiss without index shows usage" begin
+    mktempdir() do dir
+        cd(dir) do
+            mkpath(".testimonial")
+
+            result = Testimonial.CLI.main(["incidents", "dismiss"])
+            @test result isa String
+            @test contains(lowercase(result), "usage")
+        end
+    end
+end
+
+@testset "CLI incidents dismiss with non-numeric index shows error" begin
+    mktempdir() do dir
+        cd(dir) do
+            mkpath(".testimonial")
+
+            ref = TestItemRef("test/foo.jl", 1, "test_foo")
+            inc = MissedSelectionIncident("src/lib.jl", ref, now(), Candidate)
+            save_incidents([inc])
+
+            result = Testimonial.CLI.main(["incidents", "dismiss", "abc"])
+            @test result isa String
+            @test contains(lowercase(result), "invalid")
+
+            # Verify incident was not removed
+            @test length(load_incidents()) == 1
+        end
+    end
+end
+
+@testset "CLI incidents dismiss with negative index shows error" begin
+    mktempdir() do dir
+        cd(dir) do
+            mkpath(".testimonial")
+
+            ref = TestItemRef("test/foo.jl", 1, "test_foo")
+            inc = MissedSelectionIncident("src/lib.jl", ref, now(), Candidate)
+            save_incidents([inc])
+
+            result = Testimonial.CLI.main(["incidents", "dismiss", "-1"])
             @test result isa String
             @test contains(lowercase(result), "invalid")
 

@@ -8,6 +8,7 @@
 
 using Testimonial
 using Test
+using Dates
 
 @testset "compare_selection_vs_outcomes detects missed candidates" begin
     ref_a = TestItemRef("test/a.jl", 1, "test_a")
@@ -109,6 +110,13 @@ end
     @test all(r.status == Candidate for r in result)
 end
 
+@testset "promote_incidents returns empty for empty list" begin
+    incs = MissedSelectionIncident[]
+    result = Testimonial.promote_incidents(incs)
+    @test result === incs  # identity return
+    @test isempty(result)
+end
+
 @testset "promote_incidents handles multiple distinct pairs" begin
     ref_a = TestItemRef("test/a.jl", 1, "test_a")
     ref_b = TestItemRef("test/b.jl", 1, "test_b")
@@ -129,11 +137,6 @@ end
     candidates = filter(r -> r.status == Candidate, result)
     @test length(candidates) == 1
     @test candidates[1].missed_test == ref_b
-end
-
-@testset "promote_incidents handles empty input" begin
-    result = Testimonial.promote_incidents(MissedSelectionIncident[])
-    @test isempty(result)
 end
 
 @testset "promote_incidents respects custom threshold" begin
