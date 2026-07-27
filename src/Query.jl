@@ -11,7 +11,7 @@ module Query
 
 export query_files, coverage_gaps, nearest_covered_lines,
        query, direct_change_provider, unresolved_provider,
-       must_run_provider
+       must_run_provider, manual_edge_provider
 
 # ── Helpers ───────────────────────────────────
 
@@ -361,6 +361,47 @@ function must_run_provider(index, changed_files::Vector{String}; must_run_rules:
             reason = parent.ImpactReason(parent.AlwaysRun, "must-run rule matched (tag: $(tag_str))")
             push!(results, parent.ImpactResult(ref, [reason], true))
         end
+    end
+
+    return results
+end
+
+"""
+    manual_edge_provider(index, changed_files) -> Vector{ImpactResult}
+
+Provider: for files matching any manual edge's content_path, returns
+`AlwaysRun` reasons for the associated test items.
+
+Reads manual edges from the default storage path. Does not require
+an index — manual edges operate on content paths regardless of coverage.
+
+This is a provider function suitable for use with `query`.
+"""
+function manual_edge_provider(index, changed_files::Vector{String}; component::Union{String,Nothing}=nothing)::Vector
+    parent = _parent()
+
+    edges = parent.load_manual_edges()
+    isempty(edges) && return parent.ImpactResult[]
+
+    results = parent.ImpactResult[]
+    seen = Set{Pair{String, String}}()
+
+    for edge in edges
+        # Check if any changed file matches this edge's content path
+        matched = any(f -> endswith(f, edge.content_path) || endswith(edge.content_path, f), changed_files)
+        if !matched
+            continue
+        end
+
+        # De-duplicate by test identity (file, name)
+        key = edge.test.file => edge.test.name
+        if key in seen
+            continue
+        end
+        push!(seen, key)
+
+        reason = parent.ImpactReason(parent.AlwaysRun, "manual edge: $(edge.content_path) -> $(edge.test.name)")
+        push!(results, parent.ImpactResult(edge.test, [reason]))
     end
 
     return results

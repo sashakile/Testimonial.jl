@@ -21,6 +21,8 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        save_run_history, load_run_history, DEFAULT_RUN_HISTORY_PATH,
        INCIDENTS_PATH, save_incidents, load_incidents, append_incident,
        compare_selection_vs_outcomes, promote_incidents,
+       MANUAL_EDGES_PATH, ManualEdge, save_manual_edges, load_manual_edges,
+       create_manual_edges_from_promoted, manual_edge_provider,
        balance_shards,
        compute_environment_fingerprint, environment_matches,
        MustRunRule, matches_must_run_rule, must_run_tags, parse_must_run_rules,
@@ -1198,6 +1200,102 @@ function promote_incidents(
         ))
     end
 
+    return result
+end
+
+# ── Manual edge persistence ────────────────────────
+
+"""Default path for manual edge storage."""
+const MANUAL_EDGES_PATH = joinpath(".testimonial", "manual_edges.jls")
+
+"""A manual edge forcing selection of a test when content changes.
+
+When `content_path` is modified in a future diff, `test` SHALL be
+included in the selected set regardless of what the coverage index
+would otherwise recommend.
+
+Equality is based on (content_path, test) — timestamp is excluded.
+"""
+struct ManualEdge
+    content_path :: String
+    test :: TestItemRef
+    created_at :: DateTime
+end
+
+function Base.:(==)(a::ManualEdge, b::ManualEdge)
+    return a.content_path == b.content_path && a.test == b.test
+end
+
+function Base.hash(a::ManualEdge, h::UInt)
+    return hash(a.content_path, hash(a.test, h))
+end
+
+"""
+    save_manual_edges(edges::Vector{ManualEdge}, path::String=MANUAL_EDGES_PATH)
+
+Persist manual edges to disk. Uses atomic write (tmp + rename).
+"""
+function save_manual_edges(edges::Vector{ManualEdge}, path::String=MANUAL_EDGES_PATH)
+    dir = dirname(path)
+    mkpath(dir)
+    tmppath = path * ".tmp"
+    open(tmppath, "w") do io
+        serialize(io, edges)
+    end
+    mv(tmppath, path; force=true)
+    return nothing
+end
+
+"""
+    load_manual_edges(path::String=MANUAL_EDGES_PATH) -> Vector{ManualEdge}
+
+Load persisted manual edges from disk.
+Returns an empty vector if the file doesn't exist, can't be read,
+or fails deserialization.
+"""
+function load_manual_edges(path::String=MANUAL_EDGES_PATH)::Vector{ManualEdge}
+    if !isfile(path)
+        return ManualEdge[]
+    end
+    try
+        result = open(deserialize, path, "r")
+        if result isa Vector{ManualEdge}
+            return result
+        end
+        return ManualEdge[]
+    catch
+        return ManualEdge[]
+    end
+end
+
+"""
+    create_manual_edges_from_promoted(incidents; path::String=MANUAL_EDGES_PATH)
+
+Extract promoted incidents, create `ManualEdge` entries for each
+(changed_content, missed_test) pair, merge with existing edges,
+and save.
+
+Returns the updated vector of all manual edges.
+"""
+function create_manual_edges_from_promoted(
+    incidents::Vector{MissedSelectionIncident};
+    path::String=MANUAL_EDGES_PATH,
+)::Vector{ManualEdge}
+    # Collect existing edges
+    existing = load_manual_edges(path)
+    existing_set = Set(existing)
+
+    # Create new edges from promoted incidents
+    now_ts = now()
+    for inc in incidents
+        if inc.status == Promoted
+            edge = ManualEdge(inc.changed_content, inc.missed_test, now_ts)
+            push!(existing_set, edge)
+        end
+    end
+
+    result = collect(existing_set)
+    save_manual_edges(result, path)
     return result
 end
 

@@ -262,6 +262,27 @@ function run(; base_ref::String="origin/main",
         ]
     end
 
+    # Step 6a: Merge manual edges into selection
+    if filtered isa Vector && !isempty(changed_files)
+        manual_results = parent.manual_edge_provider(index, changed_files)
+        for r in manual_results
+            if r.selected && any(startswith(r.item.file, d) for d in abs_test_dirs)
+                # Avoid duplicates: if already in filtered, merge reasons
+                existing_idx = findfirst(x -> x.item == r.item, filtered)
+                if existing_idx !== nothing
+                    merged = ImpactResult(
+                        filtered[existing_idx].item,
+                        vcat(filtered[existing_idx].reasons, r.reasons),
+                        true,
+                    )
+                    filtered[existing_idx] = merged
+                else
+                    push!(filtered, r)
+                end
+            end
+        end
+    end
+
     # Step 7: Check coverage gaps in changed source files
     source_files = [f for f in changed_files
                     if endswith(f, ".jl") && !any(startswith(f, d) for d in abs_test_dirs)]
@@ -503,7 +524,7 @@ function _run_component_aware(
             comp_results[i] = cached[2]
         else
             results = parent.query(
-                [parent.direct_change_provider, parent.unresolved_provider],
+                [parent.direct_change_provider, parent.unresolved_provider, parent.manual_edge_provider],
                 index,
                 changed;
                 component=comp,
