@@ -25,6 +25,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        reconcile,
        record_outcome, get_outcome_history, reset_flaky_history,
        is_flaky, quarantine_test, unquarantine_test, get_quarantined_tests,
+       auto_quarantine_flaky, clear_quarantine_on_consistent,
        MANUAL_EDGES_PATH, ManualEdge, save_manual_edges, load_manual_edges,
        create_manual_edges_from_promoted, manual_edge_provider,
        balance_shards,
@@ -1461,6 +1462,52 @@ Get the set of quarantined test keys.
 """
 function get_quarantined_tests()::Set{Tuple{String, String}}
     return copy(_QUARANTINED_TESTS)
+end
+
+"""
+    auto_quarantine_flaky(; window::Int=5) -> Set{Tuple{String, String}}
+
+Scan all tests with outcome history and quarantine any that are flaky.
+Returns the set of newly quarantined test keys.
+
+A test is flaky if its recent history (last `window` outcomes) contains
+both passes and failures.
+"""
+function auto_quarantine_flaky(; window::Int=5)::Set{Tuple{String, String}}
+    newly_quarantined = Set{Tuple{String, String}}()
+    for (key, history) in _OUTCOME_HISTORY
+        if key ∉ _QUARANTINED_TESTS
+            ref = TestItemRef(key[1], 0, key[2])
+            if is_flaky(ref; window=window)
+                push!(_QUARANTINED_TESTS, key)
+                push!(newly_quarantined, key)
+            end
+        end
+    end
+    return newly_quarantined
+end
+
+"""
+    clear_quarantine_on_consistent(ref::TestItemRef; window::Int=5) -> Bool
+
+If a quarantined test has been consistently passing (no failures in the
+last `window` outcomes), remove it from quarantine. Returns true if
+quarantine was cleared.
+"""
+function clear_quarantine_on_consistent(ref::TestItemRef; window::Int=5)::Bool
+    key = (ref.file, ref.name)
+    key ∉ _QUARANTINED_TESTS && return false
+
+    history = get(_OUTCOME_HISTORY, key, Bool[])
+    if isempty(history)
+        return false
+    end
+    recent = history[max(1, end - window + 1):end]
+    if all(recent)
+        delete!(_QUARANTINED_TESTS, key)
+        return true
+    end
+    return false
 end
 
 # ── Manual edge persistence ────────────────────────

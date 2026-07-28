@@ -120,3 +120,143 @@ end
 
     Testimonial.unquarantine_test(ref_b)
 end
+
+@testset "auto_quarantine quarantines flaky tests" begin
+    Testimonial.reset_flaky_history()
+    ref = TestItemRef("test/foo.jl", 1, "test_foo")
+
+    # Mixed outcomes → flaky
+    Testimonial.record_outcome(ref, true)
+    Testimonial.record_outcome(ref, false)
+    Testimonial.record_outcome(ref, true)
+
+    auto_quarantined = Testimonial.auto_quarantine_flaky()
+    @test ("test/foo.jl", "test_foo") in auto_quarantined
+    @test ("test/foo.jl", "test_foo") in Testimonial.get_quarantined_tests()
+
+    Testimonial.unquarantine_test(ref)
+end
+
+@testset "auto_quarantine skips consistent tests" begin
+    Testimonial.reset_flaky_history()
+    ref = TestItemRef("test/bar.jl", 1, "test_bar")
+
+    # All passes → not flaky
+    for _ in 1:5
+        Testimonial.record_outcome(ref, true)
+    end
+
+    auto_quarantined = Testimonial.auto_quarantine_flaky()
+    @test !(("test/bar.jl", "test_bar") in auto_quarantined)
+end
+
+@testset "quarantined test manual edges are excluded from selection" begin
+    Testimonial.reset_flaky_history()
+    mktempdir() do dir
+        cd(dir) do
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+
+            mkpath("test")
+            mkpath("src")
+
+            write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 1 end""")
+            run(`git add .`)
+            run(`git commit -m "initial"`)
+
+            ref_a = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
+            ic_a = ItemCoverage(ref_a, [1], Int[], Dict())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref_a => ic_a),
+                readchomp(`git rev-parse HEAD`),
+                string(VERSION),
+                v"0.1.0",
+                now(),
+                Testimonial.compute_environment_fingerprint(dir),
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            # Create a manual edge for test_a
+            edge = ManualEdge("src/lib.jl", ref_a, now())
+            save_manual_edges([edge])
+
+            # Now quarantine test_a
+            Testimonial.quarantine_test(ref_a)
+
+            # Modify src/lib.jl to trigger manual edge
+            write("src/lib.jl", "module Lib; end")
+            run(`git add .`)
+            run(`git commit -m "modify src/lib.jl"`)
+
+            # Manual edge provider should exclude quarantined tests
+            result = Testimonial.CLI.run(; base_ref="HEAD~1", shadow=false)
+            @test result isa Vector
+            @test isempty(result)  # no tests selected (quarantined edge excluded)
+
+            Testimonial.unquarantine_test(ref_a)
+        end
+    end
+end
+
+@testset "full cycle: record → detect flaky → auto-quarantine → exclude" begin
+    Testimonial.reset_flaky_history()
+    mktempdir() do dir
+        cd(dir) do
+            mkpath(".testimonial")
+
+            ref_a = TestItemRef("test/a.jl", 1, "test_a")
+            ref_b = TestItemRef("test/b.jl", 1, "test_b")
+
+            # Step 1: Record outcomes — ref_b is flaky
+            Testimonial.record_outcome(ref_b, true)
+            Testimonial.record_outcome(ref_b, false)
+            Testimonial.record_outcome(ref_b, true)
+
+            # Step 2: Auto-quarantine
+            quarantined = Testimonial.auto_quarantine_flaky()
+            @test ("test/b.jl", "test_b") in quarantined
+
+            # Step 3: Reconcile — ref_b failure should be excluded
+            selected = [ref_a]
+            all_items = [ref_a, ref_b]
+            failed_items = [ref_b]
+            changed_content = "src/lib.jl"
+
+            report = Testimonial.reconcile(selected, all_items, failed_items, changed_content)
+            @test report.incidents_detected == 0  # ref_b excluded as flaky
+
+            Testimonial.unquarantine_test(ref_b)
+        end
+    end
+end
+
+@testset "clear_quarantine removes flaky flag after consistent passes" begin
+    Testimonial.reset_flaky_history()
+    ref = TestItemRef("test/foo.jl", 1, "test_foo")
+
+    # Test was flaky, but now has 5 consecutive passes
+    Testimonial.quarantine_test(ref)
+    for _ in 1:5
+        Testimonial.record_outcome(ref, true)
+    end
+
+    cleared = Testimonial.clear_quarantine_on_consistent(ref)
+    @test cleared
+    @test !(("test/foo.jl", "test_foo") in Testimonial.get_quarantined_tests())
+end
+
+@testset "clear_quarantine keeps flaky flag on inconsistent" begin
+    Testimonial.reset_flaky_history()
+    ref = TestItemRef("test/foo.jl", 1, "test_foo")
+
+    Testimonial.quarantine_test(ref)
+    Testimonial.record_outcome(ref, true)
+    Testimonial.record_outcome(ref, false)  # still inconsistent
+
+    cleared = Testimonial.clear_quarantine_on_consistent(ref)
+    @test !cleared
+    @test ("test/foo.jl", "test_foo") in Testimonial.get_quarantined_tests()
+
+    Testimonial.unquarantine_test(ref)
+end

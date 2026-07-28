@@ -383,10 +383,16 @@ function manual_edge_provider(index, changed_files::Vector{String}; component::U
     edges = parent.load_manual_edges()
     isempty(edges) && return parent.ImpactResult[]
 
+    # Load quarantined tests to exclude
+    quarantined = parent.get_quarantined_tests()
+
     results = parent.ImpactResult[]
     seen = Set{Pair{String, String}}()
 
     for edge in edges
+        # Skip quarantined tests
+        (edge.test.file, edge.test.name) in quarantined && continue
+
         # Check if any changed file matches this edge's content path
         matched = any(f -> endswith(f, edge.content_path) || endswith(edge.content_path, f), changed_files)
         if !matched
