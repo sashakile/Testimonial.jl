@@ -62,3 +62,75 @@ end
     @test Testimonial.DEFAULT_PROVENANCE_DIR == ".testimonial/provenance/"
     @test endswith(Testimonial.DEFAULT_PROVENANCE_DIR, "/")
 end
+
+@testset "explain loads persisted provenance when run_key matches" begin
+    mktempdir() do dir
+        # Create a simple index
+        ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+        index = Testimonial.CoverageIndex(
+            Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}(),
+            "abc123", string(VERSION), v"0.1.0", now(),
+        )
+
+        # Store provenance for a run key
+        prov_dir = joinpath(dir, "provenance")
+        results = [
+            Testimonial.ImpactResult(
+                ref,
+                [Testimonial.ImpactReason(Testimonial.DirectChange, "changed src/lib.jl")],
+                true,
+                nothing,
+            ),
+        ]
+        Testimonial.save_provenance("abc123_1234567890", results, prov_dir)
+
+        # Call explain with matching run_key — should load from provenance
+        lines = Testimonial.explain(
+            "/proj/test/foo_test.jl", "test_a";
+            run_key="abc123_1234567890",
+            provenance_dir=prov_dir,
+            index=index,
+        )
+        @test lines isa Vector{String}
+        @test !isempty(lines)
+        @test occursin("test_a", join(lines, "\n"))
+    end
+end
+
+@testset "explain falls back to normal explain when run_key has no provenance" begin
+    mktempdir() do dir
+        ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+        index = Testimonial.CoverageIndex(
+            Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}(),
+            "abc123", string(VERSION), v"0.1.0", now(),
+        )
+
+        lines = Testimonial.explain(
+            "/proj/test/foo_test.jl", "test_a";
+            run_key="nonexistent",
+            provenance_dir=joinpath(dir, "provenance"),
+            index=index,
+        )
+        @test lines isa Vector{String}
+    end
+end
+
+@testset "explain with run_key but no provenance_dir uses default" begin
+    mktempdir() do dir
+        Testimonial.save_provenance("test_key", [
+            Testimonial.ImpactResult(
+                Testimonial.TestItemRef("/test/a.jl", 1, "t1"),
+                Testimonial.ImpactReason[],
+                true,
+                nothing,
+            ),
+        ], dir)
+
+        lines = Testimonial.explain(
+            "/test/a.jl", "t1";
+            run_key="test_key",
+            provenance_dir=dir,
+        )
+        @test lines isa Vector{String}
+    end
+end

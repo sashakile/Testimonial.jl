@@ -189,10 +189,45 @@ function explain(test_file::AbstractString, item_name::AbstractString;
                  exclude::Bool=false,
                  changed::Dict{String, Set{Int}}=Dict{String, Set{Int}}(),
                  index::Union{Nothing, Any}=nothing,
-                 index_path::String=".testimonial/index.jls")::Vector{String}
+                 index_path::String=".testimonial/index.jls",
+                 run_key::Union{Nothing, String}=nothing,
+                 provenance_dir::Union{Nothing, String}=nothing)::Vector{String}
     parent = Base.parentmodule(@__MODULE__)
 
-    # Format explain output with optional confidence
+    # If run_key provided, try loading from persisted provenance first
+    if run_key !== nothing
+        prov_dir = something(provenance_dir, parent.DEFAULT_PROVENANCE_DIR)
+        prov = parent.load_provenance(run_key, prov_dir)
+        if !isempty(prov)
+            # Find the matching ImpactResult
+            target = parent.TestItemRef(String(test_file), 0, String(item_name))
+            for result in prov
+                if result.item == target
+                    return parent.format_impact_result(result)
+                end
+            end
+            return String["\"$(item_name)\" not found in provenance for run key \"$(run_key)\"."]
+        end
+    end
+
+    # Fall through to normal explain path
+    return _explain_with_confidence(test_file, item_name; exclude=exclude, changed=changed,
+                                    index=index, index_path=index_path)
+end
+
+"""
+    _explain_with_confidence(test_file, item_name; kwargs...) -> Vector{String}
+
+The core explain implementation with confidence annotations.
+Called by `explain` when no persisted provenance is available.
+"""
+function _explain_with_confidence(test_file::AbstractString, item_name::AbstractString;
+                                   exclude::Bool=false,
+                                   changed::Dict{String, Set{Int}}=Dict{String, Set{Int}}(),
+                                   index::Union{Nothing, Any}=nothing,
+                                   index_path::String=".testimonial/index.jls")::Vector{String}
+    parent = Base.parentmodule(@__MODULE__)
+
     function _format_explain(lines::Vector{String}, confidence::Union{Nothing, Float64})::Vector{String}
         if confidence === nothing
             return lines
@@ -202,7 +237,7 @@ function explain(test_file::AbstractString, item_name::AbstractString;
 
     idx = index !== nothing ? index : parent.load_index(index_path)
 
-    # Non-exclude path: delegate to the original covered-files explain
+    # Non-exclude path
     if !exclude
         lines = _explain_covered(test_file, item_name; index_path=index_path, index=idx)
         conf = _compute_explain_confidence(idx, test_file, item_name)
@@ -213,7 +248,7 @@ function explain(test_file::AbstractString, item_name::AbstractString;
 
     target = parent.TestItemRef(String(test_file), 0, String(item_name))
 
-    # Pre-compute confidence for the target test if it's in the index
+    # Pre-compute confidence
     function _explain_confidence()::Union{Nothing, Float64}
         for (ref, _) in idx.items
             if ref == target
@@ -224,7 +259,7 @@ function explain(test_file::AbstractString, item_name::AbstractString;
     end
     confidence = _explain_confidence()
 
-    # ── Scenario: test not in index ──
+    # Scenario: test not in index
     found_ref = nothing
     found_ic = nothing
     for (ref, ic) in idx.items
@@ -241,9 +276,7 @@ function explain(test_file::AbstractString, item_name::AbstractString;
         ], confidence)
     end
 
-    # ── Scenario: different component ──
-    # If the test belongs to a component and NO changed file lives under
-    # that component's root, there is no dependency path.
+    # Scenario: different component
     changed_files = collect(keys(changed))
     if found_ref.component != ""
         comp = found_ref.component
@@ -258,8 +291,7 @@ function explain(test_file::AbstractString, item_name::AbstractString;
         end
     end
 
-    # ── Scenario: no coverage overlap ──
-    # Does any changed file appear in the test's source_files coverage map?
+    # Scenario: no coverage overlap
     covered_files = collect(keys(found_ic.source_files))
     overlap = false
     for cf in changed_files
