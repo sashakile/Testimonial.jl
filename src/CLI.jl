@@ -148,10 +148,11 @@ Render an `ImpactResult` as human-readable lines: an item header
 (annotated with selected/unselected status) followed by each reason
 rendered via `format_reason`.
 """
-function format_impact_result(result)::Vector{String}
+function format_impact_result(result; confidence::Union{Nothing, Float64}=nothing)::Vector{String}
     lines = String[]
     status = result.selected ? "selected" : "not selected"
-    push!(lines, "$(result.item.name)  ($(result.item.file))  [$status]")
+    conf_str = confidence !== nothing ? string("  [confidence: ", round(confidence, digits=2), "]") : ""
+    push!(lines, "$(result.item.name)  ($(result.item.file))  [$status]$(conf_str)")
     if result.fallback_reason !== nothing
         push!(lines, "  fallback: $(result.fallback_reason)")
     end

@@ -423,3 +423,30 @@ end
     summary = Testimonial.format_confidence_summary(Dict{Symbol, Float64}())
     @test isempty(summary) || occursin("no", lowercase(summary))
 end
+
+# ── format_impact_result with confidence ──────
+
+@testset "format_impact_result includes confidence when provided" begin
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    result = Testimonial.ImpactResult(ref, Testimonial.ImpactReason[])
+    lines = Testimonial.format_impact_result(result; confidence=0.85)
+    combined = join(lines, "\n")
+    @test occursin("confidence", lowercase(combined))
+    @test occursin("0.85", combined) || occursin("85", combined)
+end
+
+@testset "format_impact_result omits confidence when not provided" begin
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    result = Testimonial.ImpactResult(ref, Testimonial.ImpactReason[])
+    lines = Testimonial.format_impact_result(result)
+    combined = join(lines, "\n")
+    @test !occursin("confidence", lowercase(combined))
+end
+
+@testset "format_impact_result confidence field is in item header" begin
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    result = Testimonial.ImpactResult(ref, Testimonial.ImpactReason[])
+    lines = Testimonial.format_impact_result(result; confidence=0.84)
+    # Confidence should be on the first line (item header)
+    @test occursin("0.84", lines[1])
+end
