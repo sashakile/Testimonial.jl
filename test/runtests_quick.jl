@@ -48,4 +48,5 @@ include("test_shard_balance.jl")
     include("test_manual_edges.jl")
     include("test_incident_lifecycle.jl")
     include("test_reconcile.jl")
+    include("test_reconciliation_report.jl")
 end

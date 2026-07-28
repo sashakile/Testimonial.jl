@@ -1323,14 +1323,39 @@ function reconcile(
     total_incidents = length(promoted)
     total_manual_edges = length(edges)
     manual_edges_created = length(edges)  # create_manual_edges_from_promoted returns the full set
+    ts = now()
 
-    return (
+    # Step 7: Persist reconciliation report
+    report = (
         incidents_detected = incidents_detected,
         incidents_promoted = incidents_promoted,
         manual_edges_created = manual_edges_created,
         total_incidents = total_incidents,
         total_manual_edges = total_manual_edges,
+        timestamp = ts,
     )
+    _save_reconciliation_report(report)
+
+    return report
+end
+
+"""
+    _save_reconciliation_report(report::NamedTuple)
+
+Save a reconciliation report to `.testimonial/reconciliation/` with a
+timestamped filename.
+"""
+function _save_reconciliation_report(report::NamedTuple)::Nothing
+    dir = joinpath(".testimonial", "reconciliation")
+    mkpath(dir)
+    ts_ms = Dates.value(Dates.now())
+    path = joinpath(dir, "reconciliation_$(ts_ms).jls")
+    tmppath = path * ".tmp"
+    open(tmppath, "w") do io
+        serialize(io, report)
+    end
+    mv(tmppath, path; force=true)
+    return nothing
 end
 
 # ── Manual edge persistence ────────────────────────
