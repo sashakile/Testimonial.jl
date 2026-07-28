@@ -173,10 +173,10 @@ function handle_discover(cmd)
     params = get(cmd, "params", nothing)
 
     # Default to the project's test directory when no params provided.
-    # Use pwd() because testaruda spawns the adapter from the target project's root,
-    # not from Pkg.test(). When running under Pkg.test() on Julia 1.12+ the caller
-    # should pass explicit test_directories.
-    _default_test_dir = joinpath(pwd(), "test")
+    # Use @__DIR__ (src/) rather than pwd() because Pkg.test() on Julia 1.12+
+    # sets pwd() to the test/ subdirectory, making joinpath(pwd(), "test") wrong.
+    _project_root = dirname(@__DIR__)
+    _default_test_dir = joinpath(_project_root, "test")
     if params === nothing
         dirs = [_default_test_dir]
     else
