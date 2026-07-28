@@ -907,3 +907,209 @@ end
         @test edges["other.jl"] == "unresolved"  # unknown → unresolved
     end
 end
+
+# ── @testset discovery (Base.Test support) ────
+
+@testset "Discover: @testset returns suite_kind Base.Test" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_foo.jl")
+        write(test_file, """
+        @testset "My Suite" begin
+            @test 1 == 1
+        end
+        """)
+        cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        nodes = parsed["result"]
+        @test length(nodes) == 1
+        @test nodes[1]["suite_kind"] == "Base.Test"
+        @test nodes[1]["file"] == realpath(test_file)
+        @test occursin(":", nodes[1]["node_id"])
+    end
+end
+
+@testset "Discover: unnamed @testset begin" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_no_name.jl")
+        write(test_file, """
+        @testset begin
+            @test 1 == 1
+        end
+        """)
+        cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        nodes = parsed["result"]
+        @test length(nodes) == 1
+        @test nodes[1]["suite_kind"] == "Base.Test"
+    end
+end
+
+@testset "Discover: mixed @testitem and @testset" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_mixed.jl")
+        write(test_file, """
+        @testitem "unit" begin
+            @test 1 == 1
+        end
+
+        @testset "Integration" begin
+            @test 2 == 2
+        end
+        """)
+        cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        nodes = parsed["result"]
+        @test length(nodes) == 2
+        kinds = [n["suite_kind"] for n in nodes]
+        @test "ReTestItems.jl" in kinds
+        @test "Base.Test" in kinds
+    end
+end
+
+@testset "Discover: file-level fallback for plain test files" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_plain.jl")
+        write(test_file, """
+        @test 1 == 1
+        @test 2 == 2
+        """)
+        cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        nodes = parsed["result"]
+        @test length(nodes) == 1
+        @test nodes[1]["suite_kind"] == "Base.Test"
+        @test nodes[1]["file"] == realpath(test_file)
+        # File-level fallback has node_id ending in ":0"
+        @test endswith(nodes[1]["node_id"], ":0")
+    end
+end
+
+@testset "Discover: file-level fallback only for .jl files with no test blocks" begin
+    mktempdir() do dir
+        # File with @testitem — no fallback
+        with_item = joinpath(dir, "with_item.jl")
+        write(with_item, """@testitem "a" begin @test 1==1 end""")
+
+        # File with @testset — no fallback
+        with_set = joinpath(dir, "with_set.jl")
+        write(with_set, """@testset "B" begin @test 2==2 end""")
+
+        # Plain file — should get fallback
+        plain = joinpath(dir, "plain.jl")
+        write(plain, """@test 3 == 3""")
+
+        cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        nodes = parsed["result"]
+        @test length(nodes) == 3
+
+        # Check kinds
+        kinds = [n["suite_kind"] for n in nodes]
+        @test count(k -> k == "ReTestItems.jl", kinds) == 1
+        @test count(k -> k == "Base.Test", kinds) == 2
+    end
+end
+
+# ── @testset run-args (Base.Test support) ────
+
+@testset "Run-args: @testset item emits include()" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_set.jl")
+        write(test_file, """
+        @testset "My Suite" begin
+            @test 1 == 1
+        end
+        """)
+
+        # Discover to get the node_id
+        disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        disc_resp = Protocol.handle(disc_cmd)
+        disc = JSON.parse(disc_resp)
+        node_id = disc["result"][1]["node_id"]
+
+        # Run-args
+        cmd = """{"command":"run-args","params":{"selected":["$(node_id)"]}}"""
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        result = parsed["result"]
+        @test haskey(result, "runner_args")
+        @test haskey(result, "collection_path")
+        @test result["runner_args"][1] == "julia"
+        @test result["runner_args"][2] == "--project=."
+        @test result["runner_args"][3] == "-e"
+        # Should contain include() for the test file, not ReTestItems
+        @test occursin("include", result["runner_args"][4])
+        @test occursin(test_file, result["runner_args"][4])
+    end
+end
+
+@testset "Run-args: file-level fallback emits include()" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_plain.jl")
+        write(test_file, """@test 1 == 1""")
+
+        disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        disc_resp = Protocol.handle(disc_cmd)
+        disc = JSON.parse(disc_resp)
+        node_id = disc["result"][1]["node_id"]
+
+        cmd = """{"command":"run-args","params":{"selected":["$(node_id)"]}}"""
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        result = parsed["result"]
+        @test occursin("include", result["runner_args"][4])
+        @test occursin(test_file, result["runner_args"][4])
+    end
+end
+
+@testset "Run-args: mixed @testitem and @testset uses include()" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_mixed.jl")
+        write(test_file, """
+        @testitem "unit" begin
+            @test 1 == 1
+        end
+
+        @testset "Integration" begin
+            @test 2 == 2
+        end
+        """)
+
+        disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        disc_resp = Protocol.handle(disc_cmd)
+        disc = JSON.parse(disc_resp)
+        nodes = disc["result"]
+        node_ids = [n["node_id"] for n in nodes]
+        @test length(node_ids) == 2
+
+        # Run-args with both items
+        cmd = """{"command":"run-args","params":{"selected":$(JSON.json(node_ids))}}"""
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        result = parsed["result"]
+        # Mixed types should use include()
+        @test occursin("include", result["runner_args"][4])
+        @test occursin(test_file, result["runner_args"][4])
+    end
+end

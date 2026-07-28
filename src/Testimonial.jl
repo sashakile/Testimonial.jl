@@ -41,6 +41,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        discover_components, component_of, component_paths,
        component_index_dir, component_index_path, save_routing, load_routing,
        select_changed_items, _discover_in_file,
+       discover_testsets, discover_all_test_blocks,
        read_testimonial_config, parse_components_override
 
 # ── Enums (defined before structs that reference them) ──
@@ -291,6 +292,12 @@ end
 """Regex matching @testitem "name" — shared across AST parsing and protocol resolution."""
 const _TESTITEM_PATTERN = r"@testitem\s+\"([^\"]+)\""
 
+"""Regex matching @testset "name" — for Base.Test support."""
+const _TESTSET_PATTERN = r"@testset\s+\"([^\"]+)\""
+
+"""Regex matching @testset begin (unnamed) — for Base.Test support."""
+const _TESTSET_UNNAMED_PATTERN = r"@testset\s+(begin|for|let)"
+
 """Regex to extract external_inputs from @testitem annotations.
 
 Matches: external_inputs=["file1", "file2", ...]
@@ -409,6 +416,79 @@ function _discover_in_file(path::String)::Vector{TestItemRef}
     end
 
     return items
+end
+
+"""Discover @testset blocks in all .jl files under the given directories.
+
+Returns a Vector{TestItemRef} with one entry per @testset found.
+Search is recursive into subdirectories.
+Named @testsets use their name; unnamed @testsets use empty string.
+"""
+function discover_testsets(dirs::Vector{String})::Vector{TestItemRef}
+    items = TestItemRef[]
+    for dir in dirs
+        for path in _walk_jl_files(dir)
+            content = read(path, String)
+            fhash = bytes2hex(sha256(content))[1:12]
+            for m in eachmatch(_TESTSET_PATTERN, content)
+                name = m.captures[1]
+                offset = m.offset
+                line = count(==('\n'), content[1:offset]) + 1
+                push!(items, TestItemRef(path, line, name, Symbol[], fhash))
+            end
+            # Also match unnamed @testset begin/for/let
+            for m in eachmatch(_TESTSET_UNNAMED_PATTERN, content)
+                offset = m.offset
+                line = count(==('\n'), content[1:offset]) + 1
+                # Check if this line already matched a named @testset
+                already_matched = any(i -> i.line == line && i.file == path, items)
+                if !already_matched
+                    push!(items, TestItemRef(path, line, "", Symbol[], fhash))
+                end
+            end
+        end
+    end
+    return items
+end
+
+"""Discover all test blocks (@testitem and @testset) in all .jl files
+under the given directories, with file-level fallback for files that
+have no test blocks.
+
+For files with @testitem blocks, returns those items (suite_kind:
+ReTestItems.jl). For files with @testset blocks, returns those items
+(suite_kind: Base.Test). For files with neither, returns a single
+file-level fallback item with line=0 and name=filename (suite_kind:
+Base.Test).
+"""
+function discover_all_test_blocks(dirs::Vector{String})::Vector{TestItemRef}
+    testitems = discover_testitems(dirs)
+    testsets = discover_testsets(dirs)
+
+    # Collect all files that have at least one test block
+    files_with_blocks = Set{String}()
+    for item in testitems
+        push!(files_with_blocks, item.file)
+    end
+    for item in testsets
+        push!(files_with_blocks, item.file)
+    end
+
+    # Find all .jl files in the directories and add fallback for those without blocks
+    fallback_items = TestItemRef[]
+    for dir in dirs
+        for path in _walk_jl_files(dir)
+            if path in files_with_blocks
+                continue
+            end
+            # File-level fallback: use filename as name, line=0
+            filename = basename(path)
+            push!(fallback_items, TestItemRef(path, 0, filename, Symbol[], ""))
+        end
+    end
+
+    # Merge: @testitem first, then @testset, then fallback
+    return vcat(testitems, testsets, fallback_items)
 end
 
 """

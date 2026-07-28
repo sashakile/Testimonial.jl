@@ -198,15 +198,26 @@ function handle_discover(cmd)
         push!(normalized_dirs, realpath(d))
     end
 
-    # Discover test items across all configured directories
+    # Discover all test blocks (@testitem, @testset, file-level fallback)
+    # across all configured directories
     parent = Base.parentmodule(@__MODULE__)
-    items = parent.discover_testitems(normalized_dirs)
+    items = parent.discover_all_test_blocks(normalized_dirs)
 
     nodes = []
     for item in items
+        # Determine suite_kind based on item properties
+        suite_kind = if item.line == 0
+            # File-level fallback (no test blocks found)
+            "Base.Test"
+        elseif _is_testitem_at_line(item.file, item.line)
+            "ReTestItems.jl"
+        else
+            "Base.Test"
+        end
+
         push!(nodes, Dict(
             "node_id" => "$(item.file):$(item.line)",
-            "suite_kind" => "ReTestItems.jl",
+            "suite_kind" => suite_kind,
             "file" => item.file
         ))
     end
@@ -215,6 +226,36 @@ function handle_discover(cmd)
         "ok" => true,
         "result" => nodes
     ))
+end
+
+"""
+    _is_testitem_at_line(file::AbstractString, line::Int) -> Bool
+
+Check whether the given line in a file contains a @testitem block.
+Scans the file for @testitem patterns and checks if any match the line.
+"""
+function _is_testitem_at_line(file::AbstractString, line::Int)::Bool
+    if !isfile(file)
+        return false
+    end
+    if line == 0
+        return false  # File-level fallback, not a real line
+    end
+    content = try
+        read(file, String)
+    catch
+        return false
+    end
+    parent = Base.parentmodule(@__MODULE__)
+    pattern = parent._TESTITEM_PATTERN
+    for m in eachmatch(pattern, content)
+        offset = m.offset
+        item_line = count(==('\n'), content[1:offset]) + 1
+        if item_line == line
+            return true
+        end
+    end
+    return false
 end
 
 """
@@ -617,6 +658,7 @@ function _resolve_node_id(parent::Module, file::AbstractString, line::Int)
     tags = parent._parse_tags(content)
     pattern = parent._TESTITEM_PATTERN
 
+    # First, try to match @testitem blocks
     for m in eachmatch(pattern, content)
         name = m.captures[1]
         offset = m.offset
@@ -626,6 +668,31 @@ function _resolve_node_id(parent::Module, file::AbstractString, line::Int)
             return parent.TestItemRef(file_str, line, name, item_tags, fhash)
         end
     end
+
+    # If line == 0, it's a file-level fallback — return a placeholder
+    if line == 0
+        return parent.TestItemRef(file_str, 0, basename(file_str))
+    end
+
+    # Try to match @testset blocks
+    testset_pattern = parent._TESTSET_PATTERN
+    testset_unnamed = parent._TESTSET_UNNAMED_PATTERN
+    for m in eachmatch(testset_pattern, content)
+        name = m.captures[1]
+        offset = m.offset
+        item_line = count(==('\n'), content[1:offset]) + 1
+        if item_line == line
+            return parent.TestItemRef(file_str, line, name, Symbol[], fhash)
+        end
+    end
+    for m in eachmatch(testset_unnamed, content)
+        offset = m.offset
+        item_line = count(==('\n'), content[1:offset]) + 1
+        if item_line == line
+            return parent.TestItemRef(file_str, line, "", Symbol[], fhash)
+        end
+    end
+
     return nothing
 end
 
@@ -652,17 +719,34 @@ function handle_run_args(cmd)
         end
     end
 
-    # Build ReTestItems.runtests invocation
-    # Each selected item is in the format "test_file:item_name"
-    # We emit a Julia expression that calls ReTestItems.runtests with
-    # file and name filters for each selected item.
+    # Determine whether we have @testitem (ReTestItems) or @testset (Base.Test) items.
+    # Each selected item is in the format "test_file:line_number" (from discover)
+    # or "test_file:name" (backwards compat for direct usage).
+    # We scan the file at the given line to determine the type.
+    has_testset = false
+    has_testitem = false
     file_filter_pairs = []
     for item in selected
         parts = split(item, ":", limit=2)
         if length(parts) == 2
+            line_num = try
+                parse(Int, parts[2])
+            catch
+                -1  # Not a valid line number — treat as test name (backwards compat)
+            end
+            if line_num >= 0 && _is_testitem_at_line(parts[1], line_num)
+                has_testitem = true
+            elseif line_num >= 0
+                # Line number but not a @testitem — could be @testset or file-level fallback
+                has_testset = true
+            else
+                # Not a line number (e.g., "test_file:test_name") — assume @testitem name
+                has_testitem = true
+            end
             push!(file_filter_pairs, (parts[1], parts[2]))
         else
             # No colon — treat the whole string as a test file path
+            has_testset = true  # assume Base.Test
             push!(file_filter_pairs, (item, nothing))
         end
     end
@@ -678,35 +762,45 @@ function handle_run_args(cmd)
         end
     end
 
-    # Build the Julia expression
-    # ReTestItems.runtests(; filenames=[...], names=[...])
     test_files = collect(keys(file_groups))
-    test_names = filter(x -> x !== nothing, vcat(values(file_groups)...))
 
-    # Build the runner command
-    # Use a single Julia invocation with ReTestItems.runtests
-    filter_expr = "ReTestItems.runtests("
-    if !isempty(test_files)
-        filter_expr *= "files=" * JSON.json(test_files)
-    end
-    if !isempty(test_names)
+    if has_testset
+        # Use include() for Base.Test files
+        # Build a single Julia expression that includes all unique test files
+        include_exprs = ["include(\"$(escape_string(f))\")" for f in test_files]
+        combined = join(include_exprs, "; ")
+
+        runner_args = [
+            "julia",
+            "--project=.",
+            "-e",
+            "using Test; $(combined)"
+        ]
+        collection_path = "test-results.xml"
+    else
+        # All @testitem — use ReTestItems.runtests
+        test_names = filter(x -> x !== nothing, vcat(values(file_groups)...))
+
+        filter_expr = "ReTestItems.runtests("
         if !isempty(test_files)
-            filter_expr *= ", "
+            filter_expr *= "files=" * JSON.json(test_files)
         end
-        filter_expr *= "names=" * JSON.json(test_names)
+        if !isempty(test_names)
+            if !isempty(test_files)
+                filter_expr *= ", "
+            end
+            filter_expr *= "names=" * JSON.json(test_names)
+        end
+        filter_expr *= ")"
+
+        runner_args = [
+            "julia",
+            "--project=.",
+            "-e",
+            "using ReTestItems; $(filter_expr)"
+        ]
+        collection_path = "test-results.xml"
     end
-    filter_expr *= ")"
-
-    runner_args = [
-        "julia",
-        "--project=.",
-        "-e",
-        "using ReTestItems; $(filter_expr)"
-    ]
-
-    # Collection path for JUnit-style results
-    # ReTestItems outputs to stdout by default; we use a temp file
-    collection_path = "test-results.xml"
 
     return JSON.json(Dict(
         "ok" => true,

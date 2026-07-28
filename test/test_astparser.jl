@@ -234,3 +234,176 @@ end
         @test bar.external_inputs == ["config/app.toml"]
     end
 end
+
+@testset "discover_testsets: named @testset blocks" begin
+    mktempdir() do dir
+        path = joinpath(dir, "test_foo.jl")
+        write(path, """
+        @testset "My Test Suite" begin
+            @test 1 == 1
+            @test 2 == 2
+        end
+        """)
+        items = Testimonial.discover_testsets([dir])
+        @test length(items) == 1
+        @test items[1].name == "My Test Suite"
+        @test items[1].line == 1
+        @test endswith(items[1].file, "test_foo.jl")
+    end
+end
+
+@testset "discover_testsets: unnamed @testset begin" begin
+    mktempdir() do dir
+        path = joinpath(dir, "test_bar.jl")
+        write(path, """
+        @testset begin
+            @test 1 == 1
+        end
+        """)
+        items = Testimonial.discover_testsets([dir])
+        @test length(items) == 1
+        @test items[1].name == ""
+        @test items[1].line == 1
+    end
+end
+
+@testset "discover_testsets: @testset for loops" begin
+    mktempdir() do dir
+        path = joinpath(dir, "test_params.jl")
+        write(path, """
+        @testset for x in [1, 2, 3]
+            @test x > 0
+        end
+        """)
+        items = Testimonial.discover_testsets([dir])
+        @test length(items) == 1
+        @test items[1].name == ""
+        @test items[1].line == 1
+    end
+end
+
+@testset "discover_testsets: multiple @testsets in one file" begin
+    mktempdir() do dir
+        path = joinpath(dir, "test_multi.jl")
+        write(path, """
+        @testset "First" begin
+            @test 1 == 1
+        end
+
+        @testset "Second" begin
+            @test 2 == 2
+        end
+        """)
+        items = Testimonial.discover_testsets([dir])
+        @test length(items) == 2
+        @test items[1].name == "First"
+        @test items[2].name == "Second"
+        @test items[1].line == 1
+        @test items[2].line == 5
+    end
+end
+
+@testset "discover_testsets: recursive into subdirectories" begin
+    mktempdir() do dir
+        top = joinpath(dir, "top.jl")
+        write(top, """@testset "Top" begin @test 1 == 1 end""")
+
+        sub = joinpath(dir, "sub")
+        mkpath(sub)
+        nested = joinpath(sub, "nested.jl")
+        write(nested, """@testset "Nested" begin @test 2 == 2 end""")
+
+        items = Testimonial.discover_testsets([dir])
+        @test length(items) == 2
+        names = sort([item.name for item in items])
+        @test names == ["Nested", "Top"]
+    end
+end
+
+@testset "discover_testsets: empty directory returns empty" begin
+    mktempdir() do dir
+        @test Testimonial.discover_testsets([dir]) == Testimonial.TestItemRef[]
+    end
+end
+
+@testset "discover_all_test_blocks: mixed @testitem and @testset" begin
+    mktempdir() do dir
+        path = joinpath(dir, "test_mixed.jl")
+        write(path, """
+        @testitem "unit_test" begin
+            @test 1 == 1
+        end
+
+        @testset "Integration" begin
+            @test 2 == 2
+        end
+        """)
+        items = Testimonial.discover_all_test_blocks([dir])
+        @test length(items) == 2
+        # @testitem comes first, @testset second
+        @test items[1].name == "unit_test"
+        @test items[2].name == "Integration"
+    end
+end
+
+@testset "discover_all_test_blocks: file-level fallback for files with no test blocks" begin
+    mktempdir() do dir
+        # A file with @test but no @testitem or @testset
+        path = joinpath(dir, "test_plain.jl")
+        write(path, """
+        @test 1 == 1
+        @test 2 == 2
+        """)
+        items = Testimonial.discover_all_test_blocks([dir])
+        @test length(items) == 1
+        @test endswith(items[1].file, "test_plain.jl")
+        @test items[1].line == 0  # file-level fallback marker
+        @test items[1].name == "test_plain.jl"
+    end
+end
+
+@testset "discover_all_test_blocks: no fallback for files with @testitem" begin
+    mktempdir() do dir
+        path = joinpath(dir, "test_item.jl")
+        write(path, """
+        @testitem "my_test" begin
+            @test 1 == 1
+        end
+        """)
+        items = Testimonial.discover_all_test_blocks([dir])
+        @test length(items) == 1
+        @test items[1].name == "my_test"
+        @test items[1].line == 1
+    end
+end
+
+@testset "discover_all_test_blocks: no fallback for files with @testset" begin
+    mktempdir() do dir
+        path = joinpath(dir, "test_set.jl")
+        write(path, """
+        @testset "My Set" begin
+            @test 1 == 1
+        end
+        """)
+        items = Testimonial.discover_all_test_blocks([dir])
+        @test length(items) == 1
+        @test items[1].name == "My Set"
+        @test items[1].line == 1
+    end
+end
+
+@testset "discover_all_test_blocks: fallback only for .jl files in test dirs" begin
+    mktempdir() do dir
+        # A .jl file with no test blocks (should get fallback)
+        path = joinpath(dir, "test_plain.jl")
+        write(path, """@test 1 == 1""")
+
+        # A non-.jl file (should be ignored)
+        other = joinpath(dir, "notes.txt")
+        write(other, "not a test file")
+
+        items = Testimonial.discover_all_test_blocks([dir])
+        @test length(items) == 1
+        @test endswith(items[1].file, "test_plain.jl")
+    end
+end
