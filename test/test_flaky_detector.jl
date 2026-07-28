@@ -115,6 +115,7 @@ end
 
             report = Testimonial.reconcile(selected, all_items, failed_items, changed_content)
             @test report.incidents_detected == 0
+            @test report.quarantined_excluded == 1
         end
     end
 
@@ -299,6 +300,27 @@ end
             discovered = Testimonial.discover_testitems(["test"])
             index = Testimonial.record_all(discovered; skip_quarantined=true)
             @test length(index.items) == 1
+        end
+    end
+end
+
+@testset "reconcile reports quarantined_excluded=0 when none excluded" begin
+    Testimonial.reset_flaky_history()
+    mktempdir() do dir
+        cd(dir) do
+            mkpath(".testimonial")
+
+            ref_a = TestItemRef("test/a.jl", 1, "test_a")
+            ref_b = TestItemRef("test/b.jl", 1, "test_b")
+
+            selected = [ref_a]
+            all_items = [ref_a, ref_b]
+            failed_items = [ref_b]  # ref_b failed but NOT quarantined
+            changed_content = "src/lib.jl"
+
+            report = Testimonial.reconcile(selected, all_items, failed_items, changed_content)
+            @test report.quarantined_excluded == 0
+            @test report.incidents_detected == 1
         end
     end
 end

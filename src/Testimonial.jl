@@ -1296,6 +1296,7 @@ NamedTuple with fields:
 - `manual_edges_created`: number of new manual edges created
 - `total_incidents`: total incidents in storage after reconcile
 - `total_manual_edges`: total manual edges in storage after reconcile
+- `quarantined_excluded`: number of quarantined test failures excluded
 """
 function reconcile(
     selected::Vector{TestItemRef},
@@ -1307,6 +1308,11 @@ function reconcile(
 )::NamedTuple
     # Step 0: Load quarantined tests to exclude from incident detection
     quarantined = get_quarantined_tests()
+
+    # Count quarantined failures that will be excluded
+    quarantined_excluded = count(
+        f -> (f.file, f.name) in quarantined, failed_items
+    )
 
     # Step 1: Detect missed incidents (excluding quarantined/flaky tests)
     new_incidents = compare_selection_vs_outcomes(
@@ -1344,6 +1350,7 @@ function reconcile(
         manual_edges_created = manual_edges_created,
         total_incidents = total_incidents,
         total_manual_edges = total_manual_edges,
+        quarantined_excluded = quarantined_excluded,
         timestamp = ts,
     )
     _save_reconciliation_report(report)
