@@ -29,6 +29,8 @@ pre-commit:
 
 pre-push:
   commands:
+    dont-check:
+      run: dont check
     julia-tests:
       run: just test-quick
       skip: [merge, rebase]

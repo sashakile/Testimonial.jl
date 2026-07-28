@@ -2276,7 +2276,97 @@ using .CLI
 export index_info, explain, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS
 
 # ════════════════════════════════════════════
-# 4. Sub-modules (may depend on types + CLI/Protocol)
+# 4. Confidence scoring (depends on core types)
+# ════════════════════════════════════════════
+
+"""Default stale threshold in hours for freshness signal (48h)."""
+const DEFAULT_STALE_THRESHOLD_HOURS = 48
+
+"""
+    _freshness_signal(index) -> Float64
+
+Compute the freshness quality signal for a coverage index.
+
+Returns a value in [0, 1] representing how fresh the index is,
+based on the elapsed time since `created_at`. Decays linearly
+from 1.0 (just created) to 0.0 (at or past `stale_threshold_hours`).
+"""
+function _freshness_signal(index::CoverageIndex)::Float64
+    age_hours = (now() - index.created_at) / Millisecond(3_600_000)
+    threshold = Float64(DEFAULT_STALE_THRESHOLD_HOURS)
+    return max(0.0, 1.0 - min(age_hours / threshold, 1.0))
+end
+
+"""
+    _recording_quality_signal(index) -> Float64
+
+Compute the recording quality signal for a coverage index.
+
+Returns 1.0 by default (placeholder). Full implementation depends on
+testimonial-2ec9 (Implement recording quality signal from index
+failure/total counts).
+"""
+function _recording_quality_signal(index::CoverageIndex)::Float64
+    return 1.0
+end
+
+"""
+    _layer_coverage_signal(index) -> Float64
+
+Compute the layer coverage signal for a coverage index.
+
+Returns 1.0 by default (placeholder). Full implementation depends on
+testimonial-jnz1 (Implement layer coverage signal).
+"""
+function _layer_coverage_signal(index::CoverageIndex)::Float64
+    return 1.0
+end
+
+"""
+    _history_quality_signal(ref, index) -> Float64
+
+Compute the history quality signal for a test item.
+
+Returns 1.0 by default (placeholder). Full implementation depends on
+testimonial-5tgv (Implement history quality signal).
+"""
+function _history_quality_signal(ref::TestItemRef, index::CoverageIndex)::Float64
+    return 1.0
+end
+
+"""
+    compute_confidence(test_ref, index) -> Float64
+
+Compute a composite confidence score for a test item based on its
+coverage index quality.
+
+The score is the geometric mean of four quality signals:
+- freshness (age of the index)
+- recording quality (failure rate during recording)
+- layer coverage (how many analysis layers contributed)
+- history quality (historical pass/fail rate)
+
+Returns a value in [0, 1]. Higher = more confident the selection is correct.
+"""
+function compute_confidence(test_ref::TestItemRef, index::CoverageIndex)::Float64
+    f = _freshness_signal(index)
+    r = _recording_quality_signal(index)
+    l = _layer_coverage_signal(index)
+    h = _history_quality_signal(test_ref, index)
+
+    product = f * r * l * h
+    if product == 0.0
+        return 0.0
+    end
+
+    # Geometric mean: (f * r * l * h)^(1/4)
+    return product^0.25
+end
+
+export compute_confidence
+
+# ════════════════════════════════════════════
+# 5. Sub-modules (may depend on types + CLI/Protocol)
 # ════════════════════════════════════════════
 
 include("GitDiff.jl")

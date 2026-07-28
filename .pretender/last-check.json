@@ -4,8 +4,41 @@
       "path": "src/CLI.jl",
       "role": "app",
       "diagnostics": [],
-      "file_violations": [],
-      "units": []
+      "file_violations": [
+        {
+          "metric": "file_lines",
+          "actual": 996.0,
+          "limit": 400.0
+        }
+      ],
+      "units": [
+        {
+          "name": "main",
+          "kind": "Function",
+          "start_line": 600,
+          "metrics": {
+            "cyclomatic": 12,
+            "cognitive": 11,
+            "assertions": 0,
+            "function_lines": 42,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 25.787593916455254
+          },
+          "violations": [
+            {
+              "metric": "cyclomatic",
+              "actual": 12.0,
+              "limit": 10.0
+            },
+            {
+              "metric": "function_lines",
+              "actual": 42.0,
+              "limit": 40.0
+            }
+          ]
+        }
+      ]
     },
     {
       "path": "src/CoverageLayer.jl",
@@ -14,7 +47,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 530.0,
+          "actual": 631.0,
           "limit": 400.0
         }
       ],
@@ -22,7 +55,7 @@
         {
           "name": "_find_tracefile",
           "kind": "Function",
-          "start_line": 108,
+          "start_line": 152,
           "metrics": {
             "cyclomatic": 2,
             "cognitive": 1,
@@ -37,7 +70,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 276,
+          "start_line": 320,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -52,7 +85,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 291,
+          "start_line": 335,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -65,9 +98,39 @@
           "violations": []
         },
         {
+          "name": "record_batch",
+          "kind": "Function",
+          "start_line": 377,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 4,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 3.1622776601683795
+          },
+          "violations": []
+        },
+        {
+          "name": "record_batch",
+          "kind": "Function",
+          "start_line": 394,
+          "metrics": {
+            "cyclomatic": 4,
+            "cognitive": 3,
+            "assertions": 0,
+            "function_lines": 25,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 12.569805089976535
+          },
+          "violations": []
+        },
+        {
           "name": "_collect_coverage",
           "kind": "Function",
-          "start_line": 342,
+          "start_line": 443,
           "metrics": {
             "cyclomatic": 19,
             "cognitive": 18,
@@ -103,7 +166,7 @@
         {
           "name": "with_retry",
           "kind": "Function",
-          "start_line": 515,
+          "start_line": 616,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -168,7 +231,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 915.0,
+          "actual": 1198.0,
           "limit": 400.0
         }
       ],
@@ -227,7 +290,7 @@
         {
           "name": "load_index",
           "kind": "Function",
-          "start_line": 548,
+          "start_line": 600,
           "metrics": {
             "cyclomatic": 5,
             "cognitive": 4,
@@ -596,12 +659,18 @@
       "path": "src/Query.jl",
       "role": "app",
       "diagnostics": [],
-      "file_violations": [],
+      "file_violations": [
+        {
+          "metric": "file_lines",
+          "actual": 630.0,
+          "limit": 400.0
+        }
+      ],
       "units": [
         {
           "name": "nearest_covered_lines",
           "kind": "Function",
-          "start_line": 170,
+          "start_line": 180,
           "metrics": {
             "cyclomatic": 8,
             "cognitive": 7,
@@ -616,7 +685,7 @@
         {
           "name": "must_run_provider",
           "kind": "Function",
-          "start_line": 331,
+          "start_line": 341,
           "metrics": {
             "cyclomatic": 9,
             "cognitive": 7,
@@ -625,6 +694,36 @@
             "params": 1,
             "nesting_max": 0,
             "abc": 19.209372712298546
+          },
+          "violations": []
+        },
+        {
+          "name": "coverage_provider",
+          "kind": "Function",
+          "start_line": 564,
+          "metrics": {
+            "cyclomatic": 9,
+            "cognitive": 8,
+            "assertions": 0,
+            "function_lines": 37,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 16.0312195418814
+          },
+          "violations": []
+        },
+        {
+          "name": "_coverage_links_for_item",
+          "kind": "Function",
+          "start_line": 608,
+          "metrics": {
+            "cyclomatic": 6,
+            "cognitive": 5,
+            "assertions": 0,
+            "function_lines": 21,
+            "params": 3,
+            "nesting_max": 0,
+            "abc": 9.486832980505138
           },
           "violations": []
         }
@@ -637,7 +736,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 888.0,
+          "actual": 2310.0,
           "limit": 400.0
         }
       ],
@@ -645,7 +744,7 @@
         {
           "name": "ImpactResult",
           "kind": "Function",
-          "start_line": 88,
+          "start_line": 187,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -660,7 +759,7 @@
         {
           "name": "atomic_write",
           "kind": "Function",
-          "start_line": 136,
+          "start_line": 263,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -675,7 +774,7 @@
         {
           "name": "record_run",
           "kind": "Function",
-          "start_line": 813,
+          "start_line": 1090,
           "metrics": {
             "cyclomatic": 2,
             "cognitive": 1,
@@ -690,7 +789,7 @@
         {
           "name": "reset_always_run_state",
           "kind": "Function",
-          "start_line": 838,
+          "start_line": 1115,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -703,9 +802,114 @@
           "violations": []
         },
         {
+          "name": "record_duration!",
+          "kind": "Function",
+          "start_line": 1205,
+          "metrics": {
+            "cyclomatic": 2,
+            "cognitive": 1,
+            "assertions": 0,
+            "function_lines": 12,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 7.280109889280518
+          },
+          "violations": []
+        },
+        {
+          "name": "record_outcome_history!",
+          "kind": "Function",
+          "start_line": 1245,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 5,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 2.23606797749979
+          },
+          "violations": []
+        },
+        {
+          "name": "save_run_history",
+          "kind": "Function",
+          "start_line": 1272,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 10,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 6.324555320336759
+          },
+          "violations": []
+        },
+        {
+          "name": "save_ingested_run_key",
+          "kind": "Function",
+          "start_line": 1319,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 12,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 8.94427190999916
+          },
+          "violations": []
+        },
+        {
+          "name": "save_incidents",
+          "kind": "Function",
+          "start_line": 1672,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 10,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 6.324555320336759
+          },
+          "violations": []
+        },
+        {
+          "name": "append_incident",
+          "kind": "Function",
+          "start_line": 1711,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 6,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 4.123105625617661
+          },
+          "violations": []
+        },
+        {
+          "name": "save_manual_edges",
+          "kind": "Function",
+          "start_line": 2120,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 10,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 6.324555320336759
+          },
+          "violations": []
+        },
+        {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 884,
+          "start_line": 2306,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -755,6 +959,29 @@
       "units": []
     },
     {
+      "path": "test/test_batching.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "create_two_file_project",
+          "kind": "Function",
+          "start_line": 23,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 19,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 7.0710678118654755
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
       "path": "test/test_build_index_integration.jl",
       "role": "app",
       "diagnostics": [],
@@ -788,11 +1015,38 @@
       "path": "test/test_cli.jl",
       "role": "app",
       "diagnostics": [],
+      "file_violations": [
+        {
+          "metric": "file_lines",
+          "actual": 441.0,
+          "limit": 400.0
+        }
+      ],
+      "units": []
+    },
+    {
+      "path": "test/test_cli_entry.jl",
+      "role": "app",
+      "diagnostics": [],
       "file_violations": [],
       "units": []
     },
     {
       "path": "test/test_command.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_component_bottom_up.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_component_cache_invalidation.jl",
       "role": "app",
       "diagnostics": [],
       "file_violations": [],
@@ -813,6 +1067,13 @@
       "units": []
     },
     {
+      "path": "test/test_component_fingerprint.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
       "path": "test/test_component_graph.jl",
       "role": "app",
       "diagnostics": [],
@@ -821,6 +1082,20 @@
     },
     {
       "path": "test/test_component_graph_persistence.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_component_selection_cache.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_components_override.jl",
       "role": "app",
       "diagnostics": [],
       "file_violations": [],
@@ -864,6 +1139,43 @@
       "units": []
     },
     {
+      "path": "test/test_explain_exclude.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "_exclude_index",
+          "kind": "Function",
+          "start_line": 14,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 15,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 8.06225774829855
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
+      "path": "test/test_flaky_detector.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_format_reason.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
       "path": "test/test_gitdiff.jl",
       "role": "app",
       "diagnostics": [],
@@ -893,7 +1205,35 @@
       ]
     },
     {
+      "path": "test/test_impact_reason_chain.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_incident_lifecycle.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
       "path": "test/test_indexbuilder.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_ingest.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_ingested_run_prune.jl",
       "role": "app",
       "diagnostics": [],
       "file_violations": [],
@@ -931,6 +1271,13 @@
     },
     {
       "path": "test/test_load_index_components.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_manual_edges.jl",
       "role": "app",
       "diagnostics": [],
       "file_violations": [],
@@ -1015,13 +1362,20 @@
       ]
     },
     {
+      "path": "test/test_provenance_link.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
       "path": "test/test_query.jl",
       "role": "app",
       "diagnostics": [],
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 480.0,
+          "actual": 577.0,
           "limit": 400.0
         }
       ],
@@ -1057,6 +1411,43 @@
           "violations": []
         }
       ]
+    },
+    {
+      "path": "test/test_query_chain.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "_index_with_coverage",
+          "kind": "Function",
+          "start_line": 14,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 15,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 8.602325267042627
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
+      "path": "test/test_reconcile.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_reconciliation_report.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
     },
     {
       "path": "test/test_record_all.jl",
@@ -1105,6 +1496,13 @@
       ]
     },
     {
+      "path": "test/test_run_history.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
       "path": "test/test_runner.jl",
       "role": "app",
       "diagnostics": [],
@@ -1134,6 +1532,27 @@
     },
     {
       "path": "test/test_seeded_fault_verify.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_shadow_mode.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_shard_balance.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_shard_files.jl",
       "role": "app",
       "diagnostics": [],
       "file_violations": [],
@@ -1181,53 +1600,53 @@
     "top_hotspots": [
       {
         "fingerprint": "src/GitDiff.jl::_parse_diff_section::cognitive_max",
-        "count": 62,
-        "distinct_days": 5
+        "count": 134,
+        "distinct_days": 8
       },
       {
         "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cognitive_max",
-        "count": 28,
-        "distinct_days": 3
+        "count": 100,
+        "distinct_days": 6
       },
       {
-        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::abc_max",
-        "count": 26,
-        "distinct_days": 2
-      },
-      {
-        "fingerprint": "src/Protocol.jl::handle_run_args::function_lines_max",
-        "count": 26,
-        "distinct_days": 2
-      },
-      {
-        "fingerprint": "src/GitDiff.jl::_parse_diff_section::function_lines_max",
-        "count": 26,
-        "distinct_days": 2
-      },
-      {
-        "fingerprint": "src/Protocol.jl::handle_run_args::cyclomatic_max",
-        "count": 26,
-        "distinct_days": 2
-      },
-      {
-        "fingerprint": "src/Protocol.jl::_append_runtime_edges::function_lines_max",
-        "count": 26,
-        "distinct_days": 2
-      },
-      {
-        "fingerprint": "src/GitDiff.jl::_parse_diff_section::abc_max",
-        "count": 26,
-        "distinct_days": 2
-      },
-      {
-        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cyclomatic_max",
-        "count": 26,
-        "distinct_days": 2
+        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::cyclomatic_max",
+        "count": 98,
+        "distinct_days": 5
       },
       {
         "fingerprint": "src/Protocol.jl::_build_static_edges::function_lines_max",
-        "count": 26,
-        "distinct_days": 2
+        "count": 98,
+        "distinct_days": 5
+      },
+      {
+        "fingerprint": "src/Protocol.jl::handle_discover::function_lines_max",
+        "count": 98,
+        "distinct_days": 5
+      },
+      {
+        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cyclomatic_max",
+        "count": 98,
+        "distinct_days": 5
+      },
+      {
+        "fingerprint": "src/Protocol.jl::_build_static_edges::cyclomatic_max",
+        "count": 98,
+        "distinct_days": 5
+      },
+      {
+        "fingerprint": "src/GitDiff.jl::_parse_diff_section::function_lines_max",
+        "count": 98,
+        "distinct_days": 5
+      },
+      {
+        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::function_lines_max",
+        "count": 98,
+        "distinct_days": 5
+      },
+      {
+        "fingerprint": "src/Protocol.jl::handle_run_args::function_lines_max",
+        "count": 98,
+        "distinct_days": 5
       }
     ],
     "top_patterns": [
@@ -1235,33 +1654,33 @@
         "rule_key": "function_lines_max",
         "role": "app",
         "area": "src",
-        "count": 260,
-        "distinct_files": 4,
-        "distinct_days": 2
+        "count": 1031,
+        "distinct_files": 5,
+        "distinct_days": 5
       },
       {
         "rule_key": "cyclomatic_max",
         "role": "app",
         "area": "src",
-        "count": 130,
-        "distinct_files": 3,
-        "distinct_days": 2
+        "count": 541,
+        "distinct_files": 4,
+        "distinct_days": 5
       },
       {
         "rule_key": "abc_max",
         "role": "app",
         "area": "src",
-        "count": 104,
+        "count": 392,
         "distinct_files": 3,
-        "distinct_days": 2
+        "distinct_days": 5
       },
       {
         "rule_key": "cognitive_max",
         "role": "app",
         "area": "src",
-        "count": 91,
+        "count": 235,
         "distinct_files": 3,
-        "distinct_days": 5
+        "distinct_days": 8
       }
     ]
   }
