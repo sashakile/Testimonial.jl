@@ -20,7 +20,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        get_always_run_tests,
        RunEntry, RunHistoryEntry, RunHistory, record_duration!, read_durations,
        record_outcome_history!, get_outcome_history,
-       ingest, cov_lines,
+       ingest, cov_lines, prune_ingested_run_keys,
        save_run_history, load_run_history, DEFAULT_RUN_HISTORY_PATH,
        INCIDENTS_PATH, save_incidents, load_incidents, append_incident,
        compare_selection_vs_outcomes, promote_incidents,
@@ -1180,15 +1180,16 @@ end
 const INGESTED_RUNS_PATH = ".testimonial/ingested_runs.jls"
 
 """
-    save_ingested_run_key(run_key::String, path::String=INGESTED_RUNS_PATH)
+    save_ingested_run_key(run_key::String, timestamp::DateTime=now(), path::String=INGESTED_RUNS_PATH)
 
-Record a run key as already ingested (for idempotency).
+Record a run key as already ingested (for idempotency), with its timestamp.
 
-Persists to `.testimonial/ingested_runs.jls` atomically.
+Persists to `.testimonial/ingested_runs.jls` atomically, storing a
+`Dict{String, DateTime}` mapping keys to ingestion timestamps.
 """
-function save_ingested_run_key(run_key::String, path::String=INGESTED_RUNS_PATH)
+function save_ingested_run_key(run_key::String, timestamp::DateTime=now(), path::String=INGESTED_RUNS_PATH)
     keys = load_ingested_run_keys(path)
-    push!(keys, run_key)
+    keys[run_key] = timestamp
     dir = dirname(path)
     mkpath(dir)
     tmppath = path * ".tmp"
@@ -1200,25 +1201,64 @@ function save_ingested_run_key(run_key::String, path::String=INGESTED_RUNS_PATH)
 end
 
 """
-    load_ingested_run_keys(path::String=INGESTED_RUNS_PATH) -> Set{String}
+    load_ingested_run_keys(path::String=INGESTED_RUNS_PATH) -> Dict{String, DateTime}
 
-Load the set of already-ingested run keys.
+Load the dict of ingested run keys to their timestamps.
 
-Returns an empty set if no ingestion history exists.
+Returns an empty dict if no ingestion history exists.
+Backward-compatible: old `Set{String}` files are converted on read.
 """
-function load_ingested_run_keys(path::String=INGESTED_RUNS_PATH)::Set{String}
+function load_ingested_run_keys(path::String=INGESTED_RUNS_PATH)::Dict{String, DateTime}
     if !isfile(path)
-        return Set{String}()
+        return Dict{String, DateTime}()
     end
     try
         result = open(deserialize, path, "r")
-        if result isa Set{String}
+        if result isa Dict{String, DateTime}
             return result
         end
-        return Set{String}()
+        # Backward compatibility: old Set{String} format
+        if result isa Set{String}
+            now_ts = now()
+            return Dict(k => now_ts for k in result)
+        end
+        return Dict{String, DateTime}()
     catch
-        return Set{String}()
+        return Dict{String, DateTime}()
     end
+end
+
+"""
+    prune_ingested_run_keys(max_age_days::Int=30, path::String=INGESTED_RUNS_PATH) -> Int
+
+Remove ingested run keys older than `max_age_days`.
+
+Returns the number of keys pruned.
+"""
+function prune_ingested_run_keys(max_age_days::Int=30, path::String=INGESTED_RUNS_PATH)::Int
+    keys = load_ingested_run_keys(path)
+    isempty(keys) && return 0
+
+    cutoff = now() - Day(max_age_days)
+    to_prune = [k for (k, ts) in keys if ts < cutoff]
+
+    if isempty(to_prune)
+        return 0
+    end
+
+    for k in to_prune
+        delete!(keys, k)
+    end
+
+    dir = dirname(path)
+    mkpath(dir)
+    tmppath = path * ".tmp"
+    open(tmppath, "w") do io
+        serialize(io, keys)
+    end
+    mv(tmppath, path; force=true)
+
+    return length(to_prune)
 end
 
 """
@@ -1258,7 +1298,7 @@ function ingest(;
 )::NamedTuple
     # Step 1: Check idempotency
     ingested = load_ingested_run_keys()
-    if run_key in ingested
+    if haskey(ingested, run_key)
         @info "Ingest: run_key '$run_key' already ingested, skipping (FEED-004)"
         return (
             runtime_edges_created = 0,
