@@ -207,3 +207,30 @@ end
         @test names == ["nested", "top"]
     end
 end
+
+@testset "discover_testitems with external_inputs and multi-byte chars" begin
+    mktempdir() do dir
+        path = joinpath(dir, "test.jl")
+
+        # Box-drawing char (U+2500, 3 bytes) triggers StringIndexError
+        # if string slicing is not UTF-8 safe
+        write(path, """
+        ────
+        @testitem "foo" begin
+            @test 1 == 1
+        end
+
+        @testitem "bar" external_inputs=["config/app.toml"] begin
+            @test 2 == 2
+        end
+        """)
+        items = Testimonial.discover_testitems([dir])
+        @test length(items) == 2
+
+        foo = items[findfirst(i -> i.name == "foo", items)]
+        @test foo.external_inputs == String[]
+
+        bar = items[findfirst(i -> i.name == "bar", items)]
+        @test bar.external_inputs == ["config/app.toml"]
+    end
+end
