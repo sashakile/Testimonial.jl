@@ -136,13 +136,44 @@ struct ProvenanceLink
     next :: Union{Nothing, ProvenanceLink}
 end
 
+# Structural equality + hash so identical chains compare equal regardless
+# of construction site (default struct == falls back to ===).
+Base.:(==)(a::ProvenanceLink, b::ProvenanceLink) =
+    a.layer == b.layer &&
+    a.content_unit == b.content_unit &&
+    a.detail == b.detail &&
+    a.next == b.next
+Base.hash(p::ProvenanceLink, h::UInt) =
+    hash(p.layer, hash(p.content_unit, hash(p.detail, hash(p.next, h))))
+
 # ── Reason and result types ────────────────────
 
-"""A single reason why a test is affected."""
+"""A single reason why a test is affected.
+
+Fields:
+- `kind::ImpactReasonKind` — why the test was selected
+- `description::String` — human-readable summary
+- `chain::Vector{ProvenanceLink}` — reason chain tracing changed content
+  unit to test (PROV-001). Empty by default; populated by the query
+  layer when it traces a selection path.
+"""
 struct ImpactReason
     kind :: ImpactReasonKind
     description :: String
+    chain :: Vector{ProvenanceLink}
 end
+
+# Backward-compat constructor: callers that don't build a chain get an empty one.
+ImpactReason(kind::ImpactReasonKind, description::String) =
+    ImpactReason(kind, description, ProvenanceLink[])
+
+# Structural equality including the chain (default struct == is identity).
+Base.:(==)(a::ImpactReason, b::ImpactReason) =
+    a.kind == b.kind &&
+    a.description == b.description &&
+    a.chain == b.chain
+Base.hash(r::ImpactReason, h::UInt) =
+    hash(r.kind, hash(r.description, hash(r.chain, h)))
 
 """The result of an impact query for a single test item."""
 struct ImpactResult
