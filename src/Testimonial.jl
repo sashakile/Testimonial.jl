@@ -2495,8 +2495,41 @@ function group_items_by_component(items::Vector{TestItemRef})::Dict{Symbol, Vect
     return grouped
 end
 
+"""
+    compute_component_confidence(items, index; kwargs...) -> Dict{Symbol, Float64}
+
+Compute the minimum per-test confidence score for each component.
+
+Groups items by component, computes compute_confidence for each item,
+and returns the minimum score per component. Additional keyword arguments
+(e.g., stale_threshold_hours, run_history) are forwarded to
+compute_confidence.
+
+Returns an empty dict if `items` is empty.
+"""
+function compute_component_confidence(items::Vector{TestItemRef}, index::CoverageIndex; kwargs...)::Dict{Symbol, Float64}
+    isempty(items) && return Dict{Symbol, Float64}()
+
+    grouped = group_items_by_component(items)
+    result = Dict{Symbol, Float64}()
+
+    for (comp, comp_items) in grouped
+        min_score = 1.0
+        for item in comp_items
+            score = compute_confidence(item, index; kwargs...)
+            if score < min_score
+                min_score = score
+            end
+        end
+        result[comp] = min_score
+    end
+
+    return result
+end
+
 export compute_confidence, DEFAULT_STALE_THRESHOLD_HOURS, DEFAULT_CONFIDENCE_THRESHOLD,
-       ConfidenceConfig, parse_confidence_config, group_items_by_component
+       ConfidenceConfig, parse_confidence_config, group_items_by_component,
+       compute_component_confidence
 
 # ════════════════════════════════════════════
 # 5. Sub-modules (may depend on types + CLI/Protocol)

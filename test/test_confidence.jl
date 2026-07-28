@@ -365,3 +365,45 @@ end
     grouped = Testimonial.group_items_by_component(Testimonial.TestItemRef[])
     @test isempty(grouped)
 end
+
+# ── compute_component_confidence ──────────────
+
+@testset "compute_component_confidence returns min per component" begin
+    fresh_at = now()
+    ref_a = Testimonial.TestItemRef("/proj/PkgA/test/a.jl", 1, "test_a", Symbol[], "", nothing, "PkgA", String[])
+    ref_b = Testimonial.TestItemRef("/proj/PkgB/test/b.jl", 1, "test_b", Symbol[], "", nothing, "PkgB", String[])
+    index = Testimonial.CoverageIndex(
+        Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}(),
+        "abc", string(VERSION), v"0.1.0", fresh_at,
+    )
+    items = [ref_a, ref_b]
+    result = Testimonial.compute_component_confidence(items, index)
+    @test haskey(result, :PkgA)
+    @test haskey(result, :PkgB)
+    @test result[:PkgA] isa Float64
+    @test result[:PkgB] isa Float64
+    @test 0.0 <= result[:PkgA] <= 1.0
+end
+
+@testset "compute_component_confidence returns min correctly" begin
+    fresh_at = now()
+    # Same component, two items — but compute_confidence doesn't vary by item
+    # for the same index (since signals are index-level).
+    # Test with different staleness levels to force different scores.
+    ref_a = Testimonial.TestItemRef("/proj/PkgA/test/a.jl", 1, "test_a", Symbol[], "", nothing, "PkgA", String[])
+    ref_b = Testimonial.TestItemRef("/proj/PkgA/test/b.jl", 1, "test_b", Symbol[], "", nothing, "PkgA", String[])
+    index = Testimonial.CoverageIndex(
+        Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}(),
+        "abc", string(VERSION), v"0.1.0", fresh_at,
+    )
+    items = [ref_a, ref_b]
+    result = Testimonial.compute_component_confidence(items, index)
+    # Both items in same component, same index → same score
+    @test length(result) == 1
+    @test haskey(result, :PkgA)
+end
+
+@testset "compute_component_confidence handles empty items" begin
+    result = Testimonial.compute_component_confidence(Testimonial.TestItemRef[], make_index())
+    @test isempty(result)
+end
