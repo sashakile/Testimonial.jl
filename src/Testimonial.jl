@@ -18,7 +18,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        DEFAULT_ALWAYS_RUN_EVICTION_THRESHOLD,
        consecutive_passes, record_run, should_evict, reset_always_run_state,
        get_always_run_tests,
-       RunEntry, RunHistory, record_duration!, read_durations,
+       RunEntry, RunHistoryEntry, RunHistory, record_duration!, read_durations,
        save_run_history, load_run_history, DEFAULT_RUN_HISTORY_PATH,
        INCIDENTS_PATH, save_incidents, load_incidents, append_incident,
        compare_selection_vs_outcomes, promote_incidents,
@@ -1004,6 +1004,27 @@ end
 
 """Default path for the run history persistence file."""
 const DEFAULT_RUN_HISTORY_PATH = ".testimonial/run_history.jls"
+
+"""Per-test execution outcomes and timing for runtime feedback.
+
+Tracks pass/fail outcomes, duration, and timing for the runtime feedback
+pipeline (FEED-003). Persisted independently from CoverageIndex to survive
+index rebuilds.
+
+# Fields
+- `outcomes::Vector{Bool}`: chronological pass (true) / fail (false) outcomes
+- `attempt_count::Int`: total attempts recorded
+- `failure_rate::Float64`: proportion of attempts that failed
+- `first_seen::DateTime`: first recorded outcome
+- `last_seen::DateTime`: most recent recorded outcome
+"""
+struct RunHistoryEntry
+    outcomes :: Vector{Bool}
+    attempt_count :: Int
+    failure_rate :: Float64
+    first_seen :: DateTime
+    last_seen :: DateTime
+end
 
 """A single entry in the run history."""
 struct RunEntry

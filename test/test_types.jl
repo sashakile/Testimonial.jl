@@ -3,6 +3,8 @@
 # These tests define the expected shape of our core types.
 # They will fail until src/Types.jl is implemented.
 
+using Dates
+
 @testset "TestItemRef" begin
     ref = TestItemRef("src/foo.jl", 42, "test_bar")
 
@@ -198,4 +200,22 @@ end
     # Different content → different identity
     inc4 = MissedSelectionIncident("src/other.jl", ref, now(), Candidate)
     @test incident != inc4
+end
+
+@testset "RunHistoryEntry" begin
+    ref = TestItemRef("test/foo.jl", 42, "test_foo")
+    entry = RunHistoryEntry(
+        [true, false, true],  # outcomes: pass, fail, pass
+        3,                     # attempt_count
+        1.0 / 3.0,            # failure_rate
+        DateTime(2026, 7, 1), # first_seen
+        DateTime(2026, 7, 27), # last_seen
+    )
+
+    @test entry isa RunHistoryEntry
+    @test entry.outcomes == [true, false, true]
+    @test entry.attempt_count == 3
+    @test entry.failure_rate ≈ 1.0 / 3.0
+    @test entry.first_seen == DateTime(2026, 7, 1)
+    @test entry.last_seen == DateTime(2026, 7, 27)
 end
