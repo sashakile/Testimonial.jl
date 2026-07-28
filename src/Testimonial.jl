@@ -20,6 +20,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        get_always_run_tests,
        RunEntry, RunHistoryEntry, RunHistory, record_duration!, read_durations,
        record_outcome_history!, get_outcome_history,
+       ingest, cov_lines,
        save_run_history, load_run_history, DEFAULT_RUN_HISTORY_PATH,
        INCIDENTS_PATH, save_incidents, load_incidents, append_incident,
        compare_selection_vs_outcomes, promote_incidents,
@@ -167,15 +168,20 @@ struct CoverageIndex
     created_at :: DateTime
     environment_fingerprint :: String
     inter_component_edges :: Dict{String, Set{String}}
+    runtime_edges :: Dict{TestItemRef, Vector{Tuple{String, Int}}}
 end
 
 # Convenience constructor without environment_fingerprint and inter_component_edges
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, "", Dict{String, Set{String}}())
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, "", Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}())
 
 # Convenience constructor without inter_component_edges
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, Dict{String, Set{String}}())
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}())
+
+# Convenience constructor without runtime_edges (for backward compat after adding runtime_edges)
+CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice) =
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, Dict{TestItemRef, Vector{Tuple{String, Int}}}())
 
 # ── Persistence ────────────────────────────────
 
@@ -1166,6 +1172,321 @@ function load_run_history(path::String=DEFAULT_RUN_HISTORY_PATH)::RunHistory
     catch
         return RunHistory()
     end
+end
+
+# ── Ingest (runtime feedback pipeline) ─────────────────
+
+"""Default path for tracking ingested run keys (idempotency)."""
+const INGESTED_RUNS_PATH = ".testimonial/ingested_runs.jls"
+
+"""
+    save_ingested_run_key(run_key::String, path::String=INGESTED_RUNS_PATH)
+
+Record a run key as already ingested (for idempotency).
+
+Persists to `.testimonial/ingested_runs.jls` atomically.
+"""
+function save_ingested_run_key(run_key::String, path::String=INGESTED_RUNS_PATH)
+    keys = load_ingested_run_keys(path)
+    push!(keys, run_key)
+    dir = dirname(path)
+    mkpath(dir)
+    tmppath = path * ".tmp"
+    open(tmppath, "w") do io
+        serialize(io, keys)
+    end
+    mv(tmppath, path; force=true)
+    return nothing
+end
+
+"""
+    load_ingested_run_keys(path::String=INGESTED_RUNS_PATH) -> Set{String}
+
+Load the set of already-ingested run keys.
+
+Returns an empty set if no ingestion history exists.
+"""
+function load_ingested_run_keys(path::String=INGESTED_RUNS_PATH)::Set{String}
+    if !isfile(path)
+        return Set{String}()
+    end
+    try
+        result = open(deserialize, path, "r")
+        if result isa Set{String}
+            return result
+        end
+        return Set{String}()
+    catch
+        return Set{String}()
+    end
+end
+
+"""
+    ingest(; run_key::String,
+             index_path::String=".testimonial/index.jls",
+             passed_items::Vector{TestItemRef}=TestItemRef[],
+             failed_items::Vector{TestItemRef}=TestItemRef[],
+             test_dirs::Vector{String}=String["test/"]) -> NamedTuple
+
+Post-run coverage and outcome ingestion pipeline.
+
+Parses coverage sidecar files from the last test run, computes new
+runtime edges (file, line pairs exercised at runtime but not previously
+recorded), updates the index, persists run history, and enforces
+idempotent ingestion via run-key deduplication.
+
+# Arguments
+- `run_key::String`: unique identifier for this run (required). Used for
+  idempotency — the same key rejected on subsequent calls.
+- `index_path::String`: path to the CoverageIndex on disk
+- `passed_items::Vector{TestItemRef}`: test items that passed (for run history)
+- `failed_items::Vector{TestItemRef}`: test items that failed (for run history)
+- `test_dirs::Vector{String}`: directories to scan for test items
+
+# Returns
+NamedTuple with fields:
+- `runtime_edges_created::Int`: number of new runtime edges recorded
+- `items_ingested::Int`: number of test items processed
+- `duplicate_skipped::Bool`: true if run_key was already ingested
+"""
+function ingest(;
+    run_key::String,
+    index_path::String=".testimonial/index.jls",
+    passed_items::Vector{TestItemRef}=TestItemRef[],
+    failed_items::Vector{TestItemRef}=TestItemRef[],
+    test_dirs::Vector{String}=String["test/"],
+)::NamedTuple
+    # Step 1: Check idempotency
+    ingested = load_ingested_run_keys()
+    if run_key in ingested
+        @info "Ingest: run_key '$run_key' already ingested, skipping (FEED-004)"
+        return (
+            runtime_edges_created = 0,
+            items_ingested = 0,
+            duplicate_skipped = true,
+        )
+    end
+
+    # Step 2: Load the index
+    index = load_index(index_path)
+    if index === nothing
+        @warn "Ingest: no coverage index at $index_path, recording run key only"
+        save_ingested_run_key(run_key)
+        return (
+            runtime_edges_created = 0,
+            items_ingested = 0,
+            duplicate_skipped = false,
+        )
+    end
+
+    # Step 3: Discover test items to find all known items
+    discovered = discover_testitems(test_dirs)
+    total_items = length(discovered)
+
+    # Step 4: Parse coverage sidecar files
+    # After a Julia test run with --code-coverage=user, .jl.cov sidecar
+    # files exist next to source files. Parse them to find covered lines.
+    new_edges = Dict{TestItemRef, Vector{Tuple{String, Int}}}()
+    items_processed = 0
+
+    # Collect all .jl.cov files in the workspace
+    cov_files = _find_cov_files()
+
+    for (ref, ic) in index.items
+        items_processed += 1
+
+        # Check existing source_files for NEW coverage
+        for (src_file, (covered, _uncovered)) in ic.source_files
+            cov_path = src_file * ".cov"
+            if !isfile(cov_path)
+                continue
+            end
+
+            # Parse the sidecar to get covered lines from this run
+            covered_set = Set(cov_lines(cov_path))
+            existing_set = Set(covered)
+
+            new_lines = setdiff(covered_set, existing_set)
+            for line in new_lines
+                if !haskey(new_edges, ref)
+                    new_edges[ref] = Vector{Tuple{String, Int}}()
+                end
+                push!(new_edges[ref], (src_file, line))
+            end
+        end
+
+        # Also check test file's own coverage sidecar
+        test_cov_path = ref.file * ".cov"
+        if isfile(test_cov_path)
+            test_covered = Set(cov_lines(test_cov_path))
+
+            # Check if the test file coverage is already in source_files
+            test_file_covered = get(ic.source_files, ref.file, (Int[], Int[]))[1]
+            existing_test_covered = Set(test_file_covered)
+            new_test_lines = setdiff(test_covered, existing_test_covered)
+
+            for line in new_test_lines
+                if !haskey(new_edges, ref)
+                    new_edges[ref] = Vector{Tuple{String, Int}}()
+                end
+                push!(new_edges[ref], (ref.file, line))
+            end
+        end
+
+        # Check all cov files that aren't in source_files
+        for cov_path in cov_files
+            src_file = cov_path[1:end-4]  # remove .cov suffix
+            if haskey(ic.source_files, src_file)
+                continue  # already checked above
+            end
+            if src_file == ref.file
+                continue  # already checked above
+            end
+
+            # Check if this source file is in the project
+            if !isfile(src_file)
+                continue
+            end
+
+            covered = cov_lines(cov_path)
+            if !isempty(covered)
+                # This is a NEW source file for this test — runtime edge
+                if !haskey(new_edges, ref)
+                    new_edges[ref] = Vector{Tuple{String, Int}}()
+                end
+                for line in covered
+                    push!(new_edges[ref], (src_file, line))
+                end
+            end
+        end
+    end
+
+    # Step 5: Store new runtime edges in the index
+    total_new_edges = 0
+    if !isempty(new_edges)
+        # Merge new edges into existing runtime_edges
+        merged = copy(index.runtime_edges)
+        for (ref, edges) in new_edges
+            if haskey(merged, ref)
+                existing_edges = Set(merged[ref])
+                for e in edges
+                    if e ∉ existing_edges
+                        push!(merged[ref], e)
+                        total_new_edges += 1
+                    end
+                end
+            else
+                merged[ref] = edges
+                total_new_edges += length(edges)
+            end
+        end
+
+        # Update index with new runtime_edges
+        updated_index = CoverageIndex(
+            index.items,
+            index.git_hash,
+            index.julia_version,
+            index.schema_version,
+            index.created_at,
+            index.environment_fingerprint,
+            index.inter_component_edges,
+            merged,
+        )
+        save_index(updated_index, index_path)
+    end
+
+    # Step 6: Update run history
+    all_items = vcat(passed_items, failed_items)
+    if !isempty(all_items)
+        history = load_run_history()
+        for ref in all_items
+            # Determine if this test passed or failed
+            passed = ref in passed_items
+            existing = get_outcome_history(history, ref)
+            if existing !== nothing
+                new_outcomes = vcat(existing.outcomes, [passed])
+                new_count = existing.attempt_count + 1
+                new_failure_rate = count(!, new_outcomes) / new_count
+                updated_entry = RunHistoryEntry(
+                    new_outcomes,
+                    new_count,
+                    new_failure_rate,
+                    existing.first_seen,
+                    now(),
+                )
+                record_outcome_history!(history, ref, updated_entry)
+            else
+                new_entry = RunHistoryEntry(
+                    [passed],
+                    1,
+                    passed ? 0.0 : 1.0,
+                    now(),
+                    now(),
+                )
+                record_outcome_history!(history, ref, new_entry)
+            end
+        end
+        save_run_history(history)
+    end
+
+    # Step 7: Record run key for idempotency
+    save_ingested_run_key(run_key)
+
+    return (
+        runtime_edges_created = total_new_edges,
+        items_ingested = items_processed,
+        duplicate_skipped = false,
+    )
+end
+
+"""
+    _find_cov_files() -> Vector{String}
+
+Scan the workspace for .jl.cov coverage sidecar files.
+
+Looks in the current directory (recursively) for files matching *.jl.cov.
+These are created by Julia when running with --code-coverage=user.
+"""
+function _find_cov_files()::Vector{String}
+    cov_files = String[]
+    for (root, dirs, files) in walkdir(".")
+        for f in files
+            if endswith(f, ".jl.cov")
+                path = joinpath(root, f)
+                # Normalize to strip ./ prefix
+                path = normpath(path)
+                push!(cov_files, path)
+            end
+        end
+    end
+    return cov_files
+end
+
+"""
+    cov_lines(cov_path::AbstractString) -> Vector{Int}
+
+Parse a Julia .jl.cov coverage sidecar file and return the line numbers
+that have positive execution counts. Lines with count > 0 are considered
+covered.
+"""
+function cov_lines(cov_path::AbstractString)::Vector{Int}
+    result = Int[]
+    if !isfile(cov_path)
+        return result
+    end
+    for line in eachline(cov_path)
+        # Format: "<count>: <linenum>: <source>" possibly with leading whitespace
+        # Lines with count > 0 are covered; "-" means not executable
+        m = match(r"^\s*(\d+):\s*(\d+):", line)
+        if m !== nothing
+            count = parse(Int, m[1])
+            linenum = parse(Int, m[2])
+            if count > 0
+                push!(result, linenum)
+            end
+        end
+    end
+    return result
 end
 
 # ── Incident persistence ──────────────────────────
