@@ -182,3 +182,65 @@ end
     @test cc.threshold == 1.0
     @test cc.component_overrides[:PkgA] == 0.0
 end
+
+# ── recording quality signal ──────────────────
+
+@testset "_recording_quality_signal returns 1.0 with no failures" begin
+    index = make_index()
+    @test Testimonial._recording_quality_signal(index) == 1.0
+end
+
+@testset "_recording_quality_signal returns 0.5 with half failures" begin
+    index = make_index(
+        items=[("/proj/test/a.jl", "t1"), ("/proj/test/b.jl", "t2")],
+    )
+    # Create a new index with recording metadata
+    half_fail = Testimonial.CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        index.runtime_edges,
+        1,  # failed_item_count
+        2,  # total_discovered_items
+    )
+    signal = Testimonial._recording_quality_signal(half_fail)
+    @test signal ≈ 0.5 atol=0.001
+end
+
+@testset "_recording_quality_signal returns 0.0 when all items failed" begin
+    index = make_index()
+    all_fail = Testimonial.CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        index.runtime_edges,
+        5,  # failed_item_count
+        5,  # total_discovered_items
+    )
+    @test Testimonial._recording_quality_signal(all_fail) == 0.0
+end
+
+@testset "_recording_quality_signal handles zero total items" begin
+    index = make_index()
+    zero_total = Testimonial.CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        index.runtime_edges,
+        0,  # failed_item_count
+        0,  # total_discovered_items
+    )
+    @test Testimonial._recording_quality_signal(zero_total) == 1.0
+end

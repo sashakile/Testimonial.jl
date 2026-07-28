@@ -241,20 +241,27 @@ struct CoverageIndex
     environment_fingerprint :: String
     inter_component_edges :: Dict{String, Set{String}}
     runtime_edges :: Dict{TestItemRef, Vector{Tuple{String, Int}}}
+    failed_item_count :: Int
+    total_discovered_items :: Int
 end
 
 # Convenience constructor without environment_fingerprint and inter_component_edges
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, "", Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}())
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, "", Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), 0, 0)
 
 # Convenience constructor without inter_component_edges
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}())
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), 0, 0)
 
 # Convenience constructor without runtime_edges (for backward compat after adding runtime_edges)
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, Dict{TestItemRef, Vector{Tuple{String, Int}}}())
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, Dict{TestItemRef, Vector{Tuple{String, Int}}}(), 0, 0)
 
+# Convenience constructor without failed_item_count and total_discovered_items (for backward compat after adding recording metadata)
+CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges) =
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, 0, 0)
+
+# ════════════════════════════════════════════
 # ── Persistence ────────────────────────────────
 
 export atomic_write, file_hash, extract_tags, discover_testitems
@@ -2331,12 +2338,18 @@ end
 
 Compute the recording quality signal for a coverage index.
 
-Returns 1.0 by default (placeholder). Full implementation depends on
-testimonial-2ec9 (Implement recording quality signal from index
-failure/total counts).
+Returns a value in [0, 1] based on the proportion of test items
+that failed during recording: 1 - (failed_items / total_items).
+
+Returns 1.0 if no items were recorded (zero total).
 """
 function _recording_quality_signal(index::CoverageIndex)::Float64
-    return 1.0
+    total = index.total_discovered_items
+    if total == 0
+        return 1.0
+    end
+    failed = index.failed_item_count
+    return max(0.0, 1.0 - Float64(failed) / Float64(total))
 end
 
 """
