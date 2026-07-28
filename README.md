@@ -22,6 +22,50 @@ just test
 just --list
 ```
 
+## CLI Reference
+
+```bash
+# Run smart selection (shadow mode by default)
+julia --project=. -e 'using Testimonial; Testimonial.CLI.main()'
+
+# Run with explicit flags
+julia --project=. -e 'using Testimonial; Testimonial.CLI.main(["--enforcing", "--base-ref", "origin/main"])'
+
+# View index metadata and promotion readiness
+julia --project=. -e 'using Testimonial; Testimonial.CLI.index_info()'
+
+# List incidents
+julia --project=. -e 'using Testimonial; Testimonial.CLI.main(["incidents"])'
+
+# Dismiss an incident
+julia --project=. -e 'using Testimonial; Testimonial.CLI.main(["incidents", "dismiss", "1"])'
+```
+
+### CLI Flags
+
+| Flag | Effect |
+|------|--------|
+| `--shadow` | Run in shadow mode (compute selection, run all tests) |
+| `--enforcing` | Run in enforcing mode (only run selected tests) |
+| `--base-ref <ref>` | Git base ref for diff (default: origin/main) |
+| `--n-shards <N>` | Number of CI shards (default: 0) |
+
+## Julia API Quick Reference
+
+| Function | Purpose |
+|----------|---------|
+| `CLI.run(; shadow, base_ref)` | Run smart test selection |
+| `CLI.main(args)` | CLI entry point (parses flags) |
+| `CLI.index_info()` | Index metadata + promotion readiness |
+| `reconcile(selected, all, failed, content)` | Post-run reconciliation |
+| `compare_selection_vs_outcomes(...)` | Detect missed selection incidents |
+| `promote_incidents(incidents; threshold, max_age_days)` | Promote qualifying incidents |
+| `create_manual_edges_from_promoted(incidents)` | Persist manual edges |
+| `record_outcome(ref, passed)` | Record test outcome for flaky detection |
+| `is_flaky(ref; window)` | Check if test is flaky |
+| `auto_quarantine_flaky()` | Auto-quarantine all flaky tests |
+| `record_all(items; skip_quarantined)` | Record coverage (optionally skip quarantined) |
+
 ## Safety Invariants
 
 Testimonial includes a set of safety mechanisms to detect and correct
@@ -91,11 +135,26 @@ The `reconcile()` function orchestrates the full post-run pipeline:
 
 1. **Detect** missed selection incidents via `compare_selection_vs_outcomes`
 2. **Save** new incidents
-3. **Promote** qualifying incidents (threshold-based)
+3. **Promote** qualifying incidents (threshold-based, with configurable
+   evaluation window via `max_age_days`)
 4. **Create** manual edges from promoted incidents
 5. **Persist** a timestamped report to `.testimonial/reconciliation/`
 
 Reports include incident counts, promotion stats, and quarantine exclusions.
+
+### Environment Fingerprint
+
+On every index load, Testimonial checks that the current environment
+fingerprint (Julia version + Project.toml hash) matches the fingerprint
+stored in the index. A mismatch triggers a full suite fallback, preventing
+stale indexes from producing incorrect selections.
+
+### Always-Run Set
+
+Tests that have recently failed are automatically added to the
+**always-run set** — they are included in every selection regardless
+of what the coverage analysis recommends. A test is removed from the
+always-run set after 5 consecutive passing runs.
 
 ### Flaky Test Detection
 
