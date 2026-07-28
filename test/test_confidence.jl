@@ -407,3 +407,19 @@ end
     result = Testimonial.compute_component_confidence(Testimonial.TestItemRef[], make_index())
     @test isempty(result)
 end
+
+# ── format_confidence_summary ─────────────────
+
+@testset "format_confidence_summary includes component scores" begin
+    result = Dict{Symbol, Float64}(:PkgA => 0.85, :PkgB => 0.72)
+    summary = Testimonial.format_confidence_summary(result)
+    @test occursin("PkgA", summary)
+    @test occursin("PkgB", summary)
+    @test occursin("0.85", summary) || occursin("85", summary)
+    @test occursin("0.72", summary) || occursin("72", summary)
+end
+
+@testset "format_confidence_summary handles empty result" begin
+    summary = Testimonial.format_confidence_summary(Dict{Symbol, Float64}())
+    @test isempty(summary) || occursin("no", lowercase(summary))
+end

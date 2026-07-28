@@ -2527,9 +2527,51 @@ function compute_component_confidence(items::Vector{TestItemRef}, index::Coverag
     return result
 end
 
+"""
+    format_confidence_summary(component_confidences) -> String
+
+Format a per-component confidence summary for display.
+
+Returns a multiline string like:
+  Confidence:
+    PkgA: 0.85
+    PkgB: 0.72
+
+Returns an empty string for empty input.
+"""
+function format_confidence_summary(component_confidences::Dict{Symbol, Float64})::String
+    isempty(component_confidences) && return ""
+
+    lines = String["Confidence:"]
+    for (comp, score) in sort(collect(component_confidences), by=first)
+        formatted = string(round(score, digits=2))
+        push!(lines, string("  ", string(comp), ": ", formatted))
+    end
+    return join(lines, "\n")
+end
+
+"""
+    summarize_selection(items, index; kwargs...) -> String
+
+Produce a human-readable selection summary including per-component
+confidence scores. Calls compute_component_confidence internally.
+"""
+function summarize_selection(items::Vector{TestItemRef}, index::CoverageIndex; kwargs...)::String
+    parts = String[]
+    push!(parts, "Selected $(length(items)) test(s)")
+
+    conf = compute_component_confidence(items, index; kwargs...)
+    conf_str = format_confidence_summary(conf)
+    if !isempty(conf_str)
+        push!(parts, conf_str)
+    end
+
+    return join(parts, "\n")
+end
+
 export compute_confidence, DEFAULT_STALE_THRESHOLD_HOURS, DEFAULT_CONFIDENCE_THRESHOLD,
        ConfidenceConfig, parse_confidence_config, group_items_by_component,
-       compute_component_confidence
+       compute_component_confidence, format_confidence_summary, summarize_selection
 
 # ════════════════════════════════════════════
 # 5. Sub-modules (may depend on types + CLI/Protocol)

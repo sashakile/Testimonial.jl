@@ -545,6 +545,13 @@ function run(; base_ref::String="origin/main",
         _write_shard_files(TestItemRef[], n_shards, Dict{Tuple{String, String}, Float64}())
     end
 
+    # Step 8.5: Log confidence summary
+    if filtered isa Vector
+        items = [r.item for r in filtered]
+        summary = parent.summarize_selection(items, index)
+        @info summary
+    end
+
     # Step 9: Shadow mode — log selection and run all tests
     if shadow
         n_selected = filtered isa Vector ? length(filtered) : 0
