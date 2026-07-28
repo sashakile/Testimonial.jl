@@ -1676,6 +1676,69 @@ function cov_lines(cov_path::AbstractString)::Vector{Int}
     return result
 end
 
+# ════════════════════════════════════════════
+# 6. Provenance persistence
+# ════════════════════════════════════════════
+
+"""Default directory for provenance storage."""
+const DEFAULT_PROVENANCE_DIR = ".testimonial/provenance/"
+
+"""
+    provenance_path(run_key, dir=DEFAULT_PROVENANCE_DIR) -> String
+
+Get the file path for a run key's provenance data.
+"""
+function provenance_path(run_key::String, dir::String=DEFAULT_PROVENANCE_DIR)::String
+    return joinpath(dir, string(run_key, ".jls"))
+end
+
+"""
+    save_provenance(run_key, results, dir=DEFAULT_PROVENANCE_DIR)
+
+Store provenance (selection results) for a smart_run run key.
+
+Persists `Vector{ImpactResult}` to `.testimonial/provenance/<run_key>.jls`
+using atomic write (temp file + rename). Creates parent directories as
+needed.
+"""
+function save_provenance(run_key::String, results::Vector{ImpactResult}, dir::String=DEFAULT_PROVENANCE_DIR)
+    path = provenance_path(run_key, dir)
+    parent = dirname(path)
+    mkpath(parent)
+    tmppath = path * ".tmp"
+    open(tmppath, "w") do io
+        serialize(io, results)
+    end
+    mv(tmppath, path; force=true)
+    return nothing
+end
+
+"""
+    load_provenance(run_key, dir=DEFAULT_PROVENANCE_DIR) -> Vector{ImpactResult}
+
+Load persisted provenance data for a run key.
+
+Returns the `Vector{ImpactResult}` if the file exists, or an empty
+vector if the file is missing, corrupt, or fails deserialization.
+"""
+function load_provenance(run_key::String, dir::String=DEFAULT_PROVENANCE_DIR)::Vector{ImpactResult}
+    path = provenance_path(run_key, dir)
+    if !isfile(path)
+        return ImpactResult[]
+    end
+    try
+        result = open(deserialize, path, "r")
+        if result isa Vector{ImpactResult}
+            return result
+        end
+        return ImpactResult[]
+    catch
+        return ImpactResult[]
+    end
+end
+
+export DEFAULT_PROVENANCE_DIR, provenance_path, save_provenance, load_provenance
+
 # ── Incident persistence ──────────────────────────
 
 """Default path for incident storage."""
