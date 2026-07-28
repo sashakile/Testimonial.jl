@@ -23,6 +23,8 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        INCIDENTS_PATH, save_incidents, load_incidents, append_incident,
        compare_selection_vs_outcomes, promote_incidents,
        reconcile,
+       record_outcome, get_outcome_history, reset_flaky_history,
+       is_flaky, quarantine_test, unquarantine_test, get_quarantined_tests,
        MANUAL_EDGES_PATH, ManualEdge, save_manual_edges, load_manual_edges,
        create_manual_edges_from_promoted, manual_edge_provider,
        balance_shards,
@@ -1182,12 +1184,15 @@ are not considered incidents (the selection worked correctly).
 - `all_items::Vector{TestItemRef}`: all items that ran in the full suite
 - `failed_items::Vector{TestItemRef}`: items that failed
 - `changed_content::String`: the content unit (file path) that was changed
+- `exclude::Set{Tuple{String, String}}=Set{Tuple{String, String}()}``: tests to exclude
+  from incident detection (e.g., quarantined flaky tests)
 """
 function compare_selection_vs_outcomes(
     selected::Vector{TestItemRef},
     all_items::Vector{TestItemRef},
     failed_items::Vector{TestItemRef},
-    changed_content::String,
+    changed_content::String;
+    exclude::Set{Tuple{String, String}}=Set{Tuple{String, String}}(),
 )::Vector{MissedSelectionIncident}
     isempty(all_items) && return MissedSelectionIncident[]
     isempty(failed_items) && return MissedSelectionIncident[]
@@ -1199,7 +1204,7 @@ function compare_selection_vs_outcomes(
     now_ts = now()
 
     for failed in failed_items
-        if failed ∉ selected_set
+        if failed ∉ selected_set && (failed.file, failed.name) ∉ exclude
             push!(incidents, MissedSelectionIncident(
                 changed_content,
                 failed,
@@ -1299,8 +1304,14 @@ function reconcile(
     promote_threshold::Int=3,
     max_age_days::Int=0,
 )::NamedTuple
-    # Step 1: Detect missed incidents
-    new_incidents = compare_selection_vs_outcomes(selected, all_items, failed_items, changed_content)
+    # Step 0: Load quarantined tests to exclude from incident detection
+    quarantined = get_quarantined_tests()
+
+    # Step 1: Detect missed incidents (excluding quarantined/flaky tests)
+    new_incidents = compare_selection_vs_outcomes(
+        selected, all_items, failed_items, changed_content;
+        exclude=quarantined,
+    )
 
     # Step 2: Save new incidents
     for inc in new_incidents
@@ -1362,6 +1373,94 @@ function _save_reconciliation_report(report::NamedTuple)::Nothing
     end
     mv(tmppath, path; force=true)
     return nothing
+end
+
+# ── Flaky detector ──────────────────────────────
+
+"""Per-test outcome history: (file, name) → [pass1, pass2, ...]"""
+const _OUTCOME_HISTORY = Dict{Tuple{String, String}, Vector{Bool}}()
+
+"""Set of quarantined tests: Set{(file, name)}"""
+const _QUARANTINED_TESTS = Set{Tuple{String, String}}()
+
+"""
+    record_outcome(ref::TestItemRef, passed::Bool)
+
+Record a test outcome (pass/fail) for flaky detection.
+"""
+function record_outcome(ref::TestItemRef, passed::Bool)::Nothing
+    key = (ref.file, ref.name)
+    if !haskey(_OUTCOME_HISTORY, key)
+        _OUTCOME_HISTORY[key] = Bool[]
+    end
+    push!(_OUTCOME_HISTORY[key], passed)
+    return nothing
+end
+
+"""
+    get_outcome_history(ref::TestItemRef) -> Vector{Bool}
+
+Get the full outcome history for a test. Returns empty vector if no history.
+"""
+function get_outcome_history(ref::TestItemRef)::Vector{Bool}
+    return get(_OUTCOME_HISTORY, (ref.file, ref.name), Bool[])
+end
+
+"""
+    reset_flaky_history()
+
+Clear all outcome history and quarantined flags. Used in testing.
+"""
+function reset_flaky_history()::Nothing
+    empty!(_OUTCOME_HISTORY)
+    empty!(_QUARANTINED_TESTS)
+    return nothing
+end
+
+"""
+    is_flaky(ref::TestItemRef; window::Int=5) -> Bool
+
+Check if a test has inconsistent outcomes in its recent history.
+A test is flaky if the last `window` outcomes contain both passes
+and failures (at least one of each).
+"""
+function is_flaky(ref::TestItemRef; window::Int=5)::Bool
+    history = get(_OUTCOME_HISTORY, (ref.file, ref.name), Bool[])
+    isempty(history) && return false
+    recent = history[max(1, end - window + 1):end]
+    has_pass = any(recent)
+    has_fail = any(!p for p in recent)
+    return has_pass && has_fail
+end
+
+"""
+    quarantine_test(ref::TestItemRef)
+
+Mark a test as quarantined (flaky). Quarantined tests are excluded
+from incident detection.
+"""
+function quarantine_test(ref::TestItemRef)::Nothing
+    push!(_QUARANTINED_TESTS, (ref.file, ref.name))
+    return nothing
+end
+
+"""
+    unquarantine_test(ref::TestItemRef)
+
+Remove a test from the quarantine list.
+"""
+function unquarantine_test(ref::TestItemRef)::Nothing
+    delete!(_QUARANTINED_TESTS, (ref.file, ref.name))
+    return nothing
+end
+
+"""
+    get_quarantined_tests() -> Set{Tuple{String, String}}
+
+Get the set of quarantined test keys.
+"""
+function get_quarantined_tests()::Set{Tuple{String, String}}
+    return copy(_QUARANTINED_TESTS)
 end
 
 # ── Manual edge persistence ────────────────────────

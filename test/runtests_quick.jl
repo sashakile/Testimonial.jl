@@ -49,4 +49,5 @@ include("test_shard_balance.jl")
     include("test_incident_lifecycle.jl")
     include("test_reconcile.jl")
     include("test_reconciliation_report.jl")
+    include("test_flaky_detector.jl")
 end
