@@ -1,0 +1,80 @@
+# Scheduled reconciliation workflow for Testimonial.jl
+#
+# Runs the full test suite nightly, computes the counterfactual smart
+# selection, and records any missed-selection incidents.
+#
+# See SAFE-009, CI-INT-012 in
+# openspec/changes/add-safety-invariants/specs/safety-invariants/spec.md
+
+name: Reconciliation
+
+on:
+  schedule:
+    - cron: "0 6 * * *"  # Daily at 06:00 UTC
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  JULIA_VERSION: "1.12"
+  JULIA_NUM_THREADS: "2"
+
+jobs:
+  reconcile:
+    name: Scheduled reconciliation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git diff against base ref
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ env.JULIA_VERSION }}
+
+      - uses: julia-actions/cache@v2
+
+      - name: Restore coverage index (if any)
+        id: restore-index
+        uses: actions/cache/restore@v4
+        with:
+          path: .testimonial/
+          key: testimonial-index-${{ github.sha }}
+          restore-keys: |
+            testimonial-index-
+
+      - name: Instantiate project
+        run: julia --project -e 'import Pkg; Pkg.instantiate()'
+
+      - name: Run reconciliation
+        id: reconcile
+        run: julia --project scripts/reconcile_run.jl
+        continue-on-error: false
+        timeout-minutes: 30
+
+      - name: List incidents
+        id: incidents
+        run: |
+          julia --project -e '
+            using Testimonial.CLI
+            println(CLI.main(["incidents"]))
+          '
+
+      - name: Save reconciliation report as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reconciliation-report
+          path: .testimonial/reconciliation/
+          retention-days: 30
+
+      - name: Save incidents as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reconciliation-incidents
+          path: .testimonial/incidents.jls
+          retention-days: 30
+        if: always()
+
+      - name: Cache coverage index for subsequent runs
+        uses: actions/cache/save@v4
+        with:
+          path: .testimonial/
+          key: testimonial-index-${{ github.sha }}
