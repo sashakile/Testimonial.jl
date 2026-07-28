@@ -243,23 +243,33 @@ struct CoverageIndex
     runtime_edges :: Dict{TestItemRef, Vector{Tuple{String, Int}}}
     failed_item_count :: Int
     total_discovered_items :: Int
+    available_layers :: Int
 end
 
 # Convenience constructor without environment_fingerprint and inter_component_edges
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, "", Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), 0, 0)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, "", Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), 0, 0, 1)
 
 # Convenience constructor without inter_component_edges
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), 0, 0)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), 0, 0, 1)
 
 # Convenience constructor without runtime_edges (for backward compat after adding runtime_edges)
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, Dict{TestItemRef, Vector{Tuple{String, Int}}}(), 0, 0)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, Dict{TestItemRef, Vector{Tuple{String, Int}}}(), 0, 0, 1)
 
 # Convenience constructor without failed_item_count and total_discovered_items (for backward compat after adding recording metadata)
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, 0, 0)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, 0, 0, 1)
+
+# Ingest update constructor: preserve all metadata fields from source index
+CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, source) =
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges,
+                  source.failed_item_count, source.total_discovered_items, source.available_layers)
+
+# Convenience constructor without available_layers (for backward compat after adding layer metadata)
+CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, failed_item_count, total_discovered_items) =
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, failed_item_count, total_discovered_items, 1)
 
 # ════════════════════════════════════════════
 # ── Persistence ────────────────────────────────
@@ -1567,6 +1577,7 @@ function ingest(;
             index.environment_fingerprint,
             index.inter_component_edges,
             merged,
+            index,  # preserve metadata fields
         )
         save_index(updated_index, index_path)
     end
@@ -2357,11 +2368,16 @@ end
 
 Compute the layer coverage signal for a coverage index.
 
-Returns 1.0 by default (placeholder). Full implementation depends on
-testimonial-jnz1 (Implement layer coverage signal).
+Returns n / (n + 1) where n is the number of analysis layers that
+contributed to the index (1 → 0.5, 2 → 0.67, 3 → 0.75, etc.).
+Returns 0.0 if the index is empty (no layers).
 """
 function _layer_coverage_signal(index::CoverageIndex)::Float64
-    return 1.0
+    n = index.available_layers
+    if n <= 0
+        return 0.0
+    end
+    return Float64(n) / Float64(n + 1)
 end
 
 """

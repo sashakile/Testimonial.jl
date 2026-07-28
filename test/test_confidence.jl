@@ -40,8 +40,9 @@ end
     score = Testimonial.compute_confidence(ref, index)
 
     @test 0.0 <= score <= 1.0
-    # A brand-new index (just created) with default signals should be highly confident
-    @test score >= 0.9
+    # A brand-new index (just created) with default signals should be confident
+    # With 1 layer (0.5) and 3 stubs (1.0 each): (0.5)^0.25 ≈ 0.84
+    @test score >= 0.8
 end
 
 @testset "compute_confidence returns a Float64 in [0, 1]" begin
@@ -243,4 +244,47 @@ end
         0,  # total_discovered_items
     )
     @test Testimonial._recording_quality_signal(zero_total) == 1.0
+end
+
+# ── layer coverage signal ─────────────────────
+
+@testset "_layer_coverage_signal returns 0.5 for single layer (default)" begin
+    index = make_index()
+    @test Testimonial._layer_coverage_signal(index) ≈ 0.5 atol=0.001
+end
+
+@testset "_layer_coverage_signal returns 0.67 for two layers" begin
+    index = make_index()
+    two_layer = Testimonial.CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        index.runtime_edges,
+        index.failed_item_count,
+        index.total_discovered_items,
+        2,  # available_layers
+    )
+    @test Testimonial._layer_coverage_signal(two_layer) ≈ 2.0/3.0 atol=0.001
+end
+
+@testset "_layer_coverage_signal returns 0.75 for three layers" begin
+    index = make_index()
+    three_layer = Testimonial.CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        index.runtime_edges,
+        index.failed_item_count,
+        index.total_discovered_items,
+        3,  # available_layers
+    )
+    @test Testimonial._layer_coverage_signal(three_layer) ≈ 0.75 atol=0.001
 end
