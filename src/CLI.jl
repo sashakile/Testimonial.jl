@@ -161,28 +161,118 @@ function format_impact_result(result)::Vector{String}
     return lines
 end
 
-# ── explain ────────────────────────────────────
+# ── explain(exclude=true): exclusion reasoning (PROV-002) ─────────────────────
 
 """
     explain(test_file::AbstractString, item_name::AbstractString;
+            exclude::Bool=false,
+            changed::Dict{String, Set{Int}}=Dict{String, Set{Int}}(),
+            index::Union{Nothing, CoverageIndex}=nothing,
             index_path::String=".testimonial/index.jls") -> Vector{String}
 
-Return a human-readable list of source files (with covered line counts)
-for the given test item, as recorded in the coverage index.
+In `exclude` mode, report why the given test was NOT selected for the
+diff in `changed`. The reason is derived from the index state and diff,
+not stored (PROV-002).
 
-Returns an empty vector if the item is not found or the index does not
-exist.
+Scenarios:
+- Test not in index → "test has never been recorded" (suggest `record_all`).
+- Test in index but no changed file touches any covered line → lists the
+  files the test covers and the changed files.
+- Test in a different component from every changed file → "no dependency
+  path from changed component to this test's component".
+
+When `index` is omitted it is loaded from `index_path`. Returns an empty
+vector if the index is missing (and no `index` was passed).
 """
 function explain(test_file::AbstractString, item_name::AbstractString;
-                  index_path::String=".testimonial/index.jls")::Vector{String}
-    parent = Base.parentmodule(@__MODULE__)
+                 exclude::Bool=false,
+                 changed::Dict{String, Set{Int}}=Dict{String, Set{Int}}(),
+                 index::Union{Nothing, Any}=nothing,
+                 index_path::String=".testimonial/index.jls")::Vector{String}
+    # Non-exclude path: delegate to the original covered-files explain.
+    exclude || return _explain_covered(test_file, item_name; index_path=index_path, index=index)
 
-    index = parent.load_index(index_path)
-    index === nothing && return String[]
+    parent = Base.parentmodule(@__MODULE__)
+    idx = index !== nothing ? index : parent.load_index(index_path)
+    idx === nothing && return String[]
 
     target = parent.TestItemRef(String(test_file), 0, String(item_name))
 
-    for (ref, ic) in index.items
+    # ── Scenario: test not in index ──
+    found_ref = nothing
+    found_ic = nothing
+    for (ref, ic) in idx.items
+        if ref == target
+            found_ref = ref
+            found_ic = ic
+            break
+        end
+    end
+    if found_ref === nothing
+        return String[
+            "\"$(item_name)\" has never been recorded — no coverage data for this test.",
+            "Run `record_all` first to populate the coverage index.",
+        ]
+    end
+
+    # ── Scenario: different component ──
+    # If the test belongs to a component and NO changed file lives under
+    # that component's root, there is no dependency path.
+    changed_files = collect(keys(changed))
+    if found_ref.component != ""
+        comp = found_ref.component
+        any_changed_in_comp = any(
+            contains(f, comp) || contains(f, "/$(comp)/") for f in changed_files
+        )
+        if !any_changed_in_comp && !isempty(changed_files)
+            return String[
+                "no dependency path from changed component to this test's component (\"$(comp)\").",
+                "Changed files belong to other components; this test's component (\"$(comp)\") was not affected.",
+            ]
+        end
+    end
+
+    # ── Scenario: no coverage overlap ──
+    # Does any changed file appear in the test's source_files coverage map?
+    covered_files = collect(keys(found_ic.source_files))
+    overlap = false
+    for cf in changed_files
+        for cov in covered_files
+            if abspath(cf) == abspath(cov) || endswith(abspath(cf), abspath(cov)) || endswith(abspath(cov), abspath(cf))
+                overlap = true
+                break
+            end
+        end
+        overlap && break
+    end
+
+    if overlap
+        return String[
+            "\"$(item_name)\" is selected — a changed file touches a covered line.",
+            "Use `explain` without `exclude=true` to see covered files.",
+        ]
+    end
+
+    cov_list = isempty(covered_files) ? "(none)" : join(sort(covered_files), ", ")
+    chg_list = isempty(changed_files) ? "(none)" : join(sort(changed_files), ", ")
+    return String[
+        "no changed file touches any covered line for \"$(item_name)\".",
+        "Files this test covers: $(cov_list)",
+        "Changed files: $(chg_list)",
+    ]
+end
+
+# Original covered-files explain, factored out for reuse by the exclude path.
+function _explain_covered(test_file::AbstractString, item_name::AbstractString;
+                          index_path::String=".testimonial/index.jls",
+                          index::Union{Nothing, Any}=nothing)::Vector{String}
+    parent = Base.parentmodule(@__MODULE__)
+    idx = index !== nothing ? index : parent.load_index(index_path)
+    idx === nothing && return String[]
+
+    target = parent.TestItemRef(String(test_file), 0, String(item_name))
+
+    for (ref, ic) in idx.items
         if ref == target
             lines = String[]
             n_covered = length(ic.covered_lines)
