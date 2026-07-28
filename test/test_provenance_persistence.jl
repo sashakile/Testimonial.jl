@@ -170,6 +170,54 @@ end
     @test occursin("confidence", lowercase(combined))
 end
 
+@testset "explain with --layers flag uses grouped format" begin
+    mktempdir() do dir
+        # Create a simple index with provenance data
+        ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+        chain = [
+            Testimonial.ProvenanceLink(Testimonial.COVERAGE, "src/lib.jl", "line 42", nothing),
+        ]
+        reason = Testimonial.ImpactReason(Testimonial.DirectChange, "changed src/lib.jl", chain)
+        result = Testimonial.ImpactResult(ref, [reason], true, nothing)
+        prov_dir = joinpath(dir, "provenance")
+        Testimonial.save_provenance("run_001", [result], prov_dir)
+
+        # Call explain with layers=true
+        lines = Testimonial.explain(
+            "/proj/test/foo_test.jl", "test_a";
+            run_key="run_001",
+            provenance_dir=prov_dir,
+            layers=true,
+        )
+        combined = join(lines, "\n")
+        @test occursin("COVERAGE", combined)
+        @test occursin("src/lib.jl", combined)
+        @test occursin("test_a", combined)
+    end
+end
+
+@testset "explain without layers flag uses flat format" begin
+    mktempdir() do dir
+        ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+        chain = [
+            Testimonial.ProvenanceLink(Testimonial.COVERAGE, "src/lib.jl", "line 42", nothing),
+        ]
+        reason = Testimonial.ImpactReason(Testimonial.DirectChange, "changed src/lib.jl", chain)
+        result = Testimonial.ImpactResult(ref, [reason], true, nothing)
+        Testimonial.save_provenance("run_001", [result], joinpath(dir, "provenance"))
+
+        # Call explain without layers flag -> uses flat format_impact_result
+        lines = Testimonial.explain(
+            "/proj/test/foo_test.jl", "test_a";
+            run_key="run_001",
+            provenance_dir=joinpath(dir, "provenance"),
+            layers=false,
+        )
+        combined = join(lines, "\n")
+        @test occursin("test_a", combined)
+    end
+end
+
 @testset "explain loads persisted provenance when run_key matches" begin
     mktempdir() do dir
         # Create a simple index

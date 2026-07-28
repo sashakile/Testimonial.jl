@@ -238,7 +238,8 @@ function explain(test_file::AbstractString, item_name::AbstractString;
                  index::Union{Nothing, Any}=nothing,
                  index_path::String=".testimonial/index.jls",
                  run_key::Union{Nothing, String}=nothing,
-                 provenance_dir::Union{Nothing, String}=nothing)::Vector{String}
+                 provenance_dir::Union{Nothing, String}=nothing,
+                 layers::Bool=false)::Vector{String}
     parent = Base.parentmodule(@__MODULE__)
 
     # If run_key provided, try loading from persisted provenance first
@@ -250,7 +251,11 @@ function explain(test_file::AbstractString, item_name::AbstractString;
             target = parent.TestItemRef(String(test_file), 0, String(item_name))
             for result in prov
                 if result.item == target
-                    return parent.format_impact_result(result)
+                    if layers
+                        return parent.format_impact_result_grouped(result)
+                    else
+                        return parent.format_impact_result(result)
+                    end
                 end
             end
             return String["\"$(item_name)\" not found in provenance for run key \"$(run_key)\"."]
