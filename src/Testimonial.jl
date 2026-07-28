@@ -19,6 +19,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        consecutive_passes, record_run, should_evict, reset_always_run_state,
        get_always_run_tests,
        RunEntry, RunHistoryEntry, RunHistory, record_duration!, read_durations,
+       record_outcome_history!, get_outcome_history,
        save_run_history, load_run_history, DEFAULT_RUN_HISTORY_PATH,
        INCIDENTS_PATH, save_incidents, load_incidents, append_incident,
        compare_selection_vs_outcomes, promote_incidents,
@@ -1036,17 +1037,23 @@ end
 """
     RunHistory
 
-Collects per-test execution durations for shard balancing.
+Collects per-test execution durations for shard balancing and per-test
+outcome/timing data for runtime feedback.
 
 Persisted to `.testimonial/run_history.jls` for cross-session tracking.
 See openspec/changes/add-component-boundary/design.md Decision 4.
 """
 struct RunHistory
     entries :: Dict{Tuple{String, String}, RunEntry}
+    outcome_entries :: Dict{Tuple{String, String}, RunHistoryEntry}
 end
 
-# Convenience constructor
-RunHistory() = RunHistory(Dict{Tuple{String, String}, RunEntry}())
+# Convenience constructors
+RunHistory() = RunHistory(Dict{Tuple{String, String}, RunEntry}(), Dict{Tuple{String, String}, RunHistoryEntry}())
+
+# Backward-compatible constructor for deserialization of old format (no outcome_entries)
+RunHistory(entries::Dict{Tuple{String, String}, RunEntry}) =
+    RunHistory(entries, Dict{Tuple{String, String}, RunHistoryEntry}())
 
 """
     record_duration!(history::RunHistory, ref::TestItemRef, duration::Float64)
@@ -1090,6 +1097,33 @@ function read_durations(history::RunHistory)::Dict{Tuple{String, String}, Float6
         result[key] = entry.mean_duration
     end
     return result
+end
+
+"""
+    record_outcome_history!(history::RunHistory, ref::TestItemRef, entry::RunHistoryEntry)
+
+Record a test execution outcome entry in the run history.
+
+Replaces any existing outcome entry for the same test. Callers should
+merge cumulative data (outcomes, failure_rate) before calling.
+"""
+function record_outcome_history!(history::RunHistory, ref::TestItemRef, entry::RunHistoryEntry)
+    key = (ref.file, ref.name)
+    history.outcome_entries[key] = entry
+    return nothing
+end
+
+"""
+    get_outcome_history(history::RunHistory, ref::TestItemRef) -> Union{RunHistoryEntry, Nothing}
+
+Retrieve the outcome history for a specific test.
+
+Returns the `RunHistoryEntry` if one exists, or `nothing` if the test
+has no recorded outcome history.
+"""
+function get_outcome_history(history::RunHistory, ref::TestItemRef)::Union{RunHistoryEntry, Nothing}
+    key = (ref.file, ref.name)
+    return get(history.outcome_entries, key, nothing)
 end
 
 """

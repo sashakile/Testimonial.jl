@@ -95,3 +95,80 @@ end
     # Test that the default save path is .testimonial/run_history.jls
     @test Testimonial.DEFAULT_RUN_HISTORY_PATH == ".testimonial/run_history.jls"
 end
+
+@testset "run_history entry persistence save and load" begin
+    mktempdir() do dir
+        ref = TestItemRef("test/foo.jl", 10, "test_foo")
+        history = Testimonial.RunHistory()
+
+        # Add a RunHistoryEntry for this test
+        entry = RunHistoryEntry(
+            [true, false, true],  # outcomes
+            3,                     # attempt_count
+            1.0 / 3.0,            # failure_rate
+            DateTime(2026, 7, 1),  # first_seen
+            DateTime(2026, 7, 27), # last_seen
+        )
+        Testimonial.record_outcome_history!(history, ref, entry)
+
+        save_path = joinpath(dir, "run_history.jls")
+        Testimonial.save_run_history(history, save_path)
+
+        # Load into a fresh history
+        loaded = Testimonial.load_run_history(save_path)
+        @test loaded isa Testimonial.RunHistory
+
+        # Verify the RunHistoryEntry was persisted
+        loaded_entry = Testimonial.get_outcome_history(loaded, ref)
+        @test loaded_entry !== nothing
+        @test loaded_entry.outcomes == [true, false, true]
+        @test loaded_entry.attempt_count == 3
+        @test loaded_entry.failure_rate ≈ 1.0 / 3.0
+        @test loaded_entry.first_seen == DateTime(2026, 7, 1)
+        @test loaded_entry.last_seen == DateTime(2026, 7, 27)
+    end
+end
+
+@testset "run_history entry missing test returns nothing" begin
+    history = Testimonial.RunHistory()
+    ref = TestItemRef("test/unknown.jl", 1, "test_unknown")
+    @test Testimonial.get_outcome_history(history, ref) === nothing
+end
+
+@testset "run_history mixes RunEntry and RunHistoryEntry" begin
+    mktempdir() do dir
+        ref = TestItemRef("test/bar.jl", 5, "test_bar")
+        history = Testimonial.RunHistory()
+
+        # Add duration data (RunEntry) via existing API
+        Testimonial.record_duration!(history, ref, 2.5)
+
+        # Add outcome data (RunHistoryEntry) via new API
+        entry = RunHistoryEntry(
+            [true, false],
+            2,
+            0.5,
+            DateTime(2026, 7, 1),
+            DateTime(2026, 7, 27),
+        )
+        Testimonial.record_outcome_history!(history, ref, entry)
+
+        save_path = joinpath(dir, "run_history.jls")
+        Testimonial.save_run_history(history, save_path)
+
+        # Load and verify both types survived
+        loaded = Testimonial.load_run_history(save_path)
+
+        # Duration data (RunEntry)
+        durations = Testimonial.read_durations(loaded)
+        @test haskey(durations, (ref.file, ref.name))
+        @test durations[(ref.file, ref.name)] ≈ 2.5
+
+        # Outcome data (RunHistoryEntry)
+        loaded_entry = Testimonial.get_outcome_history(loaded, ref)
+        @test loaded_entry !== nothing
+        @test loaded_entry.outcomes == [true, false]
+        @test loaded_entry.attempt_count == 2
+        @test loaded_entry.first_seen == DateTime(2026, 7, 1)
+    end
+end
