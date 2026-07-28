@@ -101,3 +101,37 @@ end
     # Original behaviour: mentions the test file + covered count
     @test any(contains(l, "foo_test.jl") || contains(l, "foo.jl") for l in out)
 end
+
+
+# ── Edge cases ────────────────────────────────
+
+@testset "explain(exclude=true): empty changed set → meaningful message" begin
+    index = _exclude_index()
+    out = explain("/proj/test/foo_test.jl", "test_a";
+                  exclude=true, changed=Dict{String,Set{Int}}(), index=index)
+    @test !isempty(out)
+    @test any(contains(l, "no change") || contains(l, "no diff") ||
+              contains(l, "empty") for l in out)
+end
+
+@testset "explain(exclude=true): test with no component skips component check" begin
+    # component="" is the default; must not error or produce a comp-related msg.
+    index = _exclude_index(component="")
+    changed = Dict{String, Set{Int}}("/proj/src/other.jl" => Set([1]))
+    out = explain("/proj/test/foo_test.jl", "test_a";
+                  exclude=true, changed=changed, index=index)
+    @test !isempty(out)
+    # Should NOT mention component in the output.
+    @test all(!contains(l, "component") for l in out)
+end
+
+@testset "explain(exclude=true): test with empty source_files → no coverage data" begin
+    ref = TestItemRef("/proj/test/empty_test.jl", 1, "test_e")
+    ic = ItemCoverage(ref, Int[], Int[], Dict{String,Tuple{Vector{Int},Vector{Int}}}())
+    index = CoverageIndex(Dict(ref => ic), "sha", "1.12", v"0.1.0", now())
+    changed = Dict{String, Set{Int}}("/proj/src/x.jl" => Set([1]))
+    out = explain("/proj/test/empty_test.jl", "test_e";
+                  exclude=true, changed=changed, index=index)
+    @test !isempty(out)
+    @test any(contains(l, "no coverage") || contains(l, "no changed file") for l in out)
+end
