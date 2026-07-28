@@ -48,6 +48,27 @@ SubprocessRunner(; runner_dir::String="scripts/TestimonialRunner", timeout::Floa
     SubprocessRunner(runner_dir, timeout)
 
 """
+    _base_driver_cmd(runner_dir) -> Vector{String}
+
+Build the Julia argument vector shared by every recording invocation —
+`julia <coverage-flag> --project=<runner_dir> <runner_dir>/driver.jl`.
+`runner_dir` is resolved relative to the package source directory (not
+the cwd) so the adapter can be spawned from any project.
+"""
+function _base_driver_cmd(runner_dir::AbstractString="scripts/TestimonialRunner")::Vector{String}
+    pkg_root = realpath(joinpath(@__DIR__, ".."))
+    abs_runner_dir = isabspath(runner_dir) ? runner_dir : joinpath(pkg_root, runner_dir)
+    driver_path = joinpath(abs_runner_dir, "driver.jl")
+    coverage_flag = _is_julia_12_or_later() ? "--code-coverage=tracefile.info" : "--code-coverage=user"
+    return [
+        "julia",
+        coverage_flag,
+        "--project=$(abs_runner_dir)",
+        driver_path,
+    ]
+end
+
+"""
     build_driver_command(test_file::String, item_name::String; runner_dir::AbstractString="scripts/TestimonialRunner") -> Tuple{Vector{String}, Dict{String, String}}
 
 Build the subprocess command and environment for recording a single @testitem.
@@ -67,19 +88,7 @@ function build_driver_command(
     item_name::AbstractString;
     runner_dir::AbstractString="scripts/TestimonialRunner"
 )::Tuple{Vector{String}, Dict{String, String}}
-    # Resolve runner_dir relative to the package source directory,
-    # not the current working directory (adapter may be spawned from
-    # any project directory by testaruda).
-    pkg_root = realpath(joinpath(@__DIR__, ".."))
-    abs_runner_dir = isabspath(runner_dir) ? runner_dir : joinpath(pkg_root, runner_dir)
-    driver_path = joinpath(abs_runner_dir, "driver.jl")
-    coverage_flag = _is_julia_12_or_later() ? "--code-coverage=tracefile.info" : "--code-coverage=user"
-    cmd = [
-        "julia",
-        coverage_flag,
-        "--project=$(abs_runner_dir)",
-        driver_path
-    ]
+    cmd = _base_driver_cmd(runner_dir)
     env = Dict(
         "TESTIMONIAL_FILE" => String(test_file),
         "TESTIMONIAL_ITEM" => String(item_name)
@@ -113,16 +122,7 @@ function build_driver_command(
     item_names::AbstractVector;
     runner_dir::AbstractString="scripts/TestimonialRunner"
 )::Tuple{Vector{String}, Dict{String, String}}
-    pkg_root = realpath(joinpath(@__DIR__, ".."))
-    abs_runner_dir = isabspath(runner_dir) ? runner_dir : joinpath(pkg_root, runner_dir)
-    driver_path = joinpath(abs_runner_dir, "driver.jl")
-    coverage_flag = _is_julia_12_or_later() ? "--code-coverage=tracefile.info" : "--code-coverage=user"
-    cmd = [
-        "julia",
-        coverage_flag,
-        "--project=$(abs_runner_dir)",
-        driver_path
-    ]
+    cmd = _base_driver_cmd(runner_dir)
     names = String[String(n) for n in item_names]
     env = Dict{String, String}(
         "TESTIMONIAL_FILE" => String(test_file),
@@ -407,8 +407,10 @@ function record_batch(runner::SubprocessRunner, refs::Vector)
         run_with_timeout(cmd, env, timeout)
     end
 
+    nothings = Union{parent.ItemCoverage, Nothing}[nothing for _ in refs]
+
     if exitcode === nothing
-        return Union{parent.ItemCoverage, Nothing}[nothing for _ in refs]
+        return nothings
     end
 
     test_covered, test_uncovered, source_files = _collect_coverage(test_file, parent)
