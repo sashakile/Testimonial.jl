@@ -15,6 +15,7 @@ import ..Testimonial: CoverageIndex, TestItemRef, ItemCoverage,
     discover_testitems, load_incidents, save_incidents
 
 export index_info, explain, run, main, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS,
+       format_reason, format_impact_result,
        _write_shard_files, _read_shard_manifest, _clean_shard_files
 
 # ── Constants ──────────────────────────────────
@@ -112,6 +113,52 @@ function index_info(; index_path::String=".testimonial/index.jls",
         promoted_count = promoted_count,
         manual_edge_count = manual_edge_count,
     )
+end
+
+# ── Reason-chain display (PROV-001) ───────────────────────────────────────────
+
+"""
+    format_reason(reason::ImpactReason) -> Vector{String}
+
+Render a single `ImpactReason` as human-readable lines: a header line
+(`[KIND] description`) followed by one indented line per `ProvenanceLink`
+in `reason.chain` (`└ [LAYER] content_unit: detail`).
+
+These formatters are the display building blocks for dry-run selection
+output (ticket testimonial-q68n) and the `--layers` explain view.
+"""
+function format_reason(reason)::Vector{String}
+    lines = String["[$(reason.kind)] $(reason.description)"]
+    for link in reason.chain
+        # Walk the next-pointer linked list: each ProvenanceLink may chain
+        # to a deeper link (PROV-001 multi-hop path).
+        node = link
+        while node !== nothing
+            push!(lines, "  └ [$(node.layer)] $(node.content_unit): $(node.detail)")
+            node = node.next
+        end
+    end
+    return lines
+end
+
+"""
+    format_impact_result(result::ImpactResult) -> Vector{String}
+
+Render an `ImpactResult` as human-readable lines: an item header
+(annotated with selected/unselected status) followed by each reason
+rendered via `format_reason`.
+"""
+function format_impact_result(result)::Vector{String}
+    lines = String[]
+    status = result.selected ? "selected" : "not selected"
+    push!(lines, "$(result.item.name)  ($(result.item.file))  [$status]")
+    if result.fallback_reason !== nothing
+        push!(lines, "  fallback: $(result.fallback_reason)")
+    end
+    for reason in result.reasons
+        append!(lines, format_reason(reason))
+    end
+    return lines
 end
 
 # ── explain ────────────────────────────────────
