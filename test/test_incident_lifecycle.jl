@@ -156,3 +156,96 @@ end
         end
     end
 end
+
+@testset "full pipeline smoke test: detect → reconcile → promote → verify" begin
+    Testimonial.reset_flaky_history()
+    mktempdir() do dir
+        cd(dir) do
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+
+            mkpath("test")
+            mkpath("src")
+
+            write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 1 end""")
+            write("test/test_b.jl", """@testitem "test_b" begin @test 1 == 1 end""")
+            run(`git add .`)
+            run(`git commit -m "initial"`)
+
+            # Build index with both items
+            ref_a = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
+            ref_b = TestItemRef(abspath("test/test_b.jl"), 1, "test_b", Symbol[], "def")
+            ic_a = ItemCoverage(ref_a, [1], Int[], Dict())
+            ic_b = ItemCoverage(ref_b, [1], Int[], Dict())
+            fp = Testimonial.compute_environment_fingerprint(dir)
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref_a => ic_a, ref_b => ic_b),
+                readchomp(`git rev-parse HEAD`),
+                string(VERSION),
+                v"0.1.0",
+                now(),
+                fp,
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            # Modify test_a to trigger selection
+            write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 2 end""")
+            run(`git add .`)
+            run(`git commit -m "modify test_a"`)
+
+            # Step 1: Run selection — should select test_a (changed)
+            result = Testimonial.CLI.run(; base_ref="HEAD~1", shadow=false)
+            @test result isa Vector
+            @test any(r.item.name == "test_a" for r in result)
+
+            # Step 2: Simulate a full run where test_b failed (but wasn't selected)
+            selected_refs = [r.item for r in result]
+            all_items = [ref_a, ref_b]
+            failed_items = [ref_b]
+            changed_content = "src/lib.jl"
+
+            # Step 3: Reconcile — 3 times to trigger promotion
+            for i in 1:3
+                report = Testimonial.reconcile(selected_refs, all_items, failed_items, changed_content)
+                if i == 1
+                    @test report.incidents_detected == 1
+                    @test report.incidents_promoted == 0
+                elseif i == 3
+                    @test report.incidents_detected == 1
+                    @test report.incidents_promoted == 3
+                end
+            end
+
+            # Step 4: Verify manual edge was created
+            edges = load_manual_edges()
+            @test length(edges) == 1
+            @test edges[1].content_path == "src/lib.jl"
+            @test edges[1].test == ref_b
+
+            # Step 5: Verify reconciliation report was persisted
+            report_dir = joinpath(".testimonial", "reconciliation")
+            @test isdir(report_dir)
+            entries = readdir(report_dir)
+            @test length(entries) == 3  # 3 reconciles = 3 reports
+
+            # Step 6: Verify index_info shows promotion readiness
+            info = Testimonial.CLI.index_info()
+            @test info.candidate_count == 0
+            @test info.promoted_count == 3
+            @test info.manual_edge_count == 1
+
+            # Step 7: Now modify src/lib.jl and run — manual edge should force test_b
+            write("src/lib.jl", "module Lib; end")
+            run(`git add .`)
+            run(`git commit -m "modify src/lib.jl"`)
+            result2 = Testimonial.CLI.run(; base_ref="HEAD~1", shadow=false)
+            @test result2 isa Vector
+            @test any(r.item.name == "test_b" for r in result2)
+            @test any(
+                any(rr.kind == AlwaysRun for rr in r.reasons)
+                for r in result2 if r.item.name == "test_b"
+            )
+        end
+    end
+end

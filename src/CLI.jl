@@ -597,7 +597,7 @@ function _run_component_aware(
             comp_results[i] = cached[2]
         else
             results = parent.query(
-                [parent.direct_change_provider, parent.unresolved_provider, parent.manual_edge_provider],
+                [parent.direct_change_provider, parent.unresolved_provider],
                 index,
                 changed;
                 component=comp,

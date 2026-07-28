@@ -1275,11 +1275,16 @@ end
     reconcile(selected, all_items, failed_items, changed_content;
               promote_threshold=3, max_age_days=0) -> NamedTuple
 
-Post-run reconciliation pipeline.
+Post-run reconciliation pipeline. Reconciliation is the process of
+comparing the smart selection's predicted results against the actual
+full-suite outcomes after a run completes. If the selection would have
+missed a failing test, it's recorded as a candidate incident.
 
-Compares what was selected against what actually ran and failed,
-detects missed-selection incidents, promotes qualifying incidents
-to manual edges, and persists everything.
+Pipeline:
+1. Detect missed-selection incidents via compare_selection_vs_outcomes
+2. Save new incidents
+3. Promote qualifying incidents to manual edges (threshold-based)
+4. Persist a timestamped report to .testimonial/reconciliation/
 
 # Arguments
 - `selected::Vector{TestItemRef}`: items that the selection algorithm picked
@@ -1482,15 +1487,33 @@ both passes and failures.
 """
 function auto_quarantine_flaky(; window::Int=5)::Set{Tuple{String, String}}
     newly_quarantined = Set{Tuple{String, String}}()
+    keys_to_prune = Tuple{String, String}[]
+
     for (key, history) in _OUTCOME_HISTORY
+        ref = TestItemRef(key[1], 0, key[2])
+
         if key ∉ _QUARANTINED_TESTS
-            ref = TestItemRef(key[1], 0, key[2])
             if is_flaky(ref; window=window)
                 push!(_QUARANTINED_TESTS, key)
                 push!(newly_quarantined, key)
             end
         end
+
+        # Prune outcome histories for consistently-passing tests that
+        # are not quarantined: if the last `window` outcomes are all
+        # passes, the history is irrelevant for flaky detection.
+        if key ∉ _QUARANTINED_TESTS && length(history) >= window
+            recent = history[end - window + 1:end]
+            if all(recent)
+                push!(keys_to_prune, key)
+            end
+        end
     end
+
+    for key in keys_to_prune
+        delete!(_OUTCOME_HISTORY, key)
+    end
+
     return newly_quarantined
 end
 

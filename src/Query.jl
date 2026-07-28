@@ -394,7 +394,10 @@ function manual_edge_provider(index, changed_files::Vector{String}; component::U
         (edge.test.file, edge.test.name) in quarantined && continue
 
         # Check if any changed file matches this edge's content path
-        matched = any(f -> endswith(f, edge.content_path) || endswith(edge.content_path, f), changed_files)
+        # Uses suffix match: a changed file matches if its path ends with
+        # the content path. This handles both absolute and relative paths
+        # while avoiding false matches from suffix collisions.
+        matched = any(f -> endswith(f, edge.content_path), changed_files)
         if !matched
             continue
         end
