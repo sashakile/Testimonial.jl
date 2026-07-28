@@ -335,9 +335,21 @@ Scans the @testitem line and the following lines (up to 5) for an
 `external_inputs=[...]` declaration. Returns the list of file paths.
 """
 function _parse_external_inputs(content::String, offset::Int)::Vector{String}
-    # Get the substring from the @testitem start through the next ~5 lines
-    context_end = min(offset + 500, length(content))
-    context = content[offset:context_end]
+    # Get the substring from the @testitem start through the end of the line
+    # (the @testitem declaration line — external_inputs is on the same line)
+    content_end = length(content)
+    # Find the end of this line
+    line_end = findnext(isequal('\n'), content, offset)
+    if line_end === nothing
+        line_end = content_end
+    else
+        line_end = line_end - 1  # exclude newline
+    end
+    # Ensure valid UTF-8 indices
+    offset = thisind(content, offset)
+    line_end = min(line_end, content_end)
+    line_end = thisind(content, line_end)
+    context = content[offset:line_end]
 
     m = match(_EXTERNAL_INPUTS_PATTERN, context)
     if m === nothing
