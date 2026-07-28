@@ -207,9 +207,19 @@ function record_all(
     incremental::Bool=true,
     force::Bool=false,
     test_dirs::Vector{String}=String["test/"],
-    project_dir::Union{String,Nothing}=nothing
+    project_dir::Union{String,Nothing}=nothing,
+    skip_quarantined::Bool=false,
 )::Any
     parent = Base.parentmodule(@__MODULE__)
+
+    # Filter out quarantined tests if requested
+    if skip_quarantined
+        quarantined = parent.get_quarantined_tests()
+        if !isempty(quarantined)
+            items = [item for item in items
+                     if (item.file, item.name) ∉ quarantined]
+        end
+    end
 
     # Default runner is SubprocessRunner if none provided
     if runner === nothing

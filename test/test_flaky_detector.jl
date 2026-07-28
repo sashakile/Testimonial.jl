@@ -260,3 +260,45 @@ end
 
     Testimonial.unquarantine_test(ref)
 end
+
+@testset "record_all skips quarantined tests" begin
+    Testimonial.reset_flaky_history()
+    mktempdir() do dir
+        cd(dir) do
+            mkpath("test")
+            mkpath("src")
+            write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 1 end""")
+
+            discovered = Testimonial.discover_testitems(["test"])
+            @test length(discovered) == 1
+            ref_a = discovered[1]
+
+            # Quarantine using the discovered item's ref
+            Testimonial.quarantine_test(ref_a)
+
+            # record_all should skip it
+            index = Testimonial.record_all(discovered; skip_quarantined=true)
+            @test length(index.items) == 0  # test_a was skipped
+
+            Testimonial.unquarantine_test(ref_a)
+        end
+    end
+end
+
+@testset "record_all includes non-quarantined tests" begin
+    Testimonial.reset_flaky_history()
+    mktempdir() do dir
+        cd(dir) do
+            mkpath("test")
+            mkpath("src")
+            write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 1 end""")
+
+            ref_a = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
+
+            # Don't quarantine — test should be recorded
+            discovered = Testimonial.discover_testitems(["test"])
+            index = Testimonial.record_all(discovered; skip_quarantined=true)
+            @test length(index.items) == 1
+        end
+    end
+end
