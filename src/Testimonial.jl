@@ -2381,15 +2381,24 @@ function _layer_coverage_signal(index::CoverageIndex)::Float64
 end
 
 """
-    _history_quality_signal(ref, index) -> Float64
+    _history_quality_signal(ref, index, [run_history]) -> Float64
 
 Compute the history quality signal for a test item.
 
-Returns 1.0 by default (placeholder). Full implementation depends on
-testimonial-5tgv (Implement history quality signal).
+Returns 1 - failure_rate from the test's run history entry.
+Returns 1.0 if the test has no recorded history.
 """
+function _history_quality_signal(ref::TestItemRef, index::CoverageIndex, run_history::RunHistory)::Float64
+    key = (ref.file, ref.name)
+    entry = get(run_history.outcome_entries, key, nothing)
+    if entry === nothing
+        return 1.0
+    end
+    return max(0.0, 1.0 - entry.failure_rate)
+end
+
 function _history_quality_signal(ref::TestItemRef, index::CoverageIndex)::Float64
-    return 1.0
+    return _history_quality_signal(ref, index, RunHistory())
 end
 
 """
@@ -2406,11 +2415,11 @@ The score is the geometric mean of four quality signals:
 
 Returns a value in [0, 1]. Higher = more confident the selection is correct.
 """
-function compute_confidence(test_ref::TestItemRef, index::CoverageIndex; stale_threshold_hours::Float64=Float64(DEFAULT_STALE_THRESHOLD_HOURS))::Float64
+function compute_confidence(test_ref::TestItemRef, index::CoverageIndex; stale_threshold_hours::Float64=Float64(DEFAULT_STALE_THRESHOLD_HOURS), run_history::RunHistory=RunHistory())::Float64
     f = _freshness_signal(index; stale_threshold_hours=stale_threshold_hours)
     r = _recording_quality_signal(index)
     l = _layer_coverage_signal(index)
-    h = _history_quality_signal(test_ref, index)
+    h = _history_quality_signal(test_ref, index, run_history)
 
     product = f * r * l * h
     if product == 0.0

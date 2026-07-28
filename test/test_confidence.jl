@@ -288,3 +288,51 @@ end
     )
     @test Testimonial._layer_coverage_signal(three_layer) ≈ 0.75 atol=0.001
 end
+
+# ── history quality signal ────────────────────
+
+@testset "_history_quality_signal returns 1.0 with no history" begin
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    index = make_index()
+    history = Testimonial.RunHistory()
+    @test Testimonial._history_quality_signal(ref, index, history) == 1.0
+end
+
+@testset "_history_quality_signal uses failure_rate from run history" begin
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    index = make_index()
+    entry = Testimonial.RunHistoryEntry(
+        [true, false, true, false],  # outcomes: 50% failure
+        4,                           # attempt_count
+        0.5,                         # failure_rate
+        now() - Day(7),
+        now(),
+    )
+    history = Testimonial.RunHistory(Dict(), Dict((ref.file, ref.name) => entry))
+
+    signal = Testimonial._history_quality_signal(ref, index, history)
+    @test signal ≈ 0.5 atol=0.001
+end
+
+@testset "_history_quality_signal returns 0.0 for 100% failure rate" begin
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    index = make_index()
+    entry = Testimonial.RunHistoryEntry(
+        [false, false, false],
+        3,
+        1.0,
+        now() - Day(3),
+        now(),
+    )
+    history = Testimonial.RunHistory(Dict(), Dict((ref.file, ref.name) => entry))
+
+    @test Testimonial._history_quality_signal(ref, index, history) == 0.0
+end
+
+@testset "_history_quality_signal handles test with no history entry" begin
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    index = make_index()
+    # Item in index but no history entry
+    history = Testimonial.RunHistory()
+    @test Testimonial._history_quality_signal(ref, index, history) == 1.0
+end
