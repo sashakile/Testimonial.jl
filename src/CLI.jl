@@ -188,8 +188,12 @@ function run(; base_ref::String="origin/main",
                test_dirs::Vector{String}=String["test/"],
                project_dir::Union{String,Nothing}=nothing,
                n_shards::Int=0,
-               shadow::Bool=false)::Union{Symbol, Vector}
+               shadow::Bool=false,
+               auto_ingest::Bool=false)::Union{Symbol, Vector}
     parent = Base.parentmodule(@__MODULE__)
+
+    # Step 0: Generate run_key for idempotent ingestion
+    run_key = _make_run_key()
 
     # Step 1: Load index
     index = parent.load_index(index_path)
@@ -391,7 +395,30 @@ function run(; base_ref::String="origin/main",
         return :full_suite
     end
 
+    # Step 10: Auto-ingest — post-run coverage ingestion
+    if auto_ingest
+        @info "Auto-ingest: recording run_key=$run_key for runtime feedback"
+        parent.ingest(; run_key=run_key, index_path=index_path)
+    end
+
     return filtered
+end
+
+"""
+    _make_run_key() -> String
+
+Generate a unique run key from the current git hash and timestamp.
+
+Format: "<git_sha>_<unix_ms>". Used for idempotent ingestion (FEED-004).
+"""
+function _make_run_key()::String
+    git_sha = try
+        strip(read(`git rev-parse --short HEAD`, String))
+    catch
+        "nogit"
+    end
+    ts_ms = string(Dates.value(Dates.now()))
+    return "$(git_sha)_$(ts_ms)"
 end
 
 # ── CLI entry point (main) ────────────────────────
