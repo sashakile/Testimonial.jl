@@ -22,6 +22,7 @@ export TestItemRef, ImpactReasonKind, ImpactReason,
        save_run_history, load_run_history, DEFAULT_RUN_HISTORY_PATH,
        INCIDENTS_PATH, save_incidents, load_incidents, append_incident,
        compare_selection_vs_outcomes, promote_incidents,
+       reconcile,
        MANUAL_EDGES_PATH, ManualEdge, save_manual_edges, load_manual_edges,
        create_manual_edges_from_promoted, manual_edge_provider,
        balance_shards,
@@ -1262,6 +1263,74 @@ function promote_incidents(
     end
 
     return result
+end
+
+"""
+    reconcile(selected, all_items, failed_items, changed_content;
+              promote_threshold=3, max_age_days=0) -> NamedTuple
+
+Post-run reconciliation pipeline.
+
+Compares what was selected against what actually ran and failed,
+detects missed-selection incidents, promotes qualifying incidents
+to manual edges, and persists everything.
+
+# Arguments
+- `selected::Vector{TestItemRef}`: items that the selection algorithm picked
+- `all_items::Vector{TestItemRef}`: all items that ran in the full suite
+- `failed_items::Vector{TestItemRef}`: items that failed
+- `changed_content::String`: the content unit (file) that was changed
+- `promote_threshold::Int=3`: occurrences needed to promote (passed to promote_incidents)
+- `max_age_days::Int=0`: evaluation window in days (0 = unlimited)
+
+# Returns
+NamedTuple with fields:
+- `incidents_detected`: number of new candidate incidents recorded
+- `incidents_promoted`: number of incidents promoted to Promoted status
+- `manual_edges_created`: number of new manual edges created
+- `total_incidents`: total incidents in storage after reconcile
+- `total_manual_edges`: total manual edges in storage after reconcile
+"""
+function reconcile(
+    selected::Vector{TestItemRef},
+    all_items::Vector{TestItemRef},
+    failed_items::Vector{TestItemRef},
+    changed_content::String;
+    promote_threshold::Int=3,
+    max_age_days::Int=0,
+)::NamedTuple
+    # Step 1: Detect missed incidents
+    new_incidents = compare_selection_vs_outcomes(selected, all_items, failed_items, changed_content)
+
+    # Step 2: Save new incidents
+    for inc in new_incidents
+        append_incident(inc)
+    end
+
+    # Step 3: Load all incidents and promote
+    all_incidents = load_incidents()
+    promoted = promote_incidents(all_incidents, promote_threshold; max_age_days=max_age_days)
+
+    # Step 4: Save promoted incidents back
+    save_incidents(promoted)
+
+    # Step 5: Create manual edges from promoted incidents
+    edges = create_manual_edges_from_promoted(promoted)
+
+    # Step 6: Return report
+    incidents_detected = length(new_incidents)
+    incidents_promoted = count(i -> i.status == Promoted, promoted)
+    total_incidents = length(promoted)
+    total_manual_edges = length(edges)
+    manual_edges_created = length(edges)  # create_manual_edges_from_promoted returns the full set
+
+    return (
+        incidents_detected = incidents_detected,
+        incidents_promoted = incidents_promoted,
+        manual_edges_created = manual_edges_created,
+        total_incidents = total_incidents,
+        total_manual_edges = total_manual_edges,
+    )
 end
 
 # ── Manual edge persistence ────────────────────────
