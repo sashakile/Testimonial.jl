@@ -53,6 +53,17 @@ using Dates
     # Equality ignores component (same identity)
     @test ref == ref8
     @test hash(ref) == hash(ref8)
+
+    # external_inputs defaults to empty
+    @test ref.external_inputs == String[]
+
+    # Can set external_inputs explicitly
+    ref9 = TestItemRef("src/foo.jl", 42, "test_bar", Symbol[], "", nothing, "", ["config/app.toml", "data/fixtures.csv"])
+    @test ref9.external_inputs == ["config/app.toml", "data/fixtures.csv"]
+
+    # Equality ignores external_inputs
+    @test ref == ref9
+    @test hash(ref) == hash(ref9)
 end
 
 @testset "ImpactReasonKind" begin

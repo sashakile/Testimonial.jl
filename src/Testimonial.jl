@@ -70,16 +70,20 @@ struct TestItemRef
     file_hash :: String
     always_run_reason :: Union{Nothing, AlwaysRunReason}
     component :: String
+    external_inputs :: Vector{String}
 end
 
-# Convenience constructor without tags, file_hash, always_run_reason, component
-TestItemRef(file, line, name) = TestItemRef(file, line, name, Symbol[], "", nothing, "")
+# Convenience constructor without tags, file_hash, always_run_reason, component, external_inputs
+TestItemRef(file, line, name) = TestItemRef(file, line, name, Symbol[], "", nothing, "", String[])
 
-# Convenience constructor without always_run_reason and component (for backward compat)
-TestItemRef(file, line, name, tags, file_hash) = TestItemRef(file, line, name, tags, file_hash, nothing, "")
+# Convenience constructor without always_run_reason, component, external_inputs
+TestItemRef(file, line, name, tags, file_hash) = TestItemRef(file, line, name, tags, file_hash, nothing, "", String[])
 
-# Convenience constructor without component (for backward compat with 6-arg form)
-TestItemRef(file, line, name, tags, file_hash, always_run_reason) = TestItemRef(file, line, name, tags, file_hash, always_run_reason, "")
+# Convenience constructor without component, external_inputs
+TestItemRef(file, line, name, tags, file_hash, always_run_reason) = TestItemRef(file, line, name, tags, file_hash, always_run_reason, "", String[])
+
+# Convenience constructor without external_inputs
+TestItemRef(file, line, name, tags, file_hash, always_run_reason, component) = TestItemRef(file, line, name, tags, file_hash, always_run_reason, component, String[])
 
 # Equality by identity (file, name) — excludes line, tags, and file_hash
 Base.:(==)(a::TestItemRef, b::TestItemRef) = a.file == b.file && a.name == b.name
