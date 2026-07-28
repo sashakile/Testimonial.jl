@@ -12,6 +12,8 @@ using TOML
 export TestItemRef, ImpactReasonKind, ImpactReason,
        ImpactResult, CoverageGap, ItemCoverage, CoverageIndex,
        DirectChange, DependencyChange, AlwaysRun, Unresolved,
+       LayerKind, COVERAGE, INFERRED, STATIC, TEST_FILE_CHANGED, MANUAL,
+       ProvenanceLink,
        AlwaysRunReason, LAST_RUN_FAILED, NEWLY_ADDED, NO_HISTORY, MUST_RUN, QUARANTINED,
        IncidentStatus, Candidate, Promoted, Dismissed,
        MissedSelectionIncident,
@@ -97,6 +99,41 @@ Base.hash(r::TestItemRef, h::UInt) = hash(r.file, hash(r.name, h))
     DependencyChange
     AlwaysRun
     Unresolved
+end
+
+"""Source analysis layer that produced a provenance link.
+
+Mirrors the five layers named in PROV-001
+(openspec/changes/add-provenance-explainability/specs/provenance/spec.md):
+coverage attribution, inferred edges, static analysis, test-file changes,
+and manual overrides.
+"""
+@enum LayerKind begin
+    COVERAGE
+    INFERRED
+    STATIC
+    TEST_FILE_CHANGED
+    MANUAL
+end
+
+"""A single link in a selection reason chain (PROV-001).
+
+Fields:
+- `layer::LayerKind` — the analysis layer that produced this link
+- `content_unit::String` — normalized file path or method name
+- `detail::String` — human-readable description
+- `next::Union{Nothing, ProvenanceLink}` — the next link, forming a
+  linked list traced from changed content unit to the selected test
+
+Immutable and equal by structure. Construct with `ProvenanceLink(layer,
+content_unit, detail, next)`; pass `nothing` for `next` to terminate the
+chain.
+"""
+struct ProvenanceLink
+    layer :: LayerKind
+    content_unit :: String
+    detail :: String
+    next :: Union{Nothing, ProvenanceLink}
 end
 
 # ── Reason and result types ────────────────────
