@@ -190,14 +190,39 @@ function explain(test_file::AbstractString, item_name::AbstractString;
                  changed::Dict{String, Set{Int}}=Dict{String, Set{Int}}(),
                  index::Union{Nothing, Any}=nothing,
                  index_path::String=".testimonial/index.jls")::Vector{String}
-    # Non-exclude path: delegate to the original covered-files explain.
-    exclude || return _explain_covered(test_file, item_name; index_path=index_path, index=index)
-
     parent = Base.parentmodule(@__MODULE__)
+
+    # Format explain output with optional confidence
+    function _format_explain(lines::Vector{String}, confidence::Union{Nothing, Float64})::Vector{String}
+        if confidence === nothing
+            return lines
+        end
+        return vcat(lines, [string("Confidence: ", round(confidence, digits=2))])
+    end
+
     idx = index !== nothing ? index : parent.load_index(index_path)
+
+    # Non-exclude path: delegate to the original covered-files explain
+    if !exclude
+        lines = _explain_covered(test_file, item_name; index_path=index_path, index=idx)
+        conf = _compute_explain_confidence(idx, test_file, item_name)
+        return _format_explain(lines, conf)
+    end
+
     idx === nothing && return String[]
 
     target = parent.TestItemRef(String(test_file), 0, String(item_name))
+
+    # Pre-compute confidence for the target test if it's in the index
+    function _explain_confidence()::Union{Nothing, Float64}
+        for (ref, _) in idx.items
+            if ref == target
+                return parent.compute_confidence(ref, idx)
+            end
+        end
+        return nothing
+    end
+    confidence = _explain_confidence()
 
     # ── Scenario: test not in index ──
     found_ref = nothing
@@ -210,10 +235,10 @@ function explain(test_file::AbstractString, item_name::AbstractString;
         end
     end
     if found_ref === nothing
-        return String[
+        return _format_explain([
             "\"$(item_name)\" has never been recorded — no coverage data for this test.",
             "Run `record_all` first to populate the coverage index.",
-        ]
+        ], confidence)
     end
 
     # ── Scenario: different component ──
@@ -226,10 +251,10 @@ function explain(test_file::AbstractString, item_name::AbstractString;
             contains(f, comp) || contains(f, "/$(comp)/") for f in changed_files
         )
         if !any_changed_in_comp && !isempty(changed_files)
-            return String[
+            return _format_explain([
                 "no dependency path from changed component to this test's component (\"$(comp)\").",
                 "Changed files belong to other components; this test's component (\"$(comp)\") was not affected.",
-            ]
+            ], confidence)
         end
     end
 
@@ -248,19 +273,36 @@ function explain(test_file::AbstractString, item_name::AbstractString;
     end
 
     if overlap
-        return String[
+        return _format_explain([
             "\"$(item_name)\" is selected — a changed file touches a covered line.",
             "Use `explain` without `exclude=true` to see covered files.",
-        ]
+        ], confidence)
     end
 
     cov_list = isempty(covered_files) ? "(none)" : join(sort(covered_files), ", ")
     chg_list = isempty(changed_files) ? "(none)" : join(sort(changed_files), ", ")
-    return String[
+    return _format_explain([
         "no changed file touches any covered line for \"$(item_name)\".",
         "Files this test covers: $(cov_list)",
         "Changed files: $(chg_list)",
-    ]
+    ], confidence)
+end
+
+"""
+    _compute_explain_confidence(index, test_file, item_name) -> Union{Nothing, Float64}
+
+Compute confidence for a test item identified by file and name,
+returning `nothing` if the item is not found in the index.
+"""
+function _compute_explain_confidence(idx::Union{Nothing, CoverageIndex}, test_file::AbstractString, item_name::AbstractString)::Union{Nothing, Float64}
+    idx === nothing && return nothing
+    parent = Base.parentmodule(@__MODULE__)
+    for (ref, _) in idx.items
+        if ref.file == String(test_file) && ref.name == String(item_name)
+            return parent.compute_confidence(ref, idx)
+        end
+    end
+    return nothing
 end
 
 # Original covered-files explain, factored out for reuse by the exclude path.
