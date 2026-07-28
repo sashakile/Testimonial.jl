@@ -47,4 +47,8 @@ pretender-report*
 # OS files
 .DS_Store
 Thumbs.db
-.dont/
+.dont/*
+!.dont/AGENTS.md
+!.dont/config.toml
+!.dont/events.jsonl
+!.dont/db.cozo
