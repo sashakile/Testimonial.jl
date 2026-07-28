@@ -478,3 +478,100 @@ end
     @test length(results) == 1
     @test results[1].item.name == "test_a"
 end
+
+@testset "runtime_edge_provider selects tests when edge file changes" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+        ("test/bar.jl", "test_bar", [4, 5, 6]),
+    ])
+
+    bar_ref = TestItemRef("test/bar.jl", 1, "test_bar")
+
+    # Add a runtime edge: test_bar covers src/lib.jl at runtime
+    index = CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        Dict{TestItemRef, Vector{Tuple{String, Int}}}(
+            bar_ref => [("src/lib.jl", 42)],
+        ),
+    )
+
+    # When src/lib.jl changes, test_bar should be selected
+    result = Testimonial.runtime_edge_provider(index, ["src/lib.jl"])
+    @test length(result) == 1
+    @test result[1].item.name == "test_bar"
+    @test result[1].selected == true
+    @test any(r -> r.kind == AlwaysRun, result[1].reasons)
+end
+
+@testset "runtime_edge_provider returns empty when no edges match" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+    ])
+
+    foo_ref = TestItemRef("test/foo.jl", 1, "test_foo")
+    index = CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        Dict{TestItemRef, Vector{Tuple{String, Int}}}(
+            foo_ref => [("src/db.jl", 10)],
+        ),
+    )
+
+    # Changing a different file should not trigger
+    result = Testimonial.runtime_edge_provider(index, ["src/other.jl"])
+    @test isempty(result)
+end
+
+@testset "runtime_edge_provider handles empty runtime_edges" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+    ])
+
+    # No runtime edges in index
+    result = Testimonial.runtime_edge_provider(index, ["src/lib.jl"])
+    @test isempty(result)
+end
+
+@testset "runtime_edge_provider integrates with query" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+        ("test/bar.jl", "test_bar", [4, 5, 6]),
+    ])
+
+    bar_ref = TestItemRef("test/bar.jl", 1, "test_bar")
+    index = CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        Dict{TestItemRef, Vector{Tuple{String, Int}}}(
+            bar_ref => [("src/lib.jl", 42)],
+        ),
+    )
+
+    providers = [
+        Testimonial.runtime_edge_provider,
+    ]
+    changed = Dict{String, Set{Int}}(
+        "src/lib.jl" => Set([42, 43]),
+    )
+
+    results = Testimonial.query(providers, index, changed)
+    @test length(results) == 1
+    @test results[1].item.name == "test_bar"
+    @test results[1].selected == true
+end

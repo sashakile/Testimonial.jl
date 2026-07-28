@@ -11,7 +11,7 @@ module Query
 
 export query_files, coverage_gaps, nearest_covered_lines,
        query, direct_change_provider, unresolved_provider,
-       must_run_provider, manual_edge_provider
+       must_run_provider, manual_edge_provider, runtime_edge_provider
 
 # ── Helpers ───────────────────────────────────
 
@@ -411,6 +411,66 @@ function manual_edge_provider(index, changed_files::Vector{String}; component::U
 
         reason = parent.ImpactReason(parent.AlwaysRun, "manual edge: $(edge.content_path) -> $(edge.test.name)")
         push!(results, parent.ImpactResult(edge.test, [reason]))
+    end
+
+    return results
+end
+
+"""
+    runtime_edge_provider(index, changed_files) -> Vector{ImpactResult}
+
+Provider: for test items with runtime_edges, returns `AlwaysRun` reasons
+when a changed file matches any runtime edge's source file.
+
+Reads runtime edges from `index.runtime_edges`. For each test, if any of
+its runtime edge source files are in the changed set, the test is forced
+selected. This ensures that the feedback loop from runtime feedback
+(FEED-002) feeds back into future selections.
+
+This is a provider function suitable for use with `query`.
+"""
+function runtime_edge_provider(index, changed_files::Vector{String}; component::Union{String,Nothing}=nothing)::Vector
+    parent = _parent()
+
+    isempty(index.runtime_edges) && return parent.ImpactResult[]
+    isempty(changed_files) && return parent.ImpactResult[]
+
+    results = parent.ImpactResult[]
+    seen = Set{Pair{String, String}}()
+
+    for (ref, edges) in index.runtime_edges
+        isempty(edges) && continue
+
+        # Filter by component if specified
+        if component !== nothing
+            if ref.component == "" || ref.component != component
+                continue
+            end
+        end
+
+        # Check if any changed file matches any runtime edge source file
+        matched = false
+        matched_files = String[]
+        for (src_file, _line) in edges
+            if any(f -> endswith(f, src_file), changed_files)
+                matched = true
+                push!(matched_files, src_file)
+            end
+        end
+
+        if !matched
+            continue
+        end
+
+        key = ref.file => ref.name
+        if key in seen
+            continue
+        end
+        push!(seen, key)
+
+        file_list = join(unique(matched_files), ", ")
+        reason = parent.ImpactReason(parent.AlwaysRun, "runtime edge: $(file_list) changed -> $(ref.name)")
+        push!(results, parent.ImpactResult(ref, [reason], true))
     end
 
     return results

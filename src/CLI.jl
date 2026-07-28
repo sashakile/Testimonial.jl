@@ -301,6 +301,27 @@ function run(; base_ref::String="origin/main",
         end
     end
 
+    # Step 6c: Merge runtime edges into selection
+    if filtered isa Vector && !isempty(changed_files)
+        runtime_results = parent.runtime_edge_provider(index, changed_files)
+        for r in runtime_results
+            if r.selected && any(startswith(r.item.file, d) for d in abs_test_dirs)
+                # Avoid duplicates: if already in filtered, merge reasons
+                existing_idx = findfirst(x -> x.item == r.item, filtered)
+                if existing_idx !== nothing
+                    merged = ImpactResult(
+                        filtered[existing_idx].item,
+                        vcat(filtered[existing_idx].reasons, r.reasons),
+                        true,
+                    )
+                    filtered[existing_idx] = merged
+                else
+                    push!(filtered, r)
+                end
+            end
+        end
+    end
+
     # Step 6b: Merge always-run tests into selection
     if filtered isa Vector
         always_run_tests = parent.get_always_run_tests()
