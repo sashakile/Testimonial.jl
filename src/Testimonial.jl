@@ -2414,6 +2414,12 @@ The score is the geometric mean of four quality signals:
 - history quality (historical pass/fail rate)
 
 Returns a value in [0, 1]. Higher = more confident the selection is correct.
+
+!!! warning "Not a probability"
+    Confidence is a **heuristic**, not a correctness probability. A score of
+    0.85 does not mean "85% chance of being correct." It is a relative quality
+    signal used for fallback gating. When in doubt, run the full suite.
+    See `openspec/changes/add-confidence-scoring/design.md` for details.
 """
 function compute_confidence(test_ref::TestItemRef, index::CoverageIndex; stale_threshold_hours::Float64=Float64(DEFAULT_STALE_THRESHOLD_HOURS), run_history::RunHistory=RunHistory())::Float64
     f = _freshness_signal(index; stale_threshold_hours=stale_threshold_hours)
@@ -2555,6 +2561,10 @@ end
 
 Produce a human-readable selection summary including per-component
 confidence scores. Calls compute_component_confidence internally.
+
+!!! note
+    Confidence values are heuristics, not probabilities. They indicate
+    relative selection quality — use the threshold for fallback decisions.
 """
 function summarize_selection(items::Vector{TestItemRef}, index::CoverageIndex; kwargs...)::String
     parts = String[]
