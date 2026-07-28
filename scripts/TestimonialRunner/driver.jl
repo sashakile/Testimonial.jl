@@ -5,10 +5,16 @@
 #
 # Usage:
 #   TESTIMONIAL_FILE=test/my_test.jl TESTIMONIAL_ITEM="My test" julia driver.jl
+#   TESTIMONIAL_FILE=test/my_test.jl TESTIMONIAL_ITEMS="My test\nOther test" julia driver.jl
 #
-# Reads TESTIMONIAL_FILE and TESTIMONIAL_ITEM from the environment, runs
-# only that specific @testitem via ReTestItems.runtests, and exits with
+# Reads TESTIMONIAL_FILE and either TESTIMONIAL_ITEM (single) or
+# TESTIMONIAL_ITEMS (newline-separated batch) from the environment, runs
+# the specified @testitem(s) via ReTestItems.runtests, and exits with
 # a status code indicating the outcome.
+#
+# Batch mode runs every named item sequentially within one Julia process;
+# the LCOV tracefile therefore holds the UNION of coverage across the
+# batch (safe over-approximation attributed per-item by the caller).
 #
 # Exit codes:
 #   0 — Success (test ran, result printed to stdout)
@@ -27,9 +33,22 @@ using Pkg
 
 test_file = get(ENV, "TESTIMONIAL_FILE", nothing)
 test_item = get(ENV, "TESTIMONIAL_ITEM", nothing)
+test_items_raw = get(ENV, "TESTIMONIAL_ITEMS", nothing)
 
-if test_file === nothing || test_item === nothing
-    println(stderr, "driver.jl: missing TESTIMONIAL_FILE or TESTIMONIAL_ITEM")
+if test_file === nothing
+    println(stderr, "driver.jl: missing TESTIMONIAL_FILE")
+    exit(3)
+end
+
+# Batch form takes precedence; single-item form is the fallback.
+item_names = if test_items_raw !== nothing
+    filter(!isempty, split(test_items_raw, "\n"))
+else
+    test_item === nothing ? String[] : String[test_item]
+end
+
+if isempty(item_names)
+    println(stderr, "driver.jl: missing TESTIMONIAL_ITEM or TESTIMONIAL_ITEMS")
     exit(3)
 end
 
@@ -61,10 +80,12 @@ pkg_under_test = _find_project_root(test_dir)
 # Add the project to the load path so ReTestItems can find its test files
 push!(LOAD_PATH, pkg_under_test)
 
-# ── Run the test ──────────────────────────────
+# ── Run the test(s) ─────────────────────────
 
 try
-    ReTestItems.runtests(test_file; name=test_item)
+    for item in item_names
+        ReTestItems.runtests(test_file; name=item)
+    end
     # runtests prints results to stdout; if it returns without
     # throwing, the test ran successfully (exit 0).
     # Test failures are reported in the output but don't throw.

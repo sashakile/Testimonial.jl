@@ -2217,7 +2217,7 @@ export parse_unified_diff
 
 include("CoverageLayer.jl")
 using .CoverageLayer
-export record_item, build_driver_command, AbstractRunner, SubprocessRunner, parse_cov_sidecar
+export record_item, record_batch, build_driver_command, AbstractRunner, SubprocessRunner, parse_cov_sidecar
 
 include("IndexBuilder.jl")
 using .IndexBuilder

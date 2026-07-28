@@ -185,6 +185,11 @@ for testing (see REC-011).
 - `project_dir=nothing`: if provided, per-component CoverageIndex files
   are saved under `.testimonial/components/<name>/index.jls` and a
   routing file is written at `.testimonial/index.jls`.
+- `batch_by_file=false`: if true, items sharing a test file are recorded
+  in a single subprocess per file (see `record_batch`), amortising the
+  ~144ms Julia startup cost. The resulting per-item coverage is a safe
+  over-approximation (file-level union attributed to each item) — use
+  for bulk / initial recording, not when per-item isolation is required.
 
 ## Returns
 A `CoverageIndex` containing the recorded coverage data for all items.
@@ -209,6 +214,7 @@ function record_all(
     test_dirs::Vector{String}=String["test/"],
     project_dir::Union{String,Nothing}=nothing,
     skip_quarantined::Bool=false,
+    batch_by_file::Bool=false,
 )::Any
     parent = Base.parentmodule(@__MODULE__)
 
@@ -263,14 +269,38 @@ function record_all(
     fill!(fresh_results, nothing)
 
     if !isempty(record_indices)
-        # Allocate a per-thread lock for results (no contention on Dict)
-        Threads.@threads for idx in record_indices
-            ref = items[idx]
-            result = parent.record_item(runner, ref)
-            fresh_results[idx] = result
-            if result !== nothing
-                # Cache the result
-                _save_cached_record(result)
+        if batch_by_file
+            # Group indices by test file so each file becomes ONE
+            # subprocess (see CoverageLayer.record_batch). Safe
+            # over-approximation of per-item coverage.
+            groups = Dict{String, Vector{Int}}()
+            for idx in record_indices
+                f = String(items[idx].file)
+                push!(get!(groups, f, Int[]), idx)
+            end
+            group_files = collect(keys(groups))
+            Threads.@threads for gf in group_files
+                idxs = groups[gf]
+                refs = [items[i] for i in idxs]
+                results = parent.record_batch(runner, refs)
+                for (k, idx) in enumerate(idxs)
+                    r = results[k]
+                    fresh_results[idx] = r
+                    if r !== nothing
+                        _save_cached_record(r)
+                    end
+                end
+            end
+        else
+            # Allocate a per-thread lock for results (no contention on Dict)
+            Threads.@threads for idx in record_indices
+                ref = items[idx]
+                result = parent.record_item(runner, ref)
+                fresh_results[idx] = result
+                if result !== nothing
+                    # Cache the result
+                    _save_cached_record(result)
+                end
             end
         end
     end

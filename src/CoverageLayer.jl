@@ -7,7 +7,7 @@
 
 module CoverageLayer
 
-export record_item, build_driver_command, AbstractRunner, SubprocessRunner,
+export record_item, record_batch, build_driver_command, AbstractRunner, SubprocessRunner,
        parse_cov_sidecar, run_with_timeout, with_retry,
        TIMEOUT_PER_ITEM_DEFAULT, MAX_TIMEOUT_PER_ITEM, MAX_RETRIES
 
@@ -83,6 +83,50 @@ function build_driver_command(
     env = Dict(
         "TESTIMONIAL_FILE" => String(test_file),
         "TESTIMONIAL_ITEM" => String(item_name)
+    )
+    return (cmd, env)
+end
+
+"""
+    build_driver_command(test_file::AbstractString, item_names::AbstractVector; runner_dir=...) -> Tuple{Vector{String}, Dict{String, String}}
+
+Batched variant: build the subprocess command for recording multiple
+@testitems that share `test_file` in a single Julia invocation.
+
+The item names are passed to the driver via the newline-separated
+`TESTIMONIAL_ITEMS` environment variable. The single-item
+`TESTIMONIAL_ITEM` var is intentionally omitted so the driver can
+distinguish batch vs. single-item mode.
+
+Coverage attribution: because Julia's LCOV tracefile accumulates over
+the whole process lifetime and there is no in-process coverage-reset
+API (see `openspec/changes/implement-coverage-layer/design.md`), the
+tracefile produced by a batch reflects the UNION of coverage across
+all items in the batch. Callers that attribute the resulting coverage
+per-item therefore produce a safe over-approximation (each item in the
+file maps to the file's full coverage) — coarser than per-item
+isolation but never under-selecting. Use for bulk / initial recording
+where the per-item startup cost dominates.
+"""
+function build_driver_command(
+    test_file::AbstractString,
+    item_names::AbstractVector;
+    runner_dir::AbstractString="scripts/TestimonialRunner"
+)::Tuple{Vector{String}, Dict{String, String}}
+    pkg_root = realpath(joinpath(@__DIR__, ".."))
+    abs_runner_dir = isabspath(runner_dir) ? runner_dir : joinpath(pkg_root, runner_dir)
+    driver_path = joinpath(abs_runner_dir, "driver.jl")
+    coverage_flag = _is_julia_12_or_later() ? "--code-coverage=tracefile.info" : "--code-coverage=user"
+    cmd = [
+        "julia",
+        coverage_flag,
+        "--project=$(abs_runner_dir)",
+        driver_path
+    ]
+    names = String[String(n) for n in item_names]
+    env = Dict{String, String}(
+        "TESTIMONIAL_FILE" => String(test_file),
+        "TESTIMONIAL_ITEMS" => join(names, "\n"),
     )
     return (cmd, env)
 end
@@ -314,6 +358,61 @@ function record_item(runner::SubprocessRunner, ref)
     test_covered, test_uncovered, source_files = _collect_coverage(test_file, parent)
 
     return parent.ItemCoverage(ref, test_covered, test_uncovered, source_files)
+end
+
+# ── Batched recording ─────────────────────────
+
+"""
+    record_batch(runner::AbstractRunner, refs::Vector) -> Vector{Union{ItemCoverage, Nothing}}
+
+Record coverage for a batch of @testitems. Default implementation loops
+`record_item` per ref — subtypes that can amortise subprocess startup
+cost (e.g. `SubprocessRunner`) override this to collapse the batch into
+a single subprocess invocation.
+
+All refs in a batch SHOULD share the same `test_file`; callers (notably
+`record_all` with `batch_by_file=true`) are responsible for grouping
+by file before invoking.
+"""
+function record_batch(runner::AbstractRunner, refs::Vector)
+    parent = Base.parentmodule(@__MODULE__)
+    return [parent.record_item(runner, ref) for ref in refs]
+end
+
+"""
+    record_batch(runner::SubprocessRunner, refs) -> Vector{Union{ItemCoverage, Nothing}}
+
+Record a batch of @testitems sharing one test file in a single Julia
+subprocess. The driver runs every item in the batch; the resulting LCOV
+tracefile holds the UNION of coverage across the batch, which is
+attributed to each ref (safe over-approximation — see
+`build_driver_command` batch variant).
+
+Returns one `ItemCoverage` per ref (all sharing the file's aggregate
+coverage), or `nothing` per ref if the subprocess fails.
+"""
+function record_batch(runner::SubprocessRunner, refs::Vector)
+    parent = Base.parentmodule(@__MODULE__)
+    isempty(refs) && return Union{parent.ItemCoverage, Nothing}[]
+
+    test_file = String(refs[1].file)
+    if !isfile(test_file)
+        return Union{parent.ItemCoverage, Nothing}[nothing for _ in refs]
+    end
+
+    names = String[r.name for r in refs]
+    cmd, env = build_driver_command(test_file, names; runner_dir=runner.runner_dir)
+
+    exitcode = with_retry(runner.timeout) do timeout
+        run_with_timeout(cmd, env, timeout)
+    end
+
+    if exitcode === nothing
+        return Union{parent.ItemCoverage, Nothing}[nothing for _ in refs]
+    end
+
+    test_covered, test_uncovered, source_files = _collect_coverage(test_file, parent)
+    return [parent.ItemCoverage(ref, test_covered, test_uncovered, source_files) for ref in refs]
 end
 
 """
