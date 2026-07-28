@@ -19,7 +19,6 @@
 
 using Testimonial
 using Testimonial.CLI
-using Test
 using Dates
 using Serialization
 
@@ -39,6 +38,19 @@ end
 
 Run the full test suite using Pkg.test() and collect test item references.
 Returns the list of all items and the subset that failed.
+
+Caveat: ReTestItems.runtests() prints results to stdout rather than returning
+structured pass/fail data per @testitem. The `failed_items` return relies on
+ReTestItems' `report` keyword or test-result callbacks, which are project-
+dependent. When ReTestItems is configured with structured reporting (e.g.,
+JSON reports), this function should parse those to populate `failed_items`.
+
+Currently, `failed_items` is derived from the Pkg.test() exit code:
+- If Pkg.test() succeeds → no failed items (optimistic — avoids false incidents)
+- If Pkg.test() fails → all items are marked as `failed_items` (conservative —
+  may produce spurious incidents; refine with structured reporting)
+
+Tracked in: testimonial-hye follow-up
 """
 function _run_all_tests()::Tuple{Vector{TestItemRef}, Vector{TestItemRef}}
     @info "Running full test suite..."
@@ -47,20 +59,34 @@ function _run_all_tests()::Tuple{Vector{TestItemRef}, Vector{TestItemRef}}
     items = discover_testitems(["test/"])
     @info "Discovered $(length(items)) test items"
 
-    # Run tests using Pkg.test
-    # We capture the Test.Result set to determine pass/fail
-    results = ReTestItems.runtests("test/")
-    # Note: ReTestItems.runtests returns the test results set
-
-    # For now, collect all items that ran
     all_items = copy(items)
 
-    # ReTestItems doesn't directly expose failed items as TestItemRefs.
-    # We use the Pkg.test() approach for CI compatibility.
-    # This is a placeholder — in practice, the CI runner collects
-    # test results from the test framework output.
-    # For now, we run Pkg.test() and report the exit code.
-    return all_items, TestItemRef[]
+    # Run tests using Pkg.test() in a subprocess to capture exit code
+    @info "Invoking Pkg.test()..."
+    project_root = dirname(@__DIR__)
+    test_cmd = `$(Base.julia_cmd()) --project=$(project_root) -e '
+        import Pkg
+        Pkg.test()
+    '`
+    test_result = try
+        Base.run(test_cmd)
+        true  # success
+    catch e
+        if e isa Base.IOError || e isa Base.ProcessFailedException
+            false  # test failure / non-zero exit
+        else
+            rethrow()
+        end
+    end
+
+    if test_result
+        @info "All tests passed"
+        return all_items, TestItemRef[]
+    else
+        @warn "Some tests failed — marking all items as potentially failed"
+        @warn "Refine with structured ReTestItems reporting in follow-up"
+        return all_items, all_items  # conservative: all items are suspects
+    end
 end
 
 """
