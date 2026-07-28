@@ -206,6 +206,14 @@ function format_impact_result_grouped(result; confidence::Union{Nothing, Float64
         end
     end
 
+    # Add intersection/union summary
+    layer_names = sort([string(l) for (l, _) in layer_groups])
+    if length(layer_names) > 1
+        push!(lines, string("  Selected by union of ", length(layer_names), " layers: ", join(layer_names, ", ")))
+    elseif length(layer_names) == 1
+        push!(lines, string("  Selected by ", layer_names[1], " layer"))
+    end
+
     return lines
 end
 

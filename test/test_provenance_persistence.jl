@@ -162,6 +162,34 @@ end
     @test occursin("test_a", combined)
 end
 
+@testset "format_impact_result_grouped shows union of multiple layers" begin
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    chain1 = [Testimonial.ProvenanceLink(Testimonial.COVERAGE, "src/lib.jl", "line 42", nothing)]
+    chain2 = [Testimonial.ProvenanceLink(Testimonial.INFERRED, "src/utils.jl", "inferred", nothing)]
+    reason1 = Testimonial.ImpactReason(Testimonial.DirectChange, "changed src/lib.jl", chain1)
+    reason2 = Testimonial.ImpactReason(Testimonial.DependencyChange, "changed src/utils.jl", chain2)
+    result = Testimonial.ImpactResult(ref, [reason1, reason2], true, nothing)
+
+    lines = Testimonial.format_impact_result_grouped(result)
+    combined = join(lines, "\n")
+    @test occursin("union", lowercase(combined))
+    @test occursin("2", combined)
+    @test occursin("COVERAGE", combined)
+    @test occursin("INFERRED", combined)
+end
+
+@testset "format_impact_result_grouped shows single layer" begin
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    chain = [Testimonial.ProvenanceLink(Testimonial.COVERAGE, "src/lib.jl", "line 42", nothing)]
+    reason = Testimonial.ImpactReason(Testimonial.DirectChange, "changed src/lib.jl", chain)
+    result = Testimonial.ImpactResult(ref, [reason], true, nothing)
+
+    lines = Testimonial.format_impact_result_grouped(result)
+    combined = join(lines, "\n")
+    @test occursin("COVERAGE", combined)
+    @test occursin("layer", lowercase(combined))
+end
+
 @testset "format_impact_result_grouped includes confidence" begin
     ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
     result = Testimonial.ImpactResult(ref, Testimonial.ImpactReason[], true, nothing)
