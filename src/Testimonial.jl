@@ -2473,8 +2473,30 @@ function parse_confidence_config(config::Dict)::ConfidenceConfig
     return ConfidenceConfig(threshold, overrides)
 end
 
+"""
+    group_items_by_component(items) -> Dict{Symbol, Vector{TestItemRef}}
+
+Group test items by their component name.
+
+Items with an empty component string are placed under a single key
+based on their file path prefix. Returns a dict mapping each component
+name to its vector of TestItemRefs. Returns an empty dict for empty input.
+"""
+function group_items_by_component(items::Vector{TestItemRef})::Dict{Symbol, Vector{TestItemRef}}
+    grouped = Dict{Symbol, Vector{TestItemRef}}()
+    for item in items
+        comp = isempty(item.component) ? :__unmapped__ : Symbol(item.component)
+        if haskey(grouped, comp)
+            push!(grouped[comp], item)
+        else
+            grouped[comp] = [item]
+        end
+    end
+    return grouped
+end
+
 export compute_confidence, DEFAULT_STALE_THRESHOLD_HOURS, DEFAULT_CONFIDENCE_THRESHOLD,
-       ConfidenceConfig, parse_confidence_config
+       ConfidenceConfig, parse_confidence_config, group_items_by_component
 
 # ════════════════════════════════════════════
 # 5. Sub-modules (may depend on types + CLI/Protocol)

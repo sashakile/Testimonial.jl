@@ -336,3 +336,32 @@ end
     history = Testimonial.RunHistory()
     @test Testimonial._history_quality_signal(ref, index, history) == 1.0
 end
+
+# ── group_items_by_component ──────────────────
+
+@testset "group_items_by_component groups by component" begin
+    items = [
+        Testimonial.TestItemRef("/proj/PkgA/test/a.jl", 1, "test_a", Symbol[], "", nothing, "PkgA", String[]),
+        Testimonial.TestItemRef("/proj/PkgA/test/b.jl", 1, "test_b", Symbol[], "", nothing, "PkgA", String[]),
+        Testimonial.TestItemRef("/proj/PkgB/test/c.jl", 1, "test_c", Symbol[], "", nothing, "PkgB", String[]),
+    ]
+    grouped = Testimonial.group_items_by_component(items)
+    @test haskey(grouped, :PkgA)
+    @test haskey(grouped, :PkgB)
+    @test length(grouped[:PkgA]) == 2
+    @test length(grouped[:PkgB]) == 1
+end
+
+@testset "group_items_by_component handles items with no component" begin
+    items = [
+        Testimonial.TestItemRef("/proj/PkgA/test/a.jl", 1, "test_a", Symbol[], "", nothing, "", String[]),
+        Testimonial.TestItemRef("/proj/PkgB/test/b.jl", 1, "test_b", Symbol[], "", nothing, "PkgB", String[]),
+    ]
+    grouped = Testimonial.group_items_by_component(items)
+    @test haskey(grouped, :PkgB)
+end
+
+@testset "group_items_by_component returns empty dict for empty input" begin
+    grouped = Testimonial.group_items_by_component(Testimonial.TestItemRef[])
+    @test isempty(grouped)
+end
