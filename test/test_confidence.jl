@@ -127,3 +127,58 @@ end
     long_threshold_score = Testimonial.compute_confidence(ref, index; stale_threshold_hours=72.0)
     @test long_threshold_score > 0.5
 end
+
+# ── confidence_threshold config ───────────────
+
+@testset "DEFAULT_CONFIDENCE_THRESHOLD is 0.7" begin
+    @test Testimonial.DEFAULT_CONFIDENCE_THRESHOLD == 0.7
+end
+
+@testset "parse_confidence_config returns default threshold" begin
+    config = Dict{String, Any}()
+    cc = Testimonial.parse_confidence_config(config)
+    @test cc.threshold == 0.7
+    @test isempty(cc.component_overrides)
+end
+
+@testset "parse_confidence_config reads global threshold" begin
+    config = Dict{String, Any}(
+        "confidence" => Dict{String, Any}(
+            "threshold" => 0.5,
+        )
+    )
+    cc = Testimonial.parse_confidence_config(config)
+    @test cc.threshold == 0.5
+end
+
+@testset "parse_confidence_config reads per-component overrides" begin
+    config = Dict{String, Any}(
+        "confidence" => Dict{String, Any}(
+            "threshold" => 0.7,
+            "components" => Dict{String, Any}(
+                "PkgA" => 0.5,
+                "PkgB" => 0.8,
+            ),
+        )
+    )
+    cc = Testimonial.parse_confidence_config(config)
+    @test cc.threshold == 0.7
+    @test haskey(cc.component_overrides, :PkgA)
+    @test cc.component_overrides[:PkgA] == 0.5
+    @test haskey(cc.component_overrides, :PkgB)
+    @test cc.component_overrides[:PkgB] == 0.8
+end
+
+@testset "parse_confidence_config clamps threshold to [0, 1]" begin
+    config = Dict{String, Any}(
+        "confidence" => Dict{String, Any}(
+            "threshold" => 1.5,
+            "components" => Dict{String, Any}(
+                "PkgA" => -0.5,
+            ),
+        )
+    )
+    cc = Testimonial.parse_confidence_config(config)
+    @test cc.threshold == 1.0
+    @test cc.component_overrides[:PkgA] == 0.0
+end

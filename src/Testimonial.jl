@@ -2282,6 +2282,36 @@ export index_info, explain, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS
 """Default stale threshold in hours for freshness signal (48h)."""
 const DEFAULT_STALE_THRESHOLD_HOURS = 48
 
+"""Default confidence threshold (0.7)."""
+const DEFAULT_CONFIDENCE_THRESHOLD = 0.7
+
+"""
+    ConfidenceConfig
+
+Parsed confidence scoring configuration from Testimonial.toml.
+
+# Fields
+- `threshold::Float64`: global confidence threshold (default 0.7, clamped to [0, 1])
+- `component_overrides::Dict{Symbol, Float64}`: per-component threshold overrides
+
+Example TOML:
+```toml
+[confidence]
+threshold = 0.7
+
+[confidence.components]
+PkgA = 0.5
+PkgB = 0.8
+```
+"""
+struct ConfidenceConfig
+    threshold :: Float64
+    component_overrides :: Dict{Symbol, Float64}
+end
+
+# Default: global threshold 0.7, no per-component overrides
+ConfidenceConfig() = ConfidenceConfig(DEFAULT_CONFIDENCE_THRESHOLD, Dict{Symbol, Float64}())
+
 """
     _freshness_signal(index) -> Float64
 
@@ -2362,7 +2392,51 @@ function compute_confidence(test_ref::TestItemRef, index::CoverageIndex; stale_t
     return product^0.25
 end
 
-export compute_confidence, DEFAULT_STALE_THRESHOLD_HOURS
+"""
+    parse_confidence_config(config::Dict) -> ConfidenceConfig
+
+Parse the `[confidence]` section from a Testimonial.toml config dict.
+
+Expected format:
+```toml
+[confidence]
+threshold = 0.7
+
+[confidence.components]
+PkgA = 0.5
+PkgB = 0.8
+```
+
+Thresholds are clamped to [0, 1]. Returns a default `ConfidenceConfig`
+if no `[confidence]` section exists.
+"""
+function parse_confidence_config(config::Dict)::ConfidenceConfig
+    if !haskey(config, "confidence") || !isa(config["confidence"], Dict)
+        return ConfidenceConfig()
+    end
+    conf = config["confidence"]
+
+    threshold = if haskey(conf, "threshold") && isa(conf["threshold"], Number)
+        clamp(Float64(conf["threshold"]), 0.0, 1.0)
+    else
+        DEFAULT_CONFIDENCE_THRESHOLD
+    end
+
+    overrides = Dict{Symbol, Float64}()
+    if haskey(conf, "components") && isa(conf["components"], Dict)
+        comps = conf["components"]
+        for (name, val) in comps
+            if isa(val, Number)
+                overrides[Symbol(name)] = clamp(Float64(val), 0.0, 1.0)
+            end
+        end
+    end
+
+    return ConfidenceConfig(threshold, overrides)
+end
+
+export compute_confidence, DEFAULT_STALE_THRESHOLD_HOURS, DEFAULT_CONFIDENCE_THRESHOLD,
+       ConfidenceConfig, parse_confidence_config
 
 # ════════════════════════════════════════════
 # 5. Sub-modules (may depend on types + CLI/Protocol)
