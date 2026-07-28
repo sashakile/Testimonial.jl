@@ -92,3 +92,38 @@ end
 
     @test score == 0.0
 end
+
+# ── stale_threshold_hours config ──────────────
+
+@testset "DEFAULT_STALE_THRESHOLD_HOURS is 48" begin
+    @test Testimonial.DEFAULT_STALE_THRESHOLD_HOURS == 48
+end
+
+@testset "_freshness_signal accepts optional stale_threshold_hours" begin
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    stale_at = now() - Hour(72)  # 72 hours old
+    index = make_index(created_at=stale_at)
+
+    # With default threshold (48h), 72h old index should have 0 freshness
+    default_signal = Testimonial._freshness_signal(index)
+    @test default_signal == 0.0
+
+    # With custom threshold (96h), 72h old index should have some freshness
+    custom_signal = Testimonial._freshness_signal(index; stale_threshold_hours=96.0)
+    @test 0.0 < custom_signal <= 1.0
+    @test custom_signal ≈ 0.25 atol=0.001
+end
+
+@testset "compute_confidence uses config-based stale_threshold_hours" begin
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    stale_at = now() - Hour(36)  # 36 hours old
+    index = make_index(created_at=stale_at)
+
+    # With shorter threshold (24h), 36h old index should be stale (freshness=0)
+    short_threshold_score = Testimonial.compute_confidence(ref, index; stale_threshold_hours=24.0)
+    @test short_threshold_score == 0.0
+
+    # With longer threshold (72h), 36h old index should be fresh
+    long_threshold_score = Testimonial.compute_confidence(ref, index; stale_threshold_hours=72.0)
+    @test long_threshold_score > 0.5
+end

@@ -2291,10 +2291,9 @@ Returns a value in [0, 1] representing how fresh the index is,
 based on the elapsed time since `created_at`. Decays linearly
 from 1.0 (just created) to 0.0 (at or past `stale_threshold_hours`).
 """
-function _freshness_signal(index::CoverageIndex)::Float64
+function _freshness_signal(index::CoverageIndex; stale_threshold_hours::Float64=Float64(DEFAULT_STALE_THRESHOLD_HOURS))::Float64
     age_hours = (now() - index.created_at) / Millisecond(3_600_000)
-    threshold = Float64(DEFAULT_STALE_THRESHOLD_HOURS)
-    return max(0.0, 1.0 - min(age_hours / threshold, 1.0))
+    return max(0.0, 1.0 - min(age_hours / stale_threshold_hours, 1.0))
 end
 
 """
@@ -2348,8 +2347,8 @@ The score is the geometric mean of four quality signals:
 
 Returns a value in [0, 1]. Higher = more confident the selection is correct.
 """
-function compute_confidence(test_ref::TestItemRef, index::CoverageIndex)::Float64
-    f = _freshness_signal(index)
+function compute_confidence(test_ref::TestItemRef, index::CoverageIndex; stale_threshold_hours::Float64=Float64(DEFAULT_STALE_THRESHOLD_HOURS))::Float64
+    f = _freshness_signal(index; stale_threshold_hours=stale_threshold_hours)
     r = _recording_quality_signal(index)
     l = _layer_coverage_signal(index)
     h = _history_quality_signal(test_ref, index)
@@ -2363,7 +2362,7 @@ function compute_confidence(test_ref::TestItemRef, index::CoverageIndex)::Float6
     return product^0.25
 end
 
-export compute_confidence
+export compute_confidence, DEFAULT_STALE_THRESHOLD_HOURS
 
 # ════════════════════════════════════════════
 # 5. Sub-modules (may depend on types + CLI/Protocol)
