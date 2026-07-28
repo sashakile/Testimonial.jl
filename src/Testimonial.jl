@@ -1349,7 +1349,13 @@ function _save_reconciliation_report(report::NamedTuple)::Nothing
     dir = joinpath(".testimonial", "reconciliation")
     mkpath(dir)
     ts_ms = Dates.value(Dates.now())
+    # Handle edge case: multiple reports in same millisecond
     path = joinpath(dir, "reconciliation_$(ts_ms).jls")
+    counter = 1
+    while isfile(path)
+        path = joinpath(dir, "reconciliation_$(ts_ms)_$(counter).jls")
+        counter += 1
+    end
     tmppath = path * ".tmp"
     open(tmppath, "w") do io
         serialize(io, report)
