@@ -2579,9 +2579,33 @@ function summarize_selection(items::Vector{TestItemRef}, index::CoverageIndex; k
     return join(parts, "\n")
 end
 
+"""
+    components_below_threshold(component_confidences, config) -> Vector{Symbol}
+
+Return the list of components whose minimum confidence is below their
+configured threshold.
+
+Returns an empty vector if no components fall below threshold.
+The global threshold is used as a fallback for components without overrides.
+"""
+function components_below_threshold(
+    component_confidences::Dict{Symbol, Float64},
+    config::ConfidenceConfig,
+)::Vector{Symbol}
+    below = Symbol[]
+    for (comp, score) in component_confidences
+        threshold = get(config.component_overrides, comp, config.threshold)
+        if score < threshold
+            push!(below, comp)
+        end
+    end
+    return below
+end
+
 export compute_confidence, DEFAULT_STALE_THRESHOLD_HOURS, DEFAULT_CONFIDENCE_THRESHOLD,
        ConfidenceConfig, parse_confidence_config, group_items_by_component,
-       compute_component_confidence, format_confidence_summary, summarize_selection
+       compute_component_confidence, format_confidence_summary, summarize_selection,
+       components_below_threshold
 
 # ════════════════════════════════════════════
 # 5. Sub-modules (may depend on types + CLI/Protocol)

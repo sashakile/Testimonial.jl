@@ -408,6 +408,39 @@ end
     @test isempty(result)
 end
 
+# ── components_below_threshold ────────────────
+
+@testset "components_below_threshold returns empty for all above threshold" begin
+    confidences = Dict{Symbol, Float64}(:PkgA => 0.85, :PkgB => 0.92)
+    config = Testimonial.ConfidenceConfig(0.7, Dict{Symbol, Float64}())
+    result = Testimonial.components_below_threshold(confidences, config)
+    @test isempty(result)
+end
+
+@testset "components_below_threshold returns components below threshold" begin
+    confidences = Dict{Symbol, Float64}(:PkgA => 0.65, :PkgB => 0.85)
+    config = Testimonial.ConfidenceConfig(0.7, Dict{Symbol, Float64}())
+    result = Testimonial.components_below_threshold(confidences, config)
+    @test result == [:PkgA]
+end
+
+@testset "components_below_threshold uses per-component overrides" begin
+    confidences = Dict{Symbol, Float64}(:PkgA => 0.65, :PkgB => 0.72)
+    config = Testimonial.ConfidenceConfig(
+        0.7,
+        Dict{Symbol, Float64}(:PkgA => 0.6, :PkgB => 0.75),
+    )
+    result = Testimonial.components_below_threshold(confidences, config)
+    # PkgA: 0.65 >= 0.6 → above
+    # PkgB: 0.72 < 0.75 → below
+    @test result == [:PkgB]
+end
+
+@testset "components_below_threshold returns empty for empty input" begin
+    result = Testimonial.components_below_threshold(Dict{Symbol, Float64}(), Testimonial.ConfidenceConfig())
+    @test isempty(result)
+end
+
 # ── format_confidence_summary ─────────────────
 
 @testset "format_confidence_summary includes component scores" begin
