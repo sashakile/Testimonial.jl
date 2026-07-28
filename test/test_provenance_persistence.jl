@@ -131,6 +131,45 @@ end
     @test Testimonial.DEFAULT_MAX_PROVENANCE_RUNS == 20
 end
 
+# ── format_impact_result_grouped ───────────────
+
+@testset "format_impact_result_grouped groups chains by LayerKind" begin
+    # Create an ImpactResult with chains from different layers
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    chain1 = [
+        Testimonial.ProvenanceLink(Testimonial.COVERAGE, "src/lib.jl", "line 42", nothing),
+    ]
+    chain2 = [
+        Testimonial.ProvenanceLink(Testimonial.INFERRED, "src/utils.jl", "inferred via call graph", nothing),
+    ]
+    reason1 = Testimonial.ImpactReason(Testimonial.DirectChange, "changed src/lib.jl", chain1)
+    reason2 = Testimonial.ImpactReason(Testimonial.DependencyChange, "changed src/utils.jl", chain2)
+    result = Testimonial.ImpactResult(ref, [reason1, reason2], true, nothing)
+
+    lines = Testimonial.format_impact_result_grouped(result)
+    combined = join(lines, "\n")
+    @test occursin("COVERAGE", combined)
+    @test occursin("INFERRED", combined)
+    @test occursin("src/lib.jl", combined)
+    @test occursin("src/utils.jl", combined)
+end
+
+@testset "format_impact_result_grouped handles empty reasons" begin
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    result = Testimonial.ImpactResult(ref, Testimonial.ImpactReason[], true, nothing)
+    lines = Testimonial.format_impact_result_grouped(result)
+    combined = join(lines, "\n")
+    @test occursin("test_a", combined)
+end
+
+@testset "format_impact_result_grouped includes confidence" begin
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 1, "test_a")
+    result = Testimonial.ImpactResult(ref, Testimonial.ImpactReason[], true, nothing)
+    lines = Testimonial.format_impact_result_grouped(result; confidence=0.75)
+    combined = join(lines, "\n")
+    @test occursin("confidence", lowercase(combined))
+end
+
 @testset "explain loads persisted provenance when run_key matches" begin
     mktempdir() do dir
         # Create a simple index

@@ -15,7 +15,7 @@ import ..Testimonial: CoverageIndex, TestItemRef, ItemCoverage,
     discover_testitems, load_incidents, save_incidents
 
 export index_info, explain, run, main, SCHEMA_VERSION, STALE_INDEX_THRESHOLD_HOURS,
-       format_reason, format_impact_result,
+       format_reason, format_impact_result, format_impact_result_grouped,
        _write_shard_files, _read_shard_manifest, _clean_shard_files
 
 # ── Constants ──────────────────────────────────
@@ -159,6 +159,53 @@ function format_impact_result(result; confidence::Union{Nothing, Float64}=nothin
     for reason in result.reasons
         append!(lines, format_reason(reason))
     end
+    return lines
+end
+
+"""
+    format_impact_result_grouped(result; confidence=nothing) -> Vector{String}
+
+Render an `ImpactResult` with provenance links grouped by LayerKind.
+
+Instead of showing chains per-reason, collects all provenance links
+from all reason chains and groups them by their analysis layer.
+Provides a more organized view for the `--layers` option.
+"""
+function format_impact_result_grouped(result; confidence::Union{Nothing, Float64}=nothing)::Vector{String}
+    lines = String[]
+    status = result.selected ? "selected" : "not selected"
+    conf_str = confidence !== nothing ? string("  [confidence: ", round(confidence, digits=2), "]") : ""
+    push!(lines, "$(result.item.name)  ($(result.item.file))  [$status]$(conf_str)")
+
+    if isempty(result.reasons)
+        return lines
+    end
+
+    parent = Base.parentmodule(@__MODULE__)
+
+    # Collect all chain links grouped by LayerKind
+    layer_groups = Dict{parent.LayerKind, Vector{String}}()
+    for reason in result.reasons
+        for link in reason.chain
+            node = link
+            while node !== nothing
+                if !haskey(layer_groups, node.layer)
+                    layer_groups[node.layer] = String[]
+                end
+                push!(layer_groups[node.layer], string(node.content_unit, ": ", node.detail))
+                node = node.next
+            end
+        end
+    end
+
+    # Render each layer group
+    for (layer, entries) in sort(collect(layer_groups), by=first)
+        push!(lines, string("  [", layer, "]"))
+        for entry in entries
+            push!(lines, string("    └ ", entry))
+        end
+    end
+
     return lines
 end
 
