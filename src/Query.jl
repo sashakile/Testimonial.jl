@@ -11,7 +11,8 @@ module Query
 
 export query_files, coverage_gaps, nearest_covered_lines,
        query, direct_change_provider, unresolved_provider,
-       must_run_provider, manual_edge_provider, runtime_edge_provider
+       must_run_provider, manual_edge_provider, runtime_edge_provider,
+       external_input_provider
 
 # ── Helpers ───────────────────────────────────
 
@@ -470,6 +471,59 @@ function runtime_edge_provider(index, changed_files::Vector{String}; component::
 
         file_list = join(unique(matched_files), ", ")
         reason = parent.ImpactReason(parent.AlwaysRun, "runtime edge: $(file_list) changed -> $(ref.name)")
+        push!(results, parent.ImpactResult(ref, [reason], true))
+    end
+
+    return results
+end
+
+"""
+    external_input_provider(index, changed_files) -> Vector{ImpactResult}
+
+Provider: for test items with external_inputs, returns `AlwaysRun` reasons
+when a changed file matches any declared external input path (FEED-005).
+
+This is a provider function suitable for use with `query`.
+"""
+function external_input_provider(index, changed_files::Vector{String}; component::Union{String,Nothing}=nothing)::Vector
+    parent = _parent()
+    isempty(changed_files) && return parent.ImpactResult[]
+
+    results = parent.ImpactResult[]
+    seen = Set{Pair{String, String}}()
+
+    for (ref, ic) in index.items
+        isempty(ref.external_inputs) && continue
+
+        # Filter by component if specified
+        if component !== nothing
+            if ref.component == "" || ref.component != component
+                continue
+            end
+        end
+
+        # Check if any changed file matches any external input
+        matched = false
+        matched_inputs = String[]
+        for input_path in ref.external_inputs
+            if any(f -> endswith(f, input_path), changed_files)
+                matched = true
+                push!(matched_inputs, input_path)
+            end
+        end
+
+        if !matched
+            continue
+        end
+
+        key = ref.file => ref.name
+        if key in seen
+            continue
+        end
+        push!(seen, key)
+
+        input_list = join(unique(matched_inputs), ", ")
+        reason = parent.ImpactReason(parent.AlwaysRun, "external input changed: $(input_list)")
         push!(results, parent.ImpactResult(ref, [reason], true))
     end
 

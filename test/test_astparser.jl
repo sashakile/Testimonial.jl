@@ -63,6 +63,20 @@ end
         """)
         @test Testimonial.extract_tags(path) == Dict("baz" => [:integration, :slow])
 
+        # @testitem with external_inputs
+        write(path, """
+        @testitem "ext_test" external_inputs=["config/app.toml", "data/fixtures.csv"] begin
+            @test 1 == 1
+        end
+        """)
+        items = Testimonial.discover_testitems([dir])
+        ext_idx = findfirst(i -> i.name == "ext_test", items)
+        @test ext_idx !== nothing
+        if ext_idx !== nothing
+            ext_item = items[ext_idx]
+            @test ext_item.external_inputs == ["config/app.toml", "data/fixtures.csv"]
+        end
+
         # Multiple items in one file
         write(path, """
         @testitem "a" begin

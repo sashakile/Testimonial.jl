@@ -206,6 +206,13 @@ end
 """Regex matching @testitem "name" — shared across AST parsing and protocol resolution."""
 const _TESTITEM_PATTERN = r"@testitem\s+\"([^\"]+)\""
 
+"""Regex to extract external_inputs from @testitem annotations.
+
+Matches: external_inputs=["file1", "file2", ...]
+Captures the bracketed list content.
+"""
+const _EXTERNAL_INPUTS_PATTERN = r"external_inputs=\[([^\]]+)\]"
+
 """Compute SHA-256 hex prefix (first 12 chars) for a file's contents."""
 function file_hash(path::String)::String
     content = read(path, String)
@@ -275,7 +282,8 @@ function discover_testitems(dirs::Vector{String})::Vector{TestItemRef}
                 offset = m.offset
                 line = count(==('\n'), content[1:offset]) + 1
                 item_tags = get(tags, name, Symbol[])
-                push!(items, TestItemRef(path, line, name, item_tags, fhash))
+                item_external_inputs = _parse_external_inputs(content, offset)
+                push!(items, TestItemRef(path, line, name, item_tags, fhash, nothing, "", item_external_inputs))
             end
         end
     end
@@ -307,10 +315,47 @@ function _discover_in_file(path::String)::Vector{TestItemRef}
         offset = m.offset
         line = count(==('\n'), content[1:offset]) + 1
         item_tags = get(tags, name, Symbol[])
-        push!(items, TestItemRef(path, line, name, item_tags, fhash))
+
+        # Extract external_inputs from the @testitem line and following context
+        # Look in the surrounding 5 lines for an external_inputs declaration
+        item_external_inputs = _parse_external_inputs(content, offset)
+
+        push!(items, TestItemRef(path, line, name, item_tags, fhash, nothing, "", item_external_inputs))
     end
 
     return items
+end
+
+"""
+    _parse_external_inputs(content::String, offset::Int) -> Vector{String}
+
+Extract external_inputs declarations from the context around a @testitem.
+
+Scans the @testitem line and the following lines (up to 5) for an
+`external_inputs=[...]` declaration. Returns the list of file paths.
+"""
+function _parse_external_inputs(content::String, offset::Int)::Vector{String}
+    # Get the substring from the @testitem start through the next ~5 lines
+    context_end = min(offset + 500, length(content))
+    context = content[offset:context_end]
+
+    m = match(_EXTERNAL_INPUTS_PATTERN, context)
+    if m === nothing
+        return String[]
+    end
+
+    raw = m.captures[1]
+    # Parse the bracketed list: ["file1", "file2", ...]
+    paths = String[]
+    for p in split(raw, ",")
+        stripped = strip(p)
+        # Remove quotes
+        m2 = match(r"\"([^\"]+)\"", stripped)
+        if m2 !== nothing
+            push!(paths, m2.captures[1])
+        end
+    end
+    return paths
 end
 
 """
