@@ -2294,6 +2294,9 @@ export record_all, build_index, save_index, load_index, is_index_stale, clean_ca
 include("Query.jl")
 using .Query
 export query, query_files, coverage_gaps, nearest_covered_lines
+export direct_change_provider, unresolved_provider, must_run_provider,
+       manual_edge_provider, runtime_edge_provider, external_input_provider,
+       coverage_provider
 
 # ════════════════════════════════════════════
 # 5. Extensions

@@ -12,7 +12,7 @@ module Query
 export query_files, coverage_gaps, nearest_covered_lines,
        query, direct_change_provider, unresolved_provider,
        must_run_provider, manual_edge_provider, runtime_edge_provider,
-       external_input_provider
+       external_input_provider, coverage_provider
 
 # ── Helpers ───────────────────────────────────
 
@@ -71,7 +71,16 @@ function query_files(index, files::Vector{String}; component::Union{String,Nothi
                 end
                 push!(seen, key)
 
-                reason = parent.ImpactReason(parent.DirectChange, "file changed: $(norm_file)")
+                reason = parent.ImpactReason(
+                    parent.DirectChange,
+                    "file changed: $(norm_file)",
+                    [parent.ProvenanceLink(
+                        parent.TEST_FILE_CHANGED,
+                        norm_file,
+                        "test file changed",
+                        nothing,
+                    )],
+                )
                 push!(results, parent.ImpactResult(ref, [reason], true))
             end
         elseif component === nothing
@@ -528,6 +537,94 @@ function external_input_provider(index, changed_files::Vector{String}; component
     end
 
     return results
+end
+
+# ── coverage_provider (line-level attribution) ───────────────
+
+"""
+    coverage_provider(changed::Dict{String, Set{Int}}) -> Function
+
+Return a query provider closure that traces changed SOURCE lines to the
+tests that cover them, emitting `DirectChange` reasons whose `chain`
+records the COVERAGE layer link (PROV-001):
+
+    {layer=COVERAGE, content_unit="<file>:<line>",
+     detail="executed line <n> in <basename>", next=nothing}
+
+The closure has the standard provider signature `(index, changed_files;
+component)` so it can be appended to the providers list passed to `query`.
+It is **opt-in**: the default provider list does not include it, so
+selection semantics are unchanged unless a caller explicitly requests
+line-level coverage attribution.
+
+`changed` is the full `Dict{String, Set{Int}}` (file → changed line numbers);
+the provider reads line numbers from it, so the `changed_files` argument
+is only used for membership filtering.
+"""
+function coverage_provider(changed::Dict{String, Set{Int}})
+    parent = _parent()
+    return (index, changed_files::Vector{String}; component::Union{String, Nothing}=nothing) -> begin
+        results = parent.ImpactResult[]
+        isempty(changed_files) && return results
+
+        changed_file_set = Set(abspath.(changed_files))
+
+        # item_key -> (ref, Vector{ProvenanceLink})
+        item_links = Dict{Pair{String, String}, Tuple{Any, Vector{parent.ProvenanceLink}}}()
+
+        for (ref, ic) in index.items
+            if component !== nothing && (ref.component == "" || ref.component != component)
+                continue
+            end
+            for link in _coverage_links_for_item(parent, ref, ic, changed, changed_file_set)
+                key = ref.file => ref.name
+                if haskey(item_links, key)
+                    push!(item_links[key][2], link)
+                else
+                    item_links[key] = (ref, parent.ProvenanceLink[link])
+                end
+            end
+        end
+
+        for (_, (ref, links)) in item_links
+            reason = parent.ImpactReason(
+                parent.DirectChange,
+                "covered line(s) changed: $(length(links))",
+                links,
+            )
+            push!(results, parent.ImpactResult(ref, [reason], true))
+        end
+
+        return results
+    end
+end
+
+"""
+    _coverage_links_for_item(parent, ref, ic, changed, changed_file_set) -> Vector{ProvenanceLink}
+
+Build one COVERAGE-layer ProvenanceLink per changed line that `ref` covers,
+looking across every source file recorded in its `ItemCoverage`.
+"""
+function _coverage_links_for_item(parent, ref, ic, changed::Dict{String, Set{Int}}, changed_file_set::Set{String})
+    links = parent.ProvenanceLink[]
+    for (src_file, (covered_lines, _uncovered)) in ic.source_files
+        norm_src = abspath(src_file)
+        norm_src ∈ changed_file_set || continue
+        changed_lines_for_file = get(changed, norm_src, get(changed, src_file, nothing))
+        changed_lines_for_file === nothing && continue
+
+        basename_src = basename(src_file)
+        for ln in covered_lines
+            ln ∈ changed_lines_for_file || continue
+            push!(links, parent.ProvenanceLink(
+                parent.COVERAGE,
+                "$(norm_src):$(ln)",
+                "executed line $(ln) in $(basename_src)",
+                nothing,
+            ))
+        end
+    end
+    return links
 end
 
 end # module Query
