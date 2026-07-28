@@ -63,6 +63,74 @@ end
     @test endswith(Testimonial.DEFAULT_PROVENANCE_DIR, "/")
 end
 
+@testset "prune_provenance keeps last N files" begin
+    mktempdir() do dir
+        # Create 5 provenance files with different timestamps
+        results = [
+            Testimonial.ImpactResult(
+                Testimonial.TestItemRef("/test/a.jl", 1, "t1"),
+                Testimonial.ImpactReason[],
+                true, nothing,
+            ),
+        ]
+        for i in 1:5
+            Testimonial.save_provenance("run_$(i)", results, dir)
+            sleep(0.01)  # ensure different mtime
+        end
+
+        # Prune to keep last 2
+        pruned = Testimonial.prune_provenance(dir; max_runs=2)
+        @test pruned == 3  # removed 3 old files
+
+        # Only 2 files should remain
+        remaining = filter(f -> endswith(f, ".jls"), readdir(dir))
+        @test length(remaining) == 2
+    end
+end
+
+@testset "prune_provenance keeps all when under limit" begin
+    mktempdir() do dir
+        for i in 1:3
+            Testimonial.save_provenance("run_$(i)", ImpactResult[], dir)
+        end
+
+        pruned = Testimonial.prune_provenance(dir; max_runs=10)
+        @test pruned == 0
+
+        remaining = filter(f -> endswith(f, ".jls"), readdir(dir))
+        @test length(remaining) == 3
+    end
+end
+
+@testset "prune_provenance handles empty directory" begin
+    mktempdir() do dir
+        pruned = Testimonial.prune_provenance(dir; max_runs=5)
+        @test pruned == 0
+    end
+end
+
+@testset "prune_provenance uses default max_runs" begin
+    mktempdir() do dir
+        results = [
+            Testimonial.ImpactResult(
+                Testimonial.TestItemRef("/test/a.jl", 1, "t1"),
+                Testimonial.ImpactReason[],
+                true, nothing,
+            ),
+        ]
+        for i in 1:25
+            Testimonial.save_provenance("run_$(i)", results, dir)
+        end
+
+        pruned = Testimonial.prune_provenance(dir)
+        @test pruned > 0
+    end
+end
+
+@testset "DEFAULT_MAX_PROVENANCE_RUNS is 20" begin
+    @test Testimonial.DEFAULT_MAX_PROVENANCE_RUNS == 20
+end
+
 @testset "explain loads persisted provenance when run_key matches" begin
     mktempdir() do dir
         # Create a simple index

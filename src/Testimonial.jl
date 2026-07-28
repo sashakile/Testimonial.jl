@@ -1683,6 +1683,9 @@ end
 """Default directory for provenance storage."""
 const DEFAULT_PROVENANCE_DIR = ".testimonial/provenance/"
 
+"""Default maximum number of provenance runs to keep."""
+const DEFAULT_MAX_PROVENANCE_RUNS = 20
+
 """
     provenance_path(run_key, dir=DEFAULT_PROVENANCE_DIR) -> String
 
@@ -1737,7 +1740,38 @@ function load_provenance(run_key::String, dir::String=DEFAULT_PROVENANCE_DIR)::V
     end
 end
 
-export DEFAULT_PROVENANCE_DIR, provenance_path, save_provenance, load_provenance
+"""
+    prune_provenance(dir=DEFAULT_PROVENANCE_DIR; max_runs=DEFAULT_MAX_PROVENANCE_RUNS) -> Int
+
+Prune old provenance files, keeping only the `max_runs` most recent ones.
+
+Files are sorted by modification time (oldest first). Files beyond the
+keep-limit are deleted. Returns the number of files pruned.
+"""
+function prune_provenance(dir::String=DEFAULT_PROVENANCE_DIR; max_runs::Int=DEFAULT_MAX_PROVENANCE_RUNS)::Int
+    if !isdir(dir)
+        return 0
+    end
+
+    files = filter(f -> endswith(f, ".jls"), readdir(dir))
+    if length(files) <= max_runs
+        return 0
+    end
+
+    # Sort by mtime (oldest first)
+    files_with_mtime = [(f, mtime(joinpath(dir, f))) for f in files]
+    sort!(files_with_mtime, by=last)
+
+    # Remove oldest files beyond the limit
+    to_prune = files_with_mtime[1:end-max_runs]
+    for (f, _) in to_prune
+        rm(joinpath(dir, f); force=true)
+    end
+
+    return length(to_prune)
+end
+
+export DEFAULT_PROVENANCE_DIR, DEFAULT_MAX_PROVENANCE_RUNS, provenance_path, save_provenance, load_provenance
 
 # ── Incident persistence ──────────────────────────
 
