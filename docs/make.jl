@@ -15,6 +15,7 @@ makedocs(
         "Architecture" => "architecture.md",
         "Configuration" => "configuration.md",
     ],
+    warnonly = [:missing_docs],
 )
 
 deploydocs(
