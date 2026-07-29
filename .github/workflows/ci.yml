@@ -39,7 +39,7 @@ jobs:
           cd scripts/TestimonialRunner
           julia --project=. -e '
             import Pkg
-            Pkg.develop(Pkg.PackageSpec(path=dirname(pwd())))
+            Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "..", "..")))
             Pkg.resolve()
             Pkg.instantiate()
           '
