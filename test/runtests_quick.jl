@@ -50,4 +50,6 @@ include("test_shard_balance.jl")
     include("test_reconcile.jl")
     include("test_reconciliation_report.jl")
     include("test_flaky_detector.jl")
+    include("test_confidence.jl")
+    include("test_inference_edges.jl")
 end

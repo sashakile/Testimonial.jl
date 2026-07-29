@@ -264,6 +264,7 @@ end
         index.environment_fingerprint,
         index.inter_component_edges,
         index.runtime_edges,
+        Dict{TestItemRef, Vector{Tuple{String, String, Int, String, String, Int}}}(),
         index.failed_item_count,
         index.total_discovered_items,
         2,  # available_layers
@@ -282,6 +283,7 @@ end
         index.environment_fingerprint,
         index.inter_component_edges,
         index.runtime_edges,
+        Dict{TestItemRef, Vector{Tuple{String, String, Int, String, String, Int}}}(),
         index.failed_item_count,
         index.total_discovered_items,
         3,  # available_layers
