@@ -892,10 +892,9 @@ function handle_static_deps(cmd)
     end
 
     if isempty(changed)
-        # No changed files → empty edges dict
         return JSON.json(Dict{String, Any}(
             "ok" => true,
-            "result" => Dict{String, Any}("edges" => Dict{String, Any}())
+            "result" => Dict{String, Any}("edges" => Vector{Any}())
         ))
     end
 
@@ -905,7 +904,6 @@ function handle_static_deps(cmd)
         end
     end
 
-    # Build file→edges map, or mark as unresolved
     edges = _build_static_edges(changed)
 
     return JSON.json(Dict{String, Any}(
@@ -915,71 +913,67 @@ function handle_static_deps(cmd)
 end
 
 """
-    _build_static_edges(changed_files) -> Dict
+    _build_static_edges(changed_files) -> Vector{Dict}
 
-Build dependency edges for the given changed files.
+Build dependency edges for the given changed files in the standard
+DepEdge format: `[{from, to, weight, origin}]` where:
+- `from` is the test node_id (file:line)
+- `to` is the source file path
+- `weight` is 1_000_000 (multiplicative identity)
+- `origin` is "static"
 
-If session_coverage is empty, every changed file maps to "unresolved".
-Otherwise, for each changed file, look up the recorded edges from
-session_coverage (grouped by file).
-
-File paths are normalized with realpath before comparison to ensure
-absolute/relative path mismatches don't cause silent unresolved results.
+When session_coverage is empty (no ingest done), returns an empty
+array. The core's fallback logic (unresolved content units) handles
+this case by selecting all tests.
 """
 function _build_static_edges(changed_files)
-    edges = Dict{String, Any}()
+    edges = Vector{Dict{String, Any}}()
 
     if isempty(session_coverage)
-        # No coverage recorded yet — all files are unresolved
-        for f in changed_files
-            edges[f] = "unresolved"
-        end
+        # No coverage recorded yet — emit no edges.
+        # The core marks changed files without content units as "unresolved"
+        # and falls back to full-run selection for low-confidence items.
         return edges
     end
 
-    # Build a file→edges lookup from session_coverage
-    # session_coverage keyed by node_id (file:line), value is ItemCoverage
-    # Normalize file paths with realpath so the lookup is robust to
-    # absolute/relative path mismatches with changed_files.
-    file_edges = Dict{String, Dict{String, Vector{String}}}()
-
-    for (node_id, coverage) in session_coverage
-        # Add edges for the test file itself
-        file = _normalize_path(coverage.item.file)
-        if file !== nothing
-            if !haskey(file_edges, file)
-                file_edges[file] = Dict{String, Vector{String}}()
-            end
-            inner = file_edges[file]
-            _add_line_edges(inner, coverage.covered_lines, node_id)
-            _add_line_edges(inner, coverage.uncovered_lines, node_id)
+    # Build a set of normalized file paths from changed_files for O(1) lookup
+    changed_set = Set{String}()
+    for f in changed_files
+        norm_f = _normalize_path(f)
+        if norm_f !== nothing
+            push!(changed_set, norm_f)
         end
+    end
 
-        # Add edges for each source file exercised by this test item
-        for (src_path, (covered, uncovered)) in coverage.source_files
+    # Iterate over session_coverage and emit edges for any coverage
+    # source_file that exists in the changed set
+    for (node_id, coverage) in session_coverage
+        # Emit edges for each source file exercised by this test item
+        for (src_path, (covered, _)) in coverage.source_files
             norm_src = _normalize_path(src_path)
             if norm_src === nothing
                 continue
             end
-            if !haskey(file_edges, norm_src)
-                file_edges[norm_src] = Dict{String, Vector{String}}()
+            if norm_src in changed_set
+                push!(edges, Dict{String, Any}(
+                    "from" => node_id,
+                    "to" => norm_src,
+                    "weight" => 1_000_000,
+                    "origin" => "static"
+                ))
             end
-            src_inner = file_edges[norm_src]
-            _add_line_edges(src_inner, covered, node_id)
-            _add_line_edges(src_inner, uncovered, node_id)
         end
-    end
 
-    # For each changed file, normalize path and return edges or unresolved
-    for f in changed_files
-        norm_f = _normalize_path(f)
-        if norm_f === nothing
-            # Can't normalize the changed file path — mark as unresolved
-            edges[f] = "unresolved"
-        elseif haskey(file_edges, norm_f)
-            edges[norm_f] = file_edges[norm_f]
-        else
-            edges[f] = "unresolved"
+        # Also emit edges for the test file's own coverage
+        # (when the test file itself is in the changed set)
+        file = _normalize_path(coverage.item.file)
+        if file !== nothing && file in changed_set
+            push!(edges, Dict{String, Any}(
+                "from" => node_id,
+                "to" => file,
+                "weight" => 1_000_000,
+                "origin" => "static"
+            ))
         end
     end
 
