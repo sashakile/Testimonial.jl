@@ -298,6 +298,10 @@ const _TESTSET_PATTERN = r"@testset\s+\"([^\"]+)\""
 """Regex matching @testset begin (unnamed) — for Base.Test support."""
 const _TESTSET_UNNAMED_PATTERN = r"@testset\s+(begin|for|let)"
 
+"""Catch-all regex matching any @testset — for custom testset types like @testset MyCustomType.
+Used as a third pass after named and unnamed patterns to catch any remaining @testset."""
+const _TESTSET_ANY_PATTERN = r"@testset\b"
+
 """Regex to extract external_inputs from @testitem annotations.
 
 Matches: external_inputs=["file1", "file2", ...]
@@ -426,23 +430,38 @@ Named @testsets use their name; unnamed @testsets use empty string.
 """
 function discover_testsets(dirs::Vector{String})::Vector{TestItemRef}
     items = TestItemRef[]
+    # Track matched (file, line) pairs for O(1) dedup across all three patterns
+    matched_lines = Set{Tuple{String, Int}}()
     for dir in dirs
         for path in _walk_jl_files(dir)
             content = read(path, String)
             fhash = bytes2hex(sha256(content))[1:12]
+
+            # Pass 1: named @testset "name"
             for m in eachmatch(_TESTSET_PATTERN, content)
                 name = m.captures[1]
                 offset = m.offset
                 line = count(==('\n'), content[1:offset]) + 1
+                push!(matched_lines, (path, line))
                 push!(items, TestItemRef(path, line, name, Symbol[], fhash))
             end
-            # Also match unnamed @testset begin/for/let
+
+            # Pass 2: unnamed @testset begin/for/let
             for m in eachmatch(_TESTSET_UNNAMED_PATTERN, content)
                 offset = m.offset
                 line = count(==('\n'), content[1:offset]) + 1
-                # Check if this line already matched a named @testset
-                already_matched = any(i -> i.line == line && i.file == path, items)
-                if !already_matched
+                if !((path, line) in matched_lines)
+                    push!(matched_lines, (path, line))
+                    push!(items, TestItemRef(path, line, "", Symbol[], fhash))
+                end
+            end
+
+            # Pass 3: catch-all for custom testset types (e.g. @testset MyCustomType ...)
+            for m in eachmatch(_TESTSET_ANY_PATTERN, content)
+                offset = m.offset
+                line = count(==('\n'), content[1:offset]) + 1
+                if !((path, line) in matched_lines)
+                    push!(matched_lines, (path, line))
                     push!(items, TestItemRef(path, line, "", Symbol[], fhash))
                 end
             end
@@ -455,11 +474,17 @@ end
 under the given directories, with file-level fallback for files that
 have no test blocks.
 
-For files with @testitem blocks, returns those items (suite_kind:
-ReTestItems.jl). For files with @testset blocks, returns those items
-(suite_kind: Base.Test). For files with neither, returns a single
-file-level fallback item with line=0 and name=filename (suite_kind:
-Base.Test).
+The caller (handle_discover in Protocol.jl) determines suite_kind at
+runtime by checking _is_testitem_at_line. The returned TestItemRef
+carries no suite_kind field.
+
+For files with @testitem blocks, returns those items. For files with
+@testset blocks, returns those items. For files with neither, returns
+a single file-level fallback item with line=0 and name=filename.
+
+Convention: files named helpers.jl, utils.jl, or in a helpers/ or
+utils/ subdirectory are excluded from the fallback, since they are
+typically support files that don't contain tests.
 """
 function discover_all_test_blocks(dirs::Vector{String})::Vector{TestItemRef}
     testitems = discover_testitems(dirs)
@@ -474,11 +499,22 @@ function discover_all_test_blocks(dirs::Vector{String})::Vector{TestItemRef}
         push!(files_with_blocks, item.file)
     end
 
+    # Files with conventional helper names that should be excluded from fallback
+    function is_helper_file(path::String)::Bool
+        filename = basename(path)
+        parent_dir = basename(dirname(path))
+        return filename in ["helpers.jl", "utils.jl"] ||
+               parent_dir in ["helpers", "utils"]
+    end
+
     # Find all .jl files in the directories and add fallback for those without blocks
     fallback_items = TestItemRef[]
     for dir in dirs
         for path in _walk_jl_files(dir)
             if path in files_with_blocks
+                continue
+            end
+            if is_helper_file(path)
                 continue
             end
             # File-level fallback: use filename as name, line=0

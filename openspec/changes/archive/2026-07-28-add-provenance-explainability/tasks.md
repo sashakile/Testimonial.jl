@@ -10,11 +10,11 @@
 - [x] 2.3 Display exclusion reason as human-readable string with actionable suggestions
 
 ## 3. Persisted provenance
-- [ ] 3.1 Store provenance after each `smart_run` at `.testimonial/provenance/<run_key>.jls`
-- [ ] 3.2 Load persisted provenance on `explain` calls when run key matches
-- [ ] 3.3 Implement sliding-window pruning (keep last N runs, configurable)
+- [x] 3.1 Store provenance after each `smart_run` at `.testimonial/provenance/<run_key>.jls`
+- [x] 3.2 Load persisted provenance on `explain` calls when run key matches
+- [x] 3.3 Implement sliding-window pruning (keep last N runs, configurable)
 
 ## 4. Layered view in explain
-- [ ] 4.1 Group reasons by `LayerKind` in display output
-- [ ] 4.2 Show intersection/union semantics: "selected by coverage AND static" vs "selected by coverage OR static"
-- [ ] 4.3 Add `--layers` flag to `explain` CLI
+- [x] 4.1 Group reasons by `LayerKind` in display output
+- [x] 4.2 Show intersection/union semantics: "selected by coverage AND static" vs "selected by coverage OR static"
+- [x] 4.3 Add `--layers` flag to `explain` CLI

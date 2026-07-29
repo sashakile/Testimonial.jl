@@ -7,7 +7,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 996.0,
+          "actual": 1138.0,
           "limit": 400.0
         }
       ],
@@ -15,7 +15,7 @@
         {
           "name": "main",
           "kind": "Function",
-          "start_line": 600,
+          "start_line": 742,
           "metrics": {
             "cyclomatic": 12,
             "cognitive": 11,
@@ -311,7 +311,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 851.0,
+          "actual": 945.0,
           "limit": 400.0
         }
       ],
@@ -381,18 +381,18 @@
           "kind": "Function",
           "start_line": 172,
           "metrics": {
-            "cyclomatic": 8,
-            "cognitive": 7,
+            "cyclomatic": 10,
+            "cognitive": 9,
             "assertions": 0,
-            "function_lines": 47,
+            "function_lines": 58,
             "params": 1,
             "nesting_max": 0,
-            "abc": 20.12461179749811
+            "abc": 22.15851980616034
           },
           "violations": [
             {
               "metric": "function_lines",
-              "actual": 47.0,
+              "actual": 58.0,
               "limit": 40.0
             }
           ]
@@ -400,7 +400,7 @@
         {
           "name": "handle_ingest",
           "kind": "Function",
-          "start_line": 234,
+          "start_line": 275,
           "metrics": {
             "cyclomatic": 10,
             "cognitive": 9,
@@ -421,7 +421,7 @@
         {
           "name": "_handle_ingest_run_output",
           "kind": "Function",
-          "start_line": 289,
+          "start_line": 330,
           "metrics": {
             "cyclomatic": 13,
             "cognitive": 12,
@@ -452,7 +452,7 @@
         {
           "name": "_record_item_for_ingest",
           "kind": "Function",
-          "start_line": 374,
+          "start_line": 415,
           "metrics": {
             "cyclomatic": 6,
             "cognitive": 5,
@@ -467,7 +467,7 @@
         {
           "name": "_append_runtime_edges",
           "kind": "Function",
-          "start_line": 417,
+          "start_line": 458,
           "metrics": {
             "cyclomatic": 9,
             "cognitive": 8,
@@ -488,7 +488,7 @@
         {
           "name": "_ingest_one_item",
           "kind": "Function",
-          "start_line": 475,
+          "start_line": 516,
           "metrics": {
             "cyclomatic": 6,
             "cognitive": 5,
@@ -509,7 +509,7 @@
         {
           "name": "_build_edges_for_item",
           "kind": "Function",
-          "start_line": 540,
+          "start_line": 581,
           "metrics": {
             "cyclomatic": 6,
             "cognitive": 5,
@@ -524,7 +524,7 @@
         {
           "name": "_normalize_path",
           "kind": "Function",
-          "start_line": 576,
+          "start_line": 617,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -539,7 +539,7 @@
         {
           "name": "_add_line_edges",
           "kind": "Function",
-          "start_line": 586,
+          "start_line": 627,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -554,45 +554,56 @@
         {
           "name": "_resolve_node_id",
           "kind": "Function",
-          "start_line": 602,
+          "start_line": 643,
           "metrics": {
-            "cyclomatic": 5,
-            "cognitive": 4,
+            "cyclomatic": 10,
+            "cognitive": 9,
             "assertions": 0,
-            "function_lines": 29,
+            "function_lines": 55,
             "params": 0,
             "nesting_max": 0,
-            "abc": 15.524174696260024
+            "abc": 28.653097563788805
           },
-          "violations": []
+          "violations": [
+            {
+              "metric": "function_lines",
+              "actual": 55.0,
+              "limit": 40.0
+            }
+          ]
         },
         {
           "name": "handle_run_args",
           "kind": "Function",
-          "start_line": 638,
+          "start_line": 705,
           "metrics": {
-            "cyclomatic": 15,
-            "cognitive": 14,
+            "cyclomatic": 20,
+            "cognitive": 19,
             "assertions": 0,
-            "function_lines": 81,
+            "function_lines": 108,
             "params": 1,
             "nesting_max": 0,
-            "abc": 33.91164991562634
+            "abc": 44.69899327725402
           },
           "violations": [
             {
               "metric": "cyclomatic",
-              "actual": 15.0,
+              "actual": 20.0,
               "limit": 10.0
             },
             {
+              "metric": "cognitive",
+              "actual": 19.0,
+              "limit": 15.0
+            },
+            {
               "metric": "function_lines",
-              "actual": 81.0,
+              "actual": 108.0,
               "limit": 40.0
             },
             {
               "metric": "abc",
-              "actual": 33.91164991562634,
+              "actual": 44.69899327725402,
               "limit": 30.0
             }
           ]
@@ -600,7 +611,7 @@
         {
           "name": "json_error",
           "kind": "Function",
-          "start_line": 726,
+          "start_line": 820,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -615,7 +626,7 @@
         {
           "name": "handle_static_deps",
           "kind": "Function",
-          "start_line": 745,
+          "start_line": 839,
           "metrics": {
             "cyclomatic": 7,
             "cognitive": 6,
@@ -630,7 +641,7 @@
         {
           "name": "_build_static_edges",
           "kind": "Function",
-          "start_line": 791,
+          "start_line": 885,
           "metrics": {
             "cyclomatic": 12,
             "cognitive": 11,
@@ -736,7 +747,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 2310.0,
+          "actual": 2819.0,
           "limit": 400.0
         }
       ],
@@ -744,7 +755,7 @@
         {
           "name": "ImpactResult",
           "kind": "Function",
-          "start_line": 187,
+          "start_line": 188,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -759,7 +770,7 @@
         {
           "name": "atomic_write",
           "kind": "Function",
-          "start_line": 263,
+          "start_line": 281,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -774,7 +785,7 @@
         {
           "name": "record_run",
           "kind": "Function",
-          "start_line": 1090,
+          "start_line": 1187,
           "metrics": {
             "cyclomatic": 2,
             "cognitive": 1,
@@ -789,7 +800,7 @@
         {
           "name": "reset_always_run_state",
           "kind": "Function",
-          "start_line": 1115,
+          "start_line": 1212,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -804,7 +815,7 @@
         {
           "name": "record_duration!",
           "kind": "Function",
-          "start_line": 1205,
+          "start_line": 1302,
           "metrics": {
             "cyclomatic": 2,
             "cognitive": 1,
@@ -819,7 +830,7 @@
         {
           "name": "record_outcome_history!",
           "kind": "Function",
-          "start_line": 1245,
+          "start_line": 1342,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -834,7 +845,7 @@
         {
           "name": "save_run_history",
           "kind": "Function",
-          "start_line": 1272,
+          "start_line": 1369,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -849,7 +860,7 @@
         {
           "name": "save_ingested_run_key",
           "kind": "Function",
-          "start_line": 1319,
+          "start_line": 1416,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -862,9 +873,24 @@
           "violations": []
         },
         {
+          "name": "save_provenance",
+          "kind": "Function",
+          "start_line": 1787,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 11,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 7.615773105863909
+          },
+          "violations": []
+        },
+        {
           "name": "save_incidents",
           "kind": "Function",
-          "start_line": 1672,
+          "start_line": 1867,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -879,7 +905,7 @@
         {
           "name": "append_incident",
           "kind": "Function",
-          "start_line": 1711,
+          "start_line": 1906,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -894,7 +920,7 @@
         {
           "name": "save_manual_edges",
           "kind": "Function",
-          "start_line": 2120,
+          "start_line": 2315,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -909,7 +935,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 2306,
+          "start_line": 2815,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -955,7 +981,13 @@
       "path": "test/test_astparser.jl",
       "role": "app",
       "diagnostics": [],
-      "file_violations": [],
+      "file_violations": [
+        {
+          "metric": "file_lines",
+          "actual": 409.0,
+          "limit": 400.0
+        }
+      ],
       "units": []
     },
     {
@@ -1100,6 +1132,35 @@
       "diagnostics": [],
       "file_violations": [],
       "units": []
+    },
+    {
+      "path": "test/test_confidence.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [
+        {
+          "metric": "file_lines",
+          "actual": 485.0,
+          "limit": 400.0
+        }
+      ],
+      "units": [
+        {
+          "name": "make_index",
+          "kind": "Function",
+          "start_line": 15,
+          "metrics": {
+            "cyclomatic": 2,
+            "cognitive": 1,
+            "assertions": 0,
+            "function_lines": 18,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 8.602325267042627
+          },
+          "violations": []
+        }
+      ]
     },
     {
       "path": "test/test_cov_sidecar.jl",
@@ -1339,7 +1400,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 909.0,
+          "actual": 1115.0,
           "limit": 400.0
         }
       ],
@@ -1367,6 +1428,29 @@
       "diagnostics": [],
       "file_violations": [],
       "units": []
+    },
+    {
+      "path": "test/test_provenance_persistence.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "make_result",
+          "kind": "Function",
+          "start_line": 15,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 5,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 4.47213595499958
+          },
+          "violations": []
+        }
+      ]
     },
     {
       "path": "test/test_query.jl",
@@ -1600,52 +1684,52 @@
     "top_hotspots": [
       {
         "fingerprint": "src/GitDiff.jl::_parse_diff_section::cognitive_max",
-        "count": 134,
+        "count": 135,
         "distinct_days": 8
       },
       {
         "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cognitive_max",
-        "count": 100,
+        "count": 101,
         "distinct_days": 6
       },
       {
         "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::cyclomatic_max",
-        "count": 98,
+        "count": 99,
         "distinct_days": 5
       },
       {
-        "fingerprint": "src/Protocol.jl::_build_static_edges::function_lines_max",
-        "count": 98,
+        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::abc_max",
+        "count": 99,
         "distinct_days": 5
       },
       {
-        "fingerprint": "src/Protocol.jl::handle_discover::function_lines_max",
-        "count": 98,
+        "fingerprint": "src/Protocol.jl::_ingest_one_item::function_lines_max",
+        "count": 99,
         "distinct_days": 5
       },
       {
-        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cyclomatic_max",
-        "count": 98,
+        "fingerprint": "src/Protocol.jl::handle_run_args::abc_max",
+        "count": 99,
+        "distinct_days": 5
+      },
+      {
+        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::abc_max",
+        "count": 99,
+        "distinct_days": 5
+      },
+      {
+        "fingerprint": "src/IndexBuilder.jl::_record_single_item::function_lines_max",
+        "count": 99,
         "distinct_days": 5
       },
       {
         "fingerprint": "src/Protocol.jl::_build_static_edges::cyclomatic_max",
-        "count": 98,
-        "distinct_days": 5
-      },
-      {
-        "fingerprint": "src/GitDiff.jl::_parse_diff_section::function_lines_max",
-        "count": 98,
-        "distinct_days": 5
-      },
-      {
-        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::function_lines_max",
-        "count": 98,
+        "count": 99,
         "distinct_days": 5
       },
       {
         "fingerprint": "src/Protocol.jl::handle_run_args::function_lines_max",
-        "count": 98,
+        "count": 99,
         "distinct_days": 5
       }
     ],
@@ -1654,7 +1738,7 @@
         "rule_key": "function_lines_max",
         "role": "app",
         "area": "src",
-        "count": 1031,
+        "count": 1043,
         "distinct_files": 5,
         "distinct_days": 5
       },
@@ -1662,7 +1746,7 @@
         "rule_key": "cyclomatic_max",
         "role": "app",
         "area": "src",
-        "count": 541,
+        "count": 547,
         "distinct_files": 4,
         "distinct_days": 5
       },
@@ -1670,7 +1754,7 @@
         "rule_key": "abc_max",
         "role": "app",
         "area": "src",
-        "count": 392,
+        "count": 396,
         "distinct_files": 3,
         "distinct_days": 5
       },
@@ -1678,7 +1762,7 @@
         "rule_key": "cognitive_max",
         "role": "app",
         "area": "src",
-        "count": 235,
+        "count": 238,
         "distinct_files": 3,
         "distinct_days": 8
       }
