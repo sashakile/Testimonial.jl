@@ -6,7 +6,7 @@ authors = ["sashakile"]
 [deps]
 Coverage = "a2441757-f6aa-5fb2-8edb-039e3f45d037"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
-JET = "c3a54625-cd67-489e-9a1e-5431f0a2f3f7"
+JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 ReTestItems = "817f1d60-ba6b-4fd5-9520-3cf149f6a823"
 SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
