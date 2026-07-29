@@ -338,11 +338,15 @@ function _handle_ingest_run_output(cmd, params)
         return json_error("'params.run_output' must be a string")
     end
 
-    # Parse JSON lines
+    # Parse JSON lines — collect entries, group by file for batched coverage
     lines = split(run_output, "\n", keepempty=false)
     test_results = []
     edge_dicts = []
     parent = Base.parentmodule(@__MODULE__)
+
+    # First pass: parse all entries and group by file
+    # file_group[file_path] = [(test_id, outcome, duration_ms, error_text), ...]
+    file_groups = Dict{String, Vector{Tuple{String, String, Union{Int, Nothing}, Union{String, Nothing}}}}()
 
     for line in lines
         stripped = strip(line)
@@ -366,13 +370,13 @@ function _handle_ingest_run_output(cmd, params)
         end
 
         # Resolve relative paths in test_id to absolute.
-        # ReTestItems outputs paths relative to pwd, but discover returns absolute paths.
         parts = split(test_id, ":", limit=2)
         if length(parts) == 2 && !isabspath(parts[1])
             abs_file = joinpath(pwd(), parts[1])
             test_id = "$(abs_file):$(parts[2])"
         end
 
+        file_path = parts[1]
         outcome = get(entry, "outcome", "passed")
         duration_ms = get(entry, "duration_ms", nothing)
         error_text = get(entry, "error_text", nothing)
@@ -390,12 +394,48 @@ function _handle_ingest_run_output(cmd, params)
         end
         push!(test_results, test_entry)
 
-        # Record coverage for this test item
-        coverage = _record_item_for_ingest(parent, test_id)
+        if !haskey(file_groups, file_path)
+            file_groups[file_path] = []
+        end
+        push!(file_groups[file_path], (test_id, outcome, duration_ms, error_text))
+    end
 
-        if coverage !== nothing
-            # Build runtime edges from coverage
-            _append_runtime_edges(coverage, test_id, edge_dicts)
+    # Second pass: batch-record coverage per file (shares one Julia subprocess)
+    runner = parent.SubprocessRunner()
+
+    for (file_path, entries) in file_groups
+        # Resolve all refs for this file
+        refs = parent.TestItemRef[]
+        for (test_id, _, _, _) in entries
+            test_parts = split(test_id, ":", limit=2)
+            if length(test_parts) != 2
+                continue
+            end
+            line_num = try
+                parse(Int, test_parts[2])
+            catch
+                continue
+            end
+            ref = _resolve_node_id(parent, test_parts[1], line_num)
+            if ref !== nothing
+                push!(refs, ref)
+            end
+        end
+
+        if isempty(refs)
+            continue
+        end
+
+        # Record all refs in this file with a single subprocess
+        coverages = parent.record_batch(runner, refs)
+
+        # Build edges from each coverage result
+        for (i, coverage) in enumerate(coverages)
+            if coverage !== nothing && i <= length(entries)
+                test_id = entries[i][1]
+                _append_runtime_edges(coverage, test_id, edge_dicts)
+                session_coverage[test_id] = coverage
+            end
         end
     end
 
