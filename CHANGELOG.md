@@ -1,9 +1,38 @@
+---
+title: Changelog
+description: Release history and version changelog for Testimonial.jl
+category: reference
+---
+
 # Changelog
+
+**TL;DR:** All notable changes to Testimonial.jl, organized by version. New features, bug fixes, and infrastructure updates.
 
 All notable changes to Testimonial.jl are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.2.0] — 2026-07-29 — Highlights
+
+**For users:**
+- 🎯 **Smart selection** — Git diff → query → run only affected tests, turning 30-min CI into 30-sec feedback
+- 🛡️ **Safety invariants** — Shadow mode, incident detection, always-run set, flaky quarantine, reconciliation
+- 📊 **Confidence scoring** — 4-signal quality indicator with threshold-based fallback
+- 🔍 **Provenance & explainability** — Reason chains showing why a test was selected or excluded
+- 🧩 **Component boundary** — Per-component indices for monorepo support
+- 🔌 **Protocol adapter** — JSON stdin/stdout for testaruda integration
+- ⚡ **Runtime feedback** — Post-run ingestion, edge learning, run history
+
+**For developers:**
+- CI pipeline: nightly recording + PR smart selection
+- Lefthook pre-commit/pre-push hooks for code quality
+- 53 dont claims and espectacular spec-level validation
+- 7 openspec change proposals archived
+
+---
+
+## Detailed Changes
 
 ## [0.2.0] — 2026-07-29
 
@@ -123,7 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Architecture updated from monolithic to two-layer (Julia core + protocol adapter)
 - Modular architecture with 9 focused modules to prevent God Modules
 - `CoverageIndex` now uses `Dict{Symbol, Any}` `layer_data` for extensibility
-- ``SCHEMA_VERSION` bumped for per-component data model
+- `SCHEMA_VERSION` bumped for per-component data model
 
 ### Fixed
 - `StringIndexError` in `_parse_external_inputs` from multi-byte UTF-8 characters

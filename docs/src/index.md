@@ -1,8 +1,25 @@
+---
+title: Testimonial.jl Documentation
+description: Home page for Testimonial.jl documentation — test impact analysis for Julia monorepos
+category: overview
+---
+
 # Testimonial.jl
 
-Test impact analysis for Julia monorepos. Given a set of code changes, selects
-the minimal set of `@testitem`s required to validate those changes — turning a
-30-minute CI suite into a 30-second feedback loop.
+**TL;DR:** Testimonial is a Julia-native test impact analysis engine. Given code changes (from a git diff), it selects the minimal set of `@testitem`s required to validate those changes — turning a 30-minute CI suite into a 30-second feedback loop on most PRs.
+
+## Orientation
+
+If you are new here, start here:
+
+| Your goal | Go here |
+|-----------|---------|
+| Try it out | [Getting Started Tutorial](tutorial/) |
+| Understand the CLI | [CLI Reference](cli/) |
+| Configure your project | [Configuration Reference](configuration/) |
+| Learn how it works | [Architecture](architecture/) |
+| Troubleshoot issues | [Error Reference](errors/) |
+| Contribute | [Contributor Guide](https://github.com/sashakile/Testimonial.jl/blob/main/CONTRIBUTING.md) |
 
 ## Quick Start
 
@@ -15,7 +32,7 @@ Testimonial.record_all()
 Testimonial.CLI.run()
 ```
 
-## Features
+## Feature Overview
 
 - **Coverage Recording** — Per-item subprocess recording with parallel execution
 - **Smart Selection** — Git diff → query → run only affected tests

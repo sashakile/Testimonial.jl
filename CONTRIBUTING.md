@@ -1,4 +1,12 @@
+---
+title: Contributor Guide
+description: Toolchain setup, workflow, and common tasks for Testimonial.jl contributors
+category: how-to
+---
+
 # Testimonial.jl — Contributor Toolchain
+
+**TL;DR:** This guide covers the development toolchain, installation steps, and daily workflow for Testimonial.jl contributors. All tools are optional for casual contributors but **required** for PR authors.
 
 This document describes the development toolchain used in this project. All tools
 are optional for casual contributors but **required** for PR authors.

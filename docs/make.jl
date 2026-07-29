@@ -10,12 +10,17 @@ makedocs(
     modules = [Testimonial],
     pages = [
         "Home" => "index.md",
+        "Getting Started" => "tutorial.md",
+        "Guides" => Any[
+            "Component Boundaries" => "howto-components.md",
+        ],
         "CLI Reference" => "cli.md",
         "API Reference" => "api.md",
         "Architecture" => "architecture.md",
         "Configuration" => "configuration.md",
+        "Error Reference" => "errors.md",
     ],
-    warnonly = [:missing_docs],
+    warnonly = [:missing_docs, :cross_references],
     build = joinpath(@__DIR__, "build"),
 )
 

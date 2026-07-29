@@ -1,0 +1,13 @@
+# Testimonial.jl
+
+## Docs
+- Testimonial.jl: https://sashakile.github.io/Testimonial.jl
+- CLI Reference: https://sashakile.github.io/Testimonial.jl/cli/
+- API Reference: https://sashakile.github.io/Testimonial.jl/api/
+- Configuration: https://sashakile.github.io/Testimonial.jl/configuration/
+- Architecture: https://sashakile.github.io/Testimonial.jl/architecture/
+- Error Reference: https://sashakile.github.io/Testimonial.jl/errors/
+- Tutorial: https://sashakile.github.io/Testimonial.jl/tutorial/
+- How-to: Component Boundaries: https://sashakile.github.io/Testimonial.jl/howto-components/
+- Changelog: https://github.com/sashakile/Testimonial.jl/blob/main/CHANGELOG.md
+- Contributor Guide: https://github.com/sashakile/Testimonial.jl/blob/main/CONTRIBUTING.md

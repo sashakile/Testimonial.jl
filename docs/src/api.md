@@ -1,4 +1,12 @@
+---
+title: API Reference
+description: Complete API reference for Testimonial.jl types and functions
+category: reference
+---
+
 # API Reference
+
+**TL;DR:** Auto-generated documentation for all public types, functions, and constants in Testimonial.jl. See the CLI Reference for command-line usage.
 
 ## Core Types
 
