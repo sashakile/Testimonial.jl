@@ -27,8 +27,19 @@
 # See REC-009 in openspec/changes/implement-coverage-layer/specs/recording/spec.md
 
 using ReTestItems
-using SnoopCompile
 using Serialization
+
+# ── Optional SnoopCompile loading ────────────
+# SnoopCompile v3 requires Julia ≥ 1.12. On older Julia versions (or
+# systems where SnoopCompile is not installed), inference capture is
+# skipped gracefully.
+const HAS_SNOOPCOMPILE = Ref(false)
+try
+    @eval using SnoopCompile
+    HAS_SNOOPCOMPILE[] = true
+catch
+    HAS_SNOOPCOMPILE[] = false
+end
 
 # ── Inference edge extraction ────────────────
 # Walk the InferenceTimingNode tree produced by @snoop_inference and
@@ -142,17 +153,26 @@ push!(LOAD_PATH, pkg_under_test)
 # the inferred call graph alongside --code-coverage. The resulting
 # caller→callee edges are serialized to `inference_trace.jls` in pwd,
 # a sidecar consumed by the inference-layer parser (testimonial-be7o).
+#
+# On Julia < 1.12 (where SnoopCompile v3 is unavailable) inference
+# capture is skipped gracefully — the driver produces coverage only.
 
 trace_path = joinpath(pwd(), "inference_trace.jls")
 
 try
-    root = SnoopCompile.@snoop_inference begin
+    if HAS_SNOOPCOMPILE[]
+        root = SnoopCompile.@snoop_inference begin
+            for item in item_names
+                ReTestItems.runtests(test_file; name=item)
+            end
+        end
+        edges = _extract_inference_edges(root)
+        Serialization.serialize(trace_path, edges)
+    else
         for item in item_names
             ReTestItems.runtests(test_file; name=item)
         end
     end
-    edges = _extract_inference_edges(root)
-    Serialization.serialize(trace_path, edges)
     # runtests prints results to stdout; if it returns without
     # throwing, the test ran successfully (exit 0).
     # Test failures are reported in the output but don't throw.

@@ -33,6 +33,10 @@ function _create_inference_scratch(dir::String)
 end
 
 # ── Inference trace sidecar ───────────────────
+# SnoopCompile v3 requires Julia ≥ 1.12. On 1.11 these tests are
+# skipped because SnoopCompile is unavailable in the depot.
+
+if VERSION >= v"1.12"
 
 @testset "driver.jl produces an inference trace sidecar" begin
     mktempdir() do project_dir
@@ -85,3 +89,5 @@ end
         @test !isempty(edges)
     end
 end
+
+end  # VERSION >= v"1.12"
