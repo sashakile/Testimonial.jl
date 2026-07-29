@@ -45,6 +45,15 @@ info:
 docs:
     julia --project=docs/ -e 'using LiveServer; servedocs()'
 
+# Build docs locally (catches build errors before CI)
+docs-build:
+    julia --project=docs -e '
+        import Pkg
+        Pkg.develop(Pkg.PackageSpec(path=pwd()))
+        Pkg.instantiate()
+    '
+    julia --project=docs docs/make.jl
+
 # ── Spec management ────────────────────────────
 specs:
     openspec validate --specs

@@ -18,7 +18,7 @@ makedocs(
     warnonly = [:missing_docs],
 )
 
-deploydocs(
-    repo = "github.com/sashakile/Testimonial.jl.git",
-    push_preview = true,
-)
+# Deployment is handled by GitHub Actions using the modern Pages API
+# (actions/upload-pages-artifact + actions/deploy-pages).
+# No deploydocs() call needed — that pattern pushes to gh-pages branch
+# which requires write permissions the GITHUB_TOKEN doesn't provide.

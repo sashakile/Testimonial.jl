@@ -34,6 +34,10 @@ pre-push:
     julia-tests:
       run: just test-quick
       skip: [merge, rebase]
+    docs-build:
+      run: just docs-build 2>&1
+      skip: [merge, rebase]
+      fail_text: "Docs build failed — run 'just docs-build' locally to fix"
 
 post-commit:
   commands:
