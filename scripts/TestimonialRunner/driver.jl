@@ -27,7 +27,64 @@
 # See REC-009 in openspec/changes/implement-coverage-layer/specs/recording/spec.md
 
 using ReTestItems
-using Pkg
+using SnoopCompile
+using Serialization
+
+# ── Inference edge extraction ────────────────
+# Walk the InferenceTimingNode tree produced by @snoop_inference and
+# emit caller→callee edges as plain (name, file, line) tuples. Plain
+# primitives only — the result serializes cleanly across processes
+# without SnoopCompile on the reading side (see testimonial-be7o).
+
+"""
+    _method_loc(node) -> Union{Tuple{String,String,Int}, Nothing}
+
+Return (name, file, line) for the node's inferred method, or `nothing`
+if the node's def is not a `Method` (e.g. toplevel thunks).
+"""
+function _method_loc(node)
+    mi = try
+        Core.Compiler.get_ci_mi(node.ci)
+    catch
+        return nothing
+    end
+    def = mi.def
+    def isa Method || return nothing
+    return (String(def.name), String(def.file), Int(def.line))
+end
+
+"""
+    _walk_inference!(edges, node)
+
+Recursively traverse the inference tree. For every node whose parent is
+a `Method`, push a (caller..., callee...) edge.
+"""
+function _walk_inference!(edges, node)
+    callee = _method_loc(node)
+    callee === nothing && return
+    if isdefined(node, :parent) && node.parent !== node && isdefined(node.parent, :ci)
+        caller = _method_loc(node.parent)
+        caller !== nothing && push!(edges, (caller..., callee...))
+    end
+    for child in node.children
+        _walk_inference!(edges, child)
+    end
+    return edges
+end
+
+"""
+    _extract_inference_edges(root) -> Vector{Tuple{String,String,Int,String,String,Int}}
+
+Extract caller→callee edges from an @snoop_inference tree. Each entry is
+(caller_name, caller_file, caller_line, callee_name, callee_file, callee_line).
+The inference-layer parser maps callee_file:line → content unit → test item.
+"""
+function _extract_inference_edges(root)
+    edges = Tuple{String,String,Int,String,String,Int}[]
+    isdefined(root, :ci) || return edges
+    _walk_inference!(edges, root)
+    return edges
+end
 
 # ── Read environment ──────────────────────────
 
@@ -80,12 +137,22 @@ pkg_under_test = _find_project_root(test_dir)
 # Add the project to the load path so ReTestItems can find its test files
 push!(LOAD_PATH, pkg_under_test)
 
-# ── Run the test(s) ─────────────────────────
+# ── Run the test(s) under @snoop_inference ────
+# Wrap test execution with SnoopCompile's @snoop_inference to capture
+# the inferred call graph alongside --code-coverage. The resulting
+# caller→callee edges are serialized to `inference_trace.jls` in pwd,
+# a sidecar consumed by the inference-layer parser (testimonial-be7o).
+
+trace_path = joinpath(pwd(), "inference_trace.jls")
 
 try
-    for item in item_names
-        ReTestItems.runtests(test_file; name=item)
+    root = SnoopCompile.@snoop_inference begin
+        for item in item_names
+            ReTestItems.runtests(test_file; name=item)
+        end
     end
+    edges = _extract_inference_edges(root)
+    Serialization.serialize(trace_path, edges)
     # runtests prints results to stdout; if it returns without
     # throwing, the test ran successfully (exit 0).
     # Test failures are reported in the output but don't throw.
