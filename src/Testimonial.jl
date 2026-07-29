@@ -243,6 +243,8 @@ struct CoverageIndex
     inter_component_edges :: Dict{String, Set{String}}
     runtime_edges :: Dict{TestItemRef, Vector{Tuple{String, Int}}}
     inference_edges :: Dict{TestItemRef, Vector{Tuple{String, String, Int, String, String, Int}}}
+    static_edges :: Dict{String, Set{TestItemRef}}
+    layer_data :: Dict{Symbol, Any}
     failed_item_count :: Int
     total_discovered_items :: Int
     available_layers :: Int
@@ -253,31 +255,45 @@ end
 # selections, only adds them (openspec/project.md — inference-layer).
 const _EMPTY_INFERENCE_EDGES = Dict{TestItemRef, Vector{Tuple{String, String, Int, String, String, Int}}}()
 
+# Default for the static_edges field (testimonial-777t): an empty
+# file→test-items map. Static analysis is additive — it never removes
+# selections, only adds them (openspec/project.md — static-layer).
+const _EMPTY_STATIC_EDGES = Dict{String, Set{TestItemRef}}()
+
+# Default for the layer_data field (testimonial-777t): an empty
+# dict for arbitrary per-layer metadata.
+const _EMPTY_LAYER_DATA = Dict{Symbol, Any}()
+
 # Convenience constructor without environment_fingerprint and inter_component_edges
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, "", Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), _EMPTY_INFERENCE_EDGES, 0, 0, 1)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, "", Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), _EMPTY_INFERENCE_EDGES, _EMPTY_STATIC_EDGES, _EMPTY_LAYER_DATA, 0, 0, 1)
 
 # Convenience constructor without inter_component_edges
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), _EMPTY_INFERENCE_EDGES, 0, 0, 1)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), _EMPTY_INFERENCE_EDGES, _EMPTY_STATIC_EDGES, _EMPTY_LAYER_DATA, 0, 0, 1)
 
 # Convenience constructor without runtime_edges (for backward compat after adding runtime_edges)
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, Dict{TestItemRef, Vector{Tuple{String, Int}}}(), _EMPTY_INFERENCE_EDGES, 0, 0, 1)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, Dict{TestItemRef, Vector{Tuple{String, Int}}}(), _EMPTY_INFERENCE_EDGES, _EMPTY_STATIC_EDGES, _EMPTY_LAYER_DATA, 0, 0, 1)
 
 # Convenience constructor without inference_edges (for backward compat after adding inference_edges)
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, _EMPTY_INFERENCE_EDGES, 0, 0, 1)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, _EMPTY_INFERENCE_EDGES, _EMPTY_STATIC_EDGES, _EMPTY_LAYER_DATA, 0, 0, 1)
 
 # Ingest update constructor: preserve all metadata fields from source index
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, source::CoverageIndex) =
     CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges,
                   source.inference_edges,
+                  source.static_edges, source.layer_data,
                   source.failed_item_count, source.total_discovered_items, source.available_layers)
 
 # Convenience constructor without available_layers (for backward compat after adding layer metadata)
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, failed_item_count, total_discovered_items) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, _EMPTY_INFERENCE_EDGES, failed_item_count, total_discovered_items, 1)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, _EMPTY_INFERENCE_EDGES, _EMPTY_STATIC_EDGES, _EMPTY_LAYER_DATA, failed_item_count, total_discovered_items, 1)
+
+# Convenience constructor with explicit inference_edges but without static_edges/layer_data (backward compat)
+CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, inference_edges, failed_item_count, total_discovered_items, available_layers) =
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, inference_edges, _EMPTY_STATIC_EDGES, _EMPTY_LAYER_DATA, failed_item_count, total_discovered_items, available_layers)
 
 # ── Inference edges merge (testimonial-be7o) ─
 # Additive merge of caller→callee edges into a CoverageIndex,
@@ -314,6 +330,7 @@ function merge_inference_edges(index::CoverageIndex, ref::TestItemRef, edges)
         index.items, index.git_hash, index.julia_version, index.schema_version,
         index.created_at, index.environment_fingerprint, index.inter_component_edges,
         index.runtime_edges, merged,
+        index.static_edges, index.layer_data,
         index.failed_item_count, index.total_discovered_items, index.available_layers,
     )
 end
@@ -2878,6 +2895,10 @@ include("CoverageLayer.jl")
 using .CoverageLayer
 export record_item, record_batch, build_driver_command, AbstractRunner, SubprocessRunner, parse_cov_sidecar
 export InferenceEdge, parse_inference_trace, inference_content_units, merge_inference_edges
+
+include("StaticLayer.jl")
+using .StaticLayer
+export run_static_analysis, analyze_source_files
 
 include("IndexBuilder.jl")
 using .IndexBuilder
