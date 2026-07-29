@@ -16,7 +16,7 @@ makedocs(
         "Configuration" => "configuration.md",
     ],
     warnonly = [:missing_docs],
-    build = "docs/build",
+    build = joinpath(@__DIR__, "build"),
 )
 
 # Deployment is handled by GitHub Actions using the modern Pages API
