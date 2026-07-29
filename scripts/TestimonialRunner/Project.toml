@@ -12,5 +12,5 @@ Testimonial = "f4c1a8e6-3a2b-4c5d-9e7f-8a0b1c2d3e4f"
 [compat]
 julia = "1.10"
 ReTestItems = "1"
-SnoopCompile = "3"
+SnoopCompile = "2, 3"
 Testimonial = "0.2"

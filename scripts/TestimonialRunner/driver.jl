@@ -30,28 +30,44 @@ using ReTestItems
 using Serialization
 
 # ── Optional SnoopCompile loading ────────────
-# SnoopCompile v3 requires Julia ≥ 1.12. On older Julia versions (or
-# systems where SnoopCompile is not installed), inference capture is
-# skipped gracefully.
+# SnoopCompile v3 (Julia ≥ 1.12, @snoop_inference → tree) or v2
+# (Julia < 1.12, @snoopi_deep → table).  Detects the available API
+# at load time; if neither is available, inference capture is skipped.
 const HAS_SNOOPCOMPILE = Ref(false)
+const USE_V3_API = Ref(false)  # false → v2 API
 try
     @eval using SnoopCompile
     HAS_SNOOPCOMPILE[] = true
+    USE_V3_API[] = isdefined(SnoopCompile, Symbol("@snoop_inference"))
 catch
     HAS_SNOOPCOMPILE[] = false
 end
 
 # ── Inference edge extraction ────────────────
-# Walk the InferenceTimingNode tree produced by @snoop_inference and
-# emit caller→callee edges as plain (name, file, line) tuples. Plain
-# primitives only — the result serializes cleanly across processes
-# without SnoopCompile on the reading side (see testimonial-be7o).
+# Both v2 and v3 APIs produce the same sidecar format: a Vector of
+# (caller_name, caller_file, caller_line, callee_name, callee_file,
+# callee_line) tuples.  Plain primitives only — result serializes
+# cleanly without SnoopCompile on the reading side (testimonial-be7o).
+
+"""
+    _mi_def_loc(mi) -> Union{Tuple{String,String,Int}, Nothing}
+
+Return (name, file, line) for a MethodInstance's def, or `nothing`
+if the def is not a `Method`.
+"""
+function _mi_def_loc(mi)
+    def = mi.def
+    def isa Method || return nothing
+    return (String(def.name), String(def.file), Int(def.line))
+end
+
+# ── v3 extraction: InferenceTimingNode tree ───
 
 """
     _method_loc(node) -> Union{Tuple{String,String,Int}, Nothing}
 
-Return (name, file, line) for the node's inferred method, or `nothing`
-if the node's def is not a `Method` (e.g. toplevel thunks).
+Return (name, file, line) for a v3-style InferenceTimingNode's method,
+or `nothing` if not a `Method`.
 """
 function _method_loc(node)
     mi = try
@@ -59,18 +75,15 @@ function _method_loc(node)
     catch
         return nothing
     end
-    def = mi.def
-    def isa Method || return nothing
-    return (String(def.name), String(def.file), Int(def.line))
+    return _mi_def_loc(mi)
 end
 
 """
-    _walk_inference!(edges, node)
+    _walk_inference_tree!(edges, node)
 
-Recursively traverse the inference tree. For every node whose parent is
-a `Method`, push a (caller..., callee...) edge.
+Recursively traverse a v3 inference tree, pushing caller→callee edges.
 """
-function _walk_inference!(edges, node)
+function _walk_inference_tree!(edges, node)
     callee = _method_loc(node)
     callee === nothing && return
     if isdefined(node, :parent) && node.parent !== node && isdefined(node.parent, :ci)
@@ -78,23 +91,70 @@ function _walk_inference!(edges, node)
         caller !== nothing && push!(edges, (caller..., callee...))
     end
     for child in node.children
-        _walk_inference!(edges, child)
+        _walk_inference_tree!(edges, child)
     end
     return edges
 end
 
 """
-    _extract_inference_edges(root) -> Vector{Tuple{String,String,Int,String,String,Int}}
+    _extract_edges_tree(root) -> Vector{Tuple{String,String,Int,String,String,Int}}
 
-Extract caller→callee edges from an @snoop_inference tree. Each entry is
-(caller_name, caller_file, caller_line, callee_name, callee_file, callee_line).
-The inference-layer parser maps callee_file:line → content unit → test item.
+Extract caller→callee edges from a v3-style @snoop_inference tree.
 """
-function _extract_inference_edges(root)
+function _extract_edges_tree(root)
     edges = Tuple{String,String,Int,String,String,Int}[]
     isdefined(root, :ci) || return edges
-    _walk_inference!(edges, root)
+    _walk_inference_tree!(edges, root)
     return edges
+end
+
+# ── v2 extraction: InferenceTimingTable ──────
+
+"""
+    _extract_edges_table(timing) -> Vector
+
+Extract caller→callee edges from a v2-style InferenceTimingTable.
+Table columns: .mi (MethodInstances) and .parentidx (caller row).
+"""
+function _extract_edges_table(timing)
+    edges = Tuple{String,String,Int,String,String,Int}[]
+    for i in 1:length(timing.mi)
+        pi = timing.parentidx[i]
+        pi > 0 || continue
+        callee = _mi_def_loc(timing.mi[i])
+        callee === nothing && continue
+        caller = _mi_def_loc(timing.mi[pi])
+        caller === nothing && continue
+        push!(edges, (caller..., callee...))
+    end
+    return edges
+end
+
+# ── Runtime macro dispatch ──────────────────
+# Macro invocations are resolved at parse time, so we cannot have both
+# @snoop_inference and @snoopi_deep in the same source file.  Instead
+# build the capture expression via string interpolation and eval it at
+# runtime, AFTER the API version has been selected.
+
+"""
+    _capture_item(test_file, item_names, use_v3) -> result
+
+Run the test(s) under the appropriate SnoopCompile macro and return the
+captured inference data (InferenceTimingNode tree in v3,
+InferenceTimingTable in v2).
+"""
+function _capture_item(test_file::String, item_names::Vector{String}, use_v3::Bool)
+    test_repr = repr(test_file)
+    names_repr = repr(item_names)
+    macro_name = use_v3 ? "SnoopCompile.@snoop_inference" : "SnoopCompile.@snoopi_deep"
+    code = """
+        result = $macro_name begin
+            for item in $names_repr
+                ReTestItems.runtests($test_repr; name=item)
+            end
+        end
+    """
+    return eval(Meta.parse(code))
 end
 
 # ── Read environment ──────────────────────────
@@ -148,25 +208,18 @@ pkg_under_test = _find_project_root(test_dir)
 # Add the project to the load path so ReTestItems can find its test files
 push!(LOAD_PATH, pkg_under_test)
 
-# ── Run the test(s) under @snoop_inference ────
-# Wrap test execution with SnoopCompile's @snoop_inference to capture
-# the inferred call graph alongside --code-coverage. The resulting
-# caller→callee edges are serialized to `inference_trace.jls` in pwd,
-# a sidecar consumed by the inference-layer parser (testimonial-be7o).
-#
-# On Julia < 1.12 (where SnoopCompile v3 is unavailable) inference
-# capture is skipped gracefully — the driver produces coverage only.
+# ── Run the test(s) under SnoopCompile capture ─
+# The resulting caller→callee edges are serialized to `inference_trace.jls`
+# in pwd, consumed by testimonial-be7o.  If SnoopCompile is unavailable,
+# inference capture is skipped (coverage-only fallback).
 
 trace_path = joinpath(pwd(), "inference_trace.jls")
 
 try
     if HAS_SNOOPCOMPILE[]
-        root = SnoopCompile.@snoop_inference begin
-            for item in item_names
-                ReTestItems.runtests(test_file; name=item)
-            end
-        end
-        edges = _extract_inference_edges(root)
+        result = _capture_item(test_file, item_names, USE_V3_API[])
+        extract_fn = USE_V3_API[] ? _extract_edges_tree : _extract_edges_table
+        edges = extract_fn(result)
         Serialization.serialize(trace_path, edges)
     else
         for item in item_names
