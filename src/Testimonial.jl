@@ -242,35 +242,81 @@ struct CoverageIndex
     environment_fingerprint :: String
     inter_component_edges :: Dict{String, Set{String}}
     runtime_edges :: Dict{TestItemRef, Vector{Tuple{String, Int}}}
+    inference_edges :: Dict{TestItemRef, Vector{Tuple{String, String, Int, String, String, Int}}}
     failed_item_count :: Int
     total_discovered_items :: Int
     available_layers :: Int
 end
 
+# Default for the inference_edges field (testimonial-be7o): an empty
+# caller→callee edge map. Inference is additive — it never removes
+# selections, only adds them (openspec/project.md — inference-layer).
+const _EMPTY_INFERENCE_EDGES = Dict{TestItemRef, Vector{Tuple{String, String, Int, String, String, Int}}}()
+
 # Convenience constructor without environment_fingerprint and inter_component_edges
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, "", Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), 0, 0, 1)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, "", Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), _EMPTY_INFERENCE_EDGES, 0, 0, 1)
 
 # Convenience constructor without inter_component_edges
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), 0, 0, 1)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, Dict{String, Set{String}}(), Dict{TestItemRef, Vector{Tuple{String, Int}}}(), _EMPTY_INFERENCE_EDGES, 0, 0, 1)
 
 # Convenience constructor without runtime_edges (for backward compat after adding runtime_edges)
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, Dict{TestItemRef, Vector{Tuple{String, Int}}}(), 0, 0, 1)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, Dict{TestItemRef, Vector{Tuple{String, Int}}}(), _EMPTY_INFERENCE_EDGES, 0, 0, 1)
 
-# Convenience constructor without failed_item_count and total_discovered_items (for backward compat after adding recording metadata)
+# Convenience constructor without inference_edges (for backward compat after adding inference_edges)
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, 0, 0, 1)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, _EMPTY_INFERENCE_EDGES, 0, 0, 1)
 
 # Ingest update constructor: preserve all metadata fields from source index
-CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, source) =
+CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, source::CoverageIndex) =
     CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges,
+                  source.inference_edges,
                   source.failed_item_count, source.total_discovered_items, source.available_layers)
 
 # Convenience constructor without available_layers (for backward compat after adding layer metadata)
 CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, failed_item_count, total_discovered_items) =
-    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, failed_item_count, total_discovered_items, 1)
+    CoverageIndex(items, git_hash, julia_version, schema_version, created_at, fingerprint, ice, runtime_edges, _EMPTY_INFERENCE_EDGES, failed_item_count, total_discovered_items, 1)
+
+# ── Inference edges merge (testimonial-be7o) ─
+# Additive merge of caller→callee edges into a CoverageIndex,
+# keyed by the owning test item. Mirrors the runtime_edges merge
+# precedent but for the inference layer. Inference is additive:
+# it never removes selections or existing edges, only adds new
+# ones (openspec/project.md — inference-layer capability, Phase 2).
+
+"""
+    merge_inference_edges(index::CoverageIndex, ref::TestItemRef, edges) -> CoverageIndex
+
+Return a new `CoverageIndex` with `edges` merged into `index.inference_edges[ref]`,
+deduplicated against any existing edges for that ref. All other fields
+(including `runtime_edges`, `items`, and metadata) are preserved unchanged —
+inference is strictly additive.
+
+`edges` is any iterable of 6-tuples `(caller_name, caller_file, caller_line,
+callee_name, callee_file, callee_line)` as produced by `parse_inference_trace`.
+"""
+function merge_inference_edges(index::CoverageIndex, ref::TestItemRef, edges)
+    merged = copy(index.inference_edges)
+    incoming = CoverageLayer.InferenceEdge[e for e in edges if e isa CoverageLayer.InferenceEdge]
+    if haskey(merged, ref)
+        existing = Set(merged[ref])
+        new_vec = copy(merged[ref])
+        for e in incoming
+            e ∈ existing || push!(new_vec, e)
+        end
+        merged[ref] = new_vec
+    else
+        merged[ref] = unique(incoming)
+    end
+    return CoverageIndex(
+        index.items, index.git_hash, index.julia_version, index.schema_version,
+        index.created_at, index.environment_fingerprint, index.inter_component_edges,
+        index.runtime_edges, merged,
+        index.failed_item_count, index.total_discovered_items, index.available_layers,
+    )
+end
 
 # ════════════════════════════════════════════
 # ── Persistence ────────────────────────────────
@@ -2831,6 +2877,7 @@ export parse_unified_diff
 include("CoverageLayer.jl")
 using .CoverageLayer
 export record_item, record_batch, build_driver_command, AbstractRunner, SubprocessRunner, parse_cov_sidecar
+export InferenceEdge, parse_inference_trace, inference_content_units, merge_inference_edges
 
 include("IndexBuilder.jl")
 using .IndexBuilder

@@ -9,9 +9,11 @@ module CoverageLayer
 
 export record_item, record_batch, build_driver_command, AbstractRunner, SubprocessRunner,
        parse_cov_sidecar, run_with_timeout, with_retry,
-       TIMEOUT_PER_ITEM_DEFAULT, MAX_TIMEOUT_PER_ITEM, MAX_RETRIES
+       TIMEOUT_PER_ITEM_DEFAULT, MAX_TIMEOUT_PER_ITEM, MAX_RETRIES,
+       InferenceEdge, parse_inference_trace, inference_content_units
 
 using Coverage
+using Serialization
 
 # ── Project root detection ────────────────────
 
@@ -638,6 +640,65 @@ function with_retry(fn::Function, initial_timeout::Real;
         timeout = min(timeout * 2, Float64(max_timeout))
     end
     return nothing
+end
+
+# ── Inference trace parsing (testimonial-be7o) ─
+# The subprocess driver (driver.jl, testimonial-1v4f) serializes the
+# caller→callee edges captured by SnoopCompile to an `inference_trace.jls`
+# sidecar. Each edge is a 6-tuple:
+#   (caller_name, caller_file, caller_line, callee_name, callee_file, callee_line)
+# Plain primitives only — the sidecar deserializes cleanly without
+# SnoopCompile on the reading side.
+
+"""A single inference caller→callee edge.
+
+`(caller_name, caller_file, caller_line, callee_name, callee_file, callee_line)`.
+"""
+const InferenceEdge = Tuple{String, String, Int, String, String, Int}
+
+"""
+    parse_inference_trace(path::AbstractString) -> Vector{InferenceEdge}
+
+Deserialize an `inference_trace.jls` sidecar produced by the subprocess
+driver into a vector of inference edges.
+
+Returns an empty `Vector{InferenceEdge}` if the file is missing, unreadable,
+or contains no edges — inference capture is always optional (the driver
+falls back to coverage-only when SnoopCompile is unavailable), so the
+parser must never throw on absent data.
+
+See openspec/project.md — inference-layer capability (Phase 2).
+Ref: testimonial-1v4f (capture), testimonial-be7o (parse + populate).
+"""
+function parse_inference_trace(path::AbstractString)::Vector{InferenceEdge}
+    p = String(path)
+    isfile(p) || return InferenceEdge[]
+    try
+        data = open(Serialization.deserialize, p, "r")
+        data isa AbstractVector || return InferenceEdge[]
+        return InferenceEdge[e for e in data if e isa InferenceEdge]
+    catch
+        return InferenceEdge[]
+    end
+end
+
+"""
+    inference_content_units(edges::AbstractVector{InferenceEdge}) -> Vector{Tuple{String, Int}}
+
+Project the *caller* source locations from a vector of inference edges —
+the content units that get attributed to the owning test item. Deduped.
+
+Per the inference-layer spec, each inferred call records the caller source
+location as a content unit and maps it to the test item that triggered
+inference; the callee is preserved in the stored edge for richer queries.
+"""
+function inference_content_units(edges::AbstractVector)::Vector{Tuple{String, Int}}
+    seen = Set{Tuple{String, Int}}()
+    for e in edges
+        e isa InferenceEdge || continue
+        push!(seen, (e[2], e[3]))  # (caller_file, caller_line)
+    end
+    return collect(seen)
 end
 
 end # module CoverageLayer
