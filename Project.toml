@@ -1,6 +1,6 @@
 name = "Testimonial"
 uuid = "f4c1a8e6-3a2b-4c5d-9e7f-8a0b1c2d3e4f"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["sashakile"]
 
 [deps]
