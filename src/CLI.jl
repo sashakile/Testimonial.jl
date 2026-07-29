@@ -618,6 +618,26 @@ function run(; base_ref::String="origin/main",
         end
     end
 
+    # Step 6e: Merge inference edges into selection
+    if filtered isa Vector && !isempty(changed_files)
+        inf_results = parent.inference_provider(index, changed_files)
+        for r in inf_results
+            if r.selected && any(startswith(r.item.file, d) for d in abs_test_dirs)
+                existing_idx = findfirst(x -> x.item == r.item, filtered)
+                if existing_idx !== nothing
+                    merged = ImpactResult(
+                        filtered[existing_idx].item,
+                        vcat(filtered[existing_idx].reasons, r.reasons),
+                        true,
+                    )
+                    filtered[existing_idx] = merged
+                else
+                    push!(filtered, r)
+                end
+            end
+        end
+    end
+
     # Step 6b: Merge always-run tests into selection
     if filtered isa Vector
         always_run_tests = parent.get_always_run_tests()

@@ -575,3 +575,114 @@ end
     @test results[1].item.name == "test_bar"
     @test results[1].selected == true
 end
+
+# ── InferenceProvider ────────────────────────
+
+@testset "inference_provider selects tests when edge file changes" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+        ("test/bar.jl", "test_bar", [4, 5, 6]),
+    ])
+
+    bar_ref = TestItemRef("test/bar.jl", 1, "test_bar")
+
+    # Add an inference edge: test_bar calls a method in src/lib.jl:42
+    index = CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        index.runtime_edges,
+        Dict{TestItemRef, Vector{Tuple{String, String, Int, String, String, Int}}}(
+            bar_ref => [("f", "src/lib.jl", 42, "g", "src/helper.jl", 10)],
+        ),
+        index.failed_item_count,
+        index.total_discovered_items,
+        index.available_layers,
+    )
+
+    # When src/lib.jl changes, test_bar should be selected via inference edge
+    result = Testimonial.inference_provider(index, ["src/lib.jl"])
+    @test length(result) == 1
+    @test result[1].item.name == "test_bar"
+    @test result[1].selected == true
+    @test any(r -> r.kind == AlwaysRun, result[1].reasons)
+end
+
+@testset "inference_provider returns empty when no edges match" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+    ])
+
+    foo_ref = TestItemRef("test/foo.jl", 1, "test_foo")
+    index = CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        index.runtime_edges,
+        Dict{TestItemRef, Vector{Tuple{String, String, Int, String, String, Int}}}(
+            foo_ref => [("f", "src/lib.jl", 42, "g", "src/helper.jl", 10)],
+        ),
+        index.failed_item_count,
+        index.total_discovered_items,
+        index.available_layers,
+    )
+
+    # Different file changed — no match
+    result = Testimonial.inference_provider(index, ["src/other.jl"])
+    @test isempty(result)
+end
+
+@testset "inference_provider handles empty inference_edges" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+    ])
+
+    # default inference_edges is empty Dict
+    result = Testimonial.inference_provider(index, ["src/lib.jl"])
+    @test isempty(result)
+end
+
+@testset "inference_provider integrates with query" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+        ("test/bar.jl", "test_bar", [4, 5, 6]),
+    ])
+
+    bar_ref = TestItemRef("test/bar.jl", 1, "test_bar")
+    index = CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        index.runtime_edges,
+        Dict{TestItemRef, Vector{Tuple{String, String, Int, String, String, Int}}}(
+            bar_ref => [("f", "src/lib.jl", 42, "g", "src/helper.jl", 10)],
+        ),
+        index.failed_item_count,
+        index.total_discovered_items,
+        index.available_layers,
+    )
+
+    providers = [
+        Testimonial.inference_provider,
+    ]
+    changed = Dict{String, Set{Int}}(
+        "src/lib.jl" => Set([42, 43]),
+    )
+
+    results = Testimonial.query(providers, index, changed)
+    @test length(results) == 1
+    @test results[1].item.name == "test_bar"
+    @test results[1].selected == true
+end

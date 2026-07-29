@@ -12,6 +12,7 @@ module Query
 export query_files, coverage_gaps, nearest_covered_lines,
        query, direct_change_provider, unresolved_provider,
        must_run_provider, manual_edge_provider, runtime_edge_provider,
+       inference_provider,
        external_input_provider, coverage_provider
 
 # ── Helpers ───────────────────────────────────
@@ -480,6 +481,67 @@ function runtime_edge_provider(index, changed_files::Vector{String}; component::
 
         file_list = join(unique(matched_files), ", ")
         reason = parent.ImpactReason(parent.AlwaysRun, "runtime edge: $(file_list) changed -> $(ref.name)")
+        push!(results, parent.ImpactResult(ref, [reason], true))
+    end
+
+    return results
+end
+
+"""
+    inference_provider(index, changed_files) -> Vector{ImpactResult}
+
+Provider: for test items with inference_edges, returns `AlwaysRun` reasons
+when a changed file matches any inference edge's caller source file.
+
+Reads inference edges from `index.inference_edges` (testimonial-be7o). For
+each test, if any of its inference edge caller files are in the changed
+set, the test is forced selected. Inference is additive — it never removes
+selections (openspec/project.md — inference-layer).
+
+This is a provider function suitable for use with `query`.
+"""
+function inference_provider(index, changed_files::Vector{String}; component::Union{String,Nothing}=nothing)::Vector
+    parent = _parent()
+
+    isempty(index.inference_edges) && return parent.ImpactResult[]
+    isempty(changed_files) && return parent.ImpactResult[]
+
+    results = parent.ImpactResult[]
+    seen = Set{Pair{String, String}}()
+
+    for (ref, edges) in index.inference_edges
+        isempty(edges) && continue
+
+        # Filter by component if specified
+        if component !== nothing
+            if ref.component == "" || ref.component != component
+                continue
+            end
+        end
+
+        # Check if any changed file matches any inference edge caller file
+        matched = false
+        matched_caller = String[]
+        for edge in edges
+            caller_file = edge[2]  # (caller_name, caller_file, caller_line, ...)
+            if any(f -> endswith(f, caller_file), changed_files)
+                matched = true
+                push!(matched_caller, caller_file)
+            end
+        end
+
+        if !matched
+            continue
+        end
+
+        key = ref.file => ref.name
+        if key in seen
+            continue
+        end
+        push!(seen, key)
+
+        file_list = join(unique(matched_caller), ", ")
+        reason = parent.ImpactReason(parent.AlwaysRun, "inference edge: $(file_list) changed -> $(ref.name)")
         push!(results, parent.ImpactResult(ref, [reason], true))
     end
 
