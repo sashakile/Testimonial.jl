@@ -361,6 +361,97 @@ end
     @test nodes[1]["suite_kind"] == "ReTestItems.jl"
 end
 
+# ── Discover default regression tests ──────────
+# These verify that discover without params resolves to pwd()/test/ (external
+# adapter mode) rather than always using @__DIR__/../test/ (which would point
+# to Testimonial.jl's own tests regardless of cwd).
+
+@testset "Discover defaults to pwd()/test/ when cwd is external project" begin
+    mktempdir() do dir
+        # Create an external project with a test/ dir
+        test_dir = joinpath(dir, "test")
+        mkpath(test_dir)
+        test_file = joinpath(test_dir, "test_ext.jl")
+        write(test_file, """@testitem "external_only" begin @test 1==1 end""")
+
+        # cd into the external project and call discover without params
+        cd(dir) do
+            resp = Protocol.handle("""{"command":"discover"}""")
+            parsed = JSON.parse(resp)
+
+            @test parsed["ok"] == true
+            nodes = parsed["result"]
+            @test length(nodes) == 1
+            @test nodes[1]["file"] == realpath(test_file)
+            @test nodes[1]["suite_kind"] == "ReTestItems.jl"
+        end
+    end
+end
+
+@testset "Discover from external project does NOT return Testimonial tests" begin
+    mktempdir() do dir
+        # Create an external project with a test that has a unique name
+        test_dir = joinpath(dir, "test")
+        mkpath(test_dir)
+        write(joinpath(test_dir, "test_ext.jl"), """@testitem "should_not_be_present_internal" begin @test 1==1 end""")
+
+        cd(dir) do
+            resp = Protocol.handle("""{"command":"discover"}""")
+            parsed = JSON.parse(resp)
+
+            @test parsed["ok"] == true
+            nodes = parsed["result"]
+
+            # Every returned file should be under our temporary dir, NOT Testimonial.jl
+            for node in nodes
+                @test startswith(node["file"], dir)
+            end
+
+            # Should find exactly our test
+            @test length(nodes) == 1
+        end
+    end
+end
+
+@testset "Discover from external project without test/ dir falls back to @__DIR__" begin
+    mktempdir() do dir
+        # Create an external project WITHOUT a test/ directory
+        # The fallback should go to @__DIR__/../test/ (Testimonial.jl's own tests)
+        cd(dir) do
+            resp = Protocol.handle("""{"command":"discover"}""")
+            parsed = JSON.parse(resp)
+
+            # Should still work — falls back to Testimonial.jl's own test dir
+            @test parsed["ok"] == true
+            nodes = parsed["result"]
+            @test length(nodes) > 0
+        end
+    end
+end
+
+@testset "Discover with explicit test_directories still works from any cwd" begin
+    mktempdir() do dir
+        test_dir = joinpath(dir, "mytests")
+        mkpath(test_dir)
+        test_file = joinpath(test_dir, "test_explicit.jl")
+        write(test_file, """@testitem "explicit_dir" begin @test 1==1 end""")
+
+        # Even from a different cwd, explicit test_directories should work
+        mktempdir() do other_dir
+            cd(other_dir) do
+                cmd = """{"command":"discover","params":{"test_directories":["$(test_dir)"]}}"""
+                resp = Protocol.handle(cmd)
+                parsed = JSON.parse(resp)
+
+                @test parsed["ok"] == true
+                nodes = parsed["result"]
+                @test length(nodes) == 1
+                @test nodes[1]["file"] == realpath(test_file)
+            end
+        end
+    end
+end
+
 @testset "Discover missing test_directories defaults to test/" begin
     resp = Protocol.handle("""{"command":"discover","params":{}}""")
     parsed = JSON.parse(resp)
