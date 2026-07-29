@@ -686,3 +686,37 @@ end
     @test results[1].item.name == "test_bar"
     @test results[1].selected == true
 end
+
+@testset "inference_provider creates provenance link with INFERRED LayerKind" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+    ])
+
+    fref = TestItemRef("test/foo.jl", 1, "test_foo")
+    index = CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        index.runtime_edges,
+        Dict{TestItemRef, Vector{Tuple{String, String, Int, String, String, Int}}}(
+            fref => [("f", "src/lib.jl", 42, "g", "src/helper.jl", 10)],
+        ),
+        index.failed_item_count,
+        index.total_discovered_items,
+        index.available_layers,
+    )
+
+    results = Testimonial.inference_provider(index, ["src/lib.jl"])
+    @test length(results) == 1
+    r = results[1]
+    @test length(r.reasons) == 1
+    reason = r.reasons[1]
+    @test !isempty(reason.chain)
+    link = reason.chain[1]
+    @test link.layer == Testimonial.INFERRED
+    @test link.content_unit == "src/lib.jl"
+end

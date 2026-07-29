@@ -541,7 +541,11 @@ function inference_provider(index, changed_files::Vector{String}; component::Uni
         push!(seen, key)
 
         file_list = join(unique(matched_caller), ", ")
-        reason = parent.ImpactReason(parent.AlwaysRun, "inference edge: $(file_list) changed -> $(ref.name)")
+        links = parent.ProvenanceLink[
+            parent.ProvenanceLink(parent.INFERRED, cf, "inference edge caller", nothing)
+            for cf in unique(matched_caller)
+        ]
+        reason = parent.ImpactReason(parent.AlwaysRun, "inference edge: $(file_list) changed -> $(ref.name)", links)
         push!(results, parent.ImpactResult(ref, [reason], true))
     end
 
