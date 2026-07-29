@@ -74,29 +74,29 @@ Three analysis layers stack for complete coverage:
 | Capability | Purpose | Status |
 |---|---|---|
 | `coverage-index` | `CoverageIndex` data model, persistence (`.testimonial/index.jls`) | Active |
-| `recording` | Per-item subprocess recording protocol, parallelism, index construction | Active |
+| `recording` | Per-item subprocess recording, parallelism, index construction | Active |
 | `smart-selection` | Git diff → query pipeline, coverage gap detection, `testimonial run` | Active |
-| `inference-layer` | `@snoopi_deep` capture and inference edge construction | Deferred (Phase 2) |
-| `static-layer` | JET-based entrypoint analysis and static edge construction | Deferred (Phase 3) |
-| `cli` | Command-line interface (`testimonial record`, `run`, `explain`, `gaps`) | Active |
+| `inference-layer` | `@snoopi_deep` capture and inference edge construction | Planned (Phase 2) — tickets created |
+| `static-layer` | JET-based entrypoint analysis and static edge construction | Planned (Phase 3) — tickets created |
+| `cli` | Command-line interface (`testimonial record`, `run`, `explain`, `gaps`, `incidents`) | Active |
 
 ### Adapter protocol capabilities (Layer 2 — only used when spawned by testaruda)
 
 | Capability | Purpose | Status |
 |---|---|---|
-| `protocol-adapter` | JSON stdin/stdout protocol (handshake, discover, ingest, static-deps, fingerprint, run-args) | Planned |
+| `protocol-adapter` | JSON stdin/stdout protocol (handshake, discover, ingest, static-deps, fingerprint, run-args) | Active |
 
-### Standalone-mode enhancements (Layer 1 extensions, useful without testaruda)
+### Standalone-mode enhancements (Layer 1 extensions)
 
 | Capability | Purpose | Status |
 |---|---|---|
-| `component-architecture` | Per-component indices, bottom-up resolution, cached selection | Planned (Phase 2) — essential for monorepo |
-| `safety-invariants` | Soundness invariant, always-run set, conservative fallback | Planned (Phase 2) — fallback core only; promotion protocol deferred |
-| `confidence-scoring` | Per-test confidence computation, threshold-based fallback gating | Deferred indefinitely |
-| `provenance` | Reason chains, exclusion reasoning, persisted provenance | Deferred indefinitely |
-| `runtime-feedback` | Post-run ingestion, runtime edge creation, run history | Deferred indefinitely |
-| `configuration` | `Testimonial.toml` parsing, tag overrides, selection caps | Deferred |
-| `ci-integration` | Two-workflow pattern (recording + PR), index artifact handling | Deferred |
+| `component-architecture` | Per-component indices, bottom-up resolution, cached selection | Active |
+| `safety-invariants` | Soundness invariant, always-run set, shadow mode, incident detection, reconciliation | Active |
+| `confidence-scoring` | Per-test confidence computation, threshold-based fallback gating | Active |
+| `provenance` | Reason chains, exclusion reasoning, persisted provenance | Active |
+| `runtime-feedback` | Post-run ingestion, runtime edge creation, run history | Active |
+| `configuration` | `Testimonial.toml` parsing, tag overrides, selection caps | Active |
+| `ci-integration` | Two-workflow pattern (recording + PR), index artifact handling | Active (nightly record + reconciliation workflows)
 
 ## Implementation Phases
 
