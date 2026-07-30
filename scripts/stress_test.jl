@@ -42,9 +42,22 @@ include(joinpath(@__DIR__, "..", "test", "helpers.jl"))
 # ── Configuration ──────────────────────────────
 
 const DEFAULT_REPOS = [
+    # Repos with @testitem usage (ReTestItems test framework)
     ("sashakile", "Testimonial.jl", "Testimonial.jl — test impact analysis"),
     ("JuliaTesting", "ReTestItems.jl", "ReTestItems — test framework with @testitem"),
-    ("JuliaTesting", "TestRecording.jl", "TestRecording — ReTestItems companion"),
+    # Real-world Julia packages (testaruda stress-test baseline)
+    # Note: most use @test blocks, not @testitem. They serve as a "no @testitem"
+    # baseline — the stress-test verifies graceful handling of repos without @testitem.
+    ("JuliaData", "CSV.jl", "CSV — parsing and writing CSV files"),
+    ("JuliaData", "DataFrames.jl", "DataFrames — in-memory tabular data"),
+    ("JuliaWeb", "HTTP.jl", "HTTP — HTTP client and server"),
+    ("JuliaIO", "JSON.jl", "JSON — JSON parsing and serialization"),
+    ("JuliaPlots", "Plots.jl", "Plots — plotting and visualization"),
+    ("FluxML", "Flux.jl", "Flux — machine learning"),
+    ("JuliaStats", "StatsBase.jl", "StatsBase — statistics"),
+    ("JuliaArrays", "StaticArrays.jl", "StaticArrays — statically sized arrays"),
+    ("JuliaIO", "HDF5.jl", "HDF5 — HDF5 file format I/O"),
+    ("SciML", "DifferentialEquations.jl", "DifferentialEquations — numerical solving"),
 ]
 
 struct StressConfig
@@ -245,7 +258,7 @@ function sample_source_files(repo_dir::String, config::StressConfig)::Vector{Str
     end
 
     if config.sample_count > 0 && length(files) > config.sample_count
-        files = sample(files, config.sample_count, replace=false)
+        files = sort(files)[1:config.sample_count]
     end
 
     return sort(files)
