@@ -85,3 +85,34 @@ end
     @test !isempty(lines)
     @test any(contains(l, "test_y") for l in lines)
 end
+
+# ── format_impact_result_grouped ──────────────
+
+@testset "format_impact_result_grouped groups STATIC links under Static heading" begin
+    ref = TestItemRef("/proj/test/foo_test.jl", 10, "test_a")
+    link = ProvenanceLink(STATIC, "src/lib.jl", "static analysis edge", nothing)
+    r = ImpactReason(AlwaysRun, "static edge: src/lib.jl -> test_a", [link])
+    result = ImpactResult(ref, [r], true)
+
+    lines = Testimonial.format_impact_result_grouped(result)
+    @test !isempty(lines)
+    @test any(contains(l, "test_a") for l in lines)
+    @test any(contains(l, "STATIC") for l in lines)
+    @test any(contains(l, "src/lib.jl") for l in lines)
+    @test any(contains(l, "static analysis edge") for l in lines)
+end
+
+@testset "format_impact_result_grouped shows STATIC layer in summary" begin
+    ref = TestItemRef("/proj/test/foo_test.jl", 10, "test_a")
+    cov_link = ProvenanceLink(COVERAGE, "src/lib.jl:42", "executed line 42", nothing)
+    static_link = ProvenanceLink(STATIC, "src/lib.jl", "static analysis edge", nothing)
+    r = ImpactReason(AlwaysRun, "static + coverage edges", [cov_link, static_link])
+    result = ImpactResult(ref, [r], true)
+
+    lines = Testimonial.format_impact_result_grouped(result)
+    @test any(contains(l, "STATIC") for l in lines)
+    @test any(contains(l, "COVERAGE") for l in lines)
+    # Summary mentions union of layers
+    @test any(contains(l, "union of 2 layers") for l in lines)
+    @test any(contains(l, "COVERAGE, STATIC") || contains(l, "STATIC, COVERAGE") for l in lines)
+end

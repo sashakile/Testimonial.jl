@@ -52,5 +52,6 @@ include("test_shard_balance.jl")
     include("test_flaky_detector.jl")
     include("test_confidence.jl")
     include("test_inference_edges.jl")
+    include("test_format_reason.jl")
     include("test_static_analysis.jl")
 end
