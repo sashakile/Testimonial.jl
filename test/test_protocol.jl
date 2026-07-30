@@ -999,6 +999,90 @@ end
     end
 end
 
+@testset "Static-deps uses static edges from CoverageIndex when no session coverage" begin
+    empty!(Protocol.session_coverage)
+    empty!(Protocol.session_static_edges)
+
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_foo.jl")
+        write(test_file, """@testitem "test_a" begin @test 1==1 end""")
+
+        # Create a CoverageIndex with static_edges
+        ref = Testimonial.TestItemRef(test_file, 1, "test_a")
+        ic = Testimonial.ItemCoverage(ref, [1, 2, 3], Int[], Dict())
+        items = Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}(ref => ic)
+
+        static_edges = Dict{String, Set{Testimonial.TestItemRef}}(
+            "src/lib.jl" => Set([ref]),
+        )
+
+        index = Testimonial.CoverageIndex(
+            items,
+            "abc1234",
+            string(VERSION),
+            v"0.1.0",
+            now(),
+            "",
+            Dict{String, Set{String}}(),
+            Dict{Testimonial.TestItemRef, Vector{Tuple{String, Int}}}(),
+            Dict{Testimonial.TestItemRef, Vector{Tuple{String, String, Int, String, String, Int}}}(),
+            static_edges,
+            Dict{Symbol, Any}(),
+            0, 0, 1,
+        )
+
+        # Save index to disk
+        testimonial_dir = joinpath(dir, ".testimonial")
+        mkpath(testimonial_dir)
+        index_path = joinpath(testimonial_dir, "index.jls")
+        open(index_path, "w") do io
+            serialize(io, index)
+        end
+
+        # Change to the temp dir so _ensure_session_static_edges_loaded can find the index
+        orig_dir = pwd()
+        cd(dir)
+        try
+            # static-deps with no session coverage should use static edges
+            sd_cmd = """{"command":"static-deps","params":{"changed_files":["src/lib.jl"]}}"""
+            sd_resp = Protocol.handle(sd_cmd)
+            sd = JSON.parse(sd_resp)
+
+            @test sd["ok"] == true
+            @test haskey(sd["result"], "edges")
+            edges = sd["result"]["edges"]
+            @test length(edges) > 0
+
+            # Should find an edge from the static analysis
+            found_static_edge = false
+            for edge in edges
+                if edge["origin"] == "static" && edge["to"] == "src/lib.jl"
+                    found_static_edge = true
+                    @test edge["from"] == "$(test_file):1"
+                    @test edge["weight"] == 1_000_000
+                end
+            end
+            @test found_static_edge
+        finally
+            cd(orig_dir)
+        end
+    end
+end
+
+@testset "Static-deps falls back to unresolved when no static data exists" begin
+    empty!(Protocol.session_coverage)
+    empty!(Protocol.session_static_edges)
+
+    # No index file exists — should return empty edges (unresolved fallback)
+    sd_cmd = """{"command":"static-deps","params":{"changed_files":["src/unknown.jl"]}}"""
+    sd_resp = Protocol.handle(sd_cmd)
+    sd = JSON.parse(sd_resp)
+
+    @test sd["ok"] == true
+    @test haskey(sd["result"], "edges")
+    @test isempty(sd["result"]["edges"])
+end
+
 # ── @testset discovery (Base.Test support) ────
 
 @testset "Discover: @testset returns suite_kind Base.Test" begin

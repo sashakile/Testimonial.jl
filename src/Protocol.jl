@@ -21,6 +21,17 @@ Queried by the `static-deps` handler (PROTO-005).
 const session_coverage = Dict{String, Any}()
 
 """
+In-memory session static edges, keyed by source file path, valued by
+sets of node IDs (test_file:line). Populated from CoverageIndex.static_edges
+when a CoverageIndex is available on disk.
+
+Used by the `static-deps` handler (PROTO-005) to provide concrete
+dependency edges based on static analysis (abstract dispatch, declared
+entrypoints) when no in-session coverage has been recorded.
+"""
+const session_static_edges = Dict{String, Set{String}}()
+
+"""
     run_adapter_protocol()
 
 Main loop: reads JSON commands from stdin, dispatches to handlers,
@@ -29,6 +40,7 @@ writes JSON responses to stdout. Exits cleanly on EOF.
 function run_adapter_protocol()
     # Clear session state from any previous invocation in the same process
     empty!(session_coverage)
+    empty!(session_static_edges)
 
     while !eof(stdin)
         line = readline(stdin)
@@ -922,19 +934,27 @@ DepEdge format: `[{from, to, weight, origin}]` where:
 - `weight` is 1_000_000 (multiplicative identity)
 - `origin` is "static"
 
-When session_coverage is empty (no ingest done), returns an empty
-array. The core's fallback logic (unresolved content units) handles
-this case by selecting all tests.
+When session_coverage is empty (no ingest done), checks `session_static_edges`
+for static analysis data. If static edges are available, emits concrete
+edges from the static analysis. If neither is available, returns an empty
+array (the core's fallback logic marks files as "unresolved").
 """
 function _build_static_edges(changed_files)
     edges = Vector{Dict{String, Any}}()
 
     if isempty(session_coverage)
-        # No coverage recorded yet — emit no edges.
+        # No coverage recorded yet — try static edges from the CoverageIndex
+        _ensure_session_static_edges_loaded()
+        if !isempty(session_static_edges)
+            return _emit_static_edges(changed_files)
+        end
+        # No coverage and no static data — emit no edges.
         # The core marks changed files without content units as "unresolved"
         # and falls back to full-run selection for low-confidence items.
         return edges
     end
+
+
 
     # Build a set of normalized file paths from changed_files for O(1) lookup
     changed_set = Set{String}()
@@ -971,6 +991,95 @@ function _build_static_edges(changed_files)
             push!(edges, Dict{String, Any}(
                 "from" => node_id,
                 "to" => file,
+                "weight" => 1_000_000,
+                "origin" => "static"
+            ))
+        end
+    end
+
+    return edges
+end
+
+"""
+    _ensure_session_static_edges_loaded()
+
+Load static edges from the CoverageIndex on disk into `session_static_edges`
+if not already loaded.
+
+Reads `.testimonial/index.jls` and extracts `static_edges`
+(`Dict{String, Set{TestItemRef}}`), converting each TestItemRef to a node_id
+format (`file:line`).
+
+Does nothing if the index file doesn't exist, can't be deserialized, or
+has no static_edges. Does nothing if already loaded (idempotent).
+"""
+function _ensure_session_static_edges_loaded()
+    isempty(session_static_edges) || return nothing
+
+    parent = Base.parentmodule(@__MODULE__)
+    index_path = ".testimonial/index.jls"
+
+    index = try
+        parent.load_index(index_path)
+    catch
+        nothing
+    end
+
+    index === nothing && return nothing
+    isempty(index.static_edges) && return nothing
+
+    # Convert TestItemRefs to node_id format (file:line)
+    for (src_file, test_items) in index.static_edges
+        isempty(test_items) && continue
+        node_ids = Set{String}()
+        for ref in test_items
+            push!(node_ids, "$(ref.file):$(ref.line)")
+        end
+        session_static_edges[src_file] = node_ids
+    end
+
+    return nothing
+end
+
+"""
+    _emit_static_edges(changed_files) -> Vector{Dict}
+
+Emit DepEdge entries for changed files that have static analysis edges
+in `session_static_edges`.
+
+Called by `_build_static_edges` when `session_coverage` is empty but
+static edges are available.
+"""
+function _emit_static_edges(changed_files)
+    edges = Vector{Dict{String, Any}}()
+
+    # Normalize changed file paths (resolve if possible, fall back to absolute)
+    changed_set = Set{String}()
+    for f in changed_files
+        norm_f = _normalize_path(f)
+        if norm_f !== nothing
+            push!(changed_set, norm_f)
+        else
+            # File doesn't exist on disk — use absolute path as fallback
+            abs_f = isabspath(f) ? f : joinpath(pwd(), f)
+            push!(changed_set, abs_f)
+        end
+    end
+
+    for (src_file, node_ids) in session_static_edges
+        # Normalize the static edge source file path
+        norm_src = _normalize_path(src_file)
+        if norm_src === nothing
+            # File doesn't exist — use absolute path as fallback
+            norm_src = isabspath(src_file) ? src_file : joinpath(pwd(), src_file)
+        end
+
+        norm_src in changed_set || continue
+
+        for node_id in node_ids
+            push!(edges, Dict{String, Any}(
+                "from" => node_id,
+                "to" => norm_src,
                 "weight" => 1_000_000,
                 "origin" => "static"
             ))
