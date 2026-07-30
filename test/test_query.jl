@@ -720,3 +720,158 @@ end
     @test link.layer == Testimonial.INFERRED
     @test link.content_unit == "src/lib.jl"
 end
+
+# ── StaticProvider ────────────────────────
+
+@testset "static_provider selects tests when source file has static edges" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+        ("test/bar.jl", "test_bar", [4, 5, 6]),
+    ])
+
+    foo_ref = Testimonial.TestItemRef("test/foo.jl", 1, "test_foo")
+    bar_ref = Testimonial.TestItemRef("test/bar.jl", 1, "test_bar")
+
+    # Add static edges: src/lib.jl -> {test_foo, test_bar}
+    index = Testimonial.CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        index.runtime_edges,
+        index.inference_edges,
+        Dict{String, Set{Testimonial.TestItemRef}}(
+            "src/lib.jl" => Set([foo_ref, bar_ref]),
+        ),
+        index.layer_data,
+        index.failed_item_count,
+        index.total_discovered_items,
+        index.available_layers,
+    )
+
+    # When src/lib.jl changes, both test_foo and test_bar should be selected
+    result = Testimonial.static_provider(index, ["src/lib.jl"])
+    @test length(result) == 2
+    names = sort([r.item.name for r in result])
+    @test names == ["test_bar", "test_foo"]
+    @test all(r -> r.selected == true, result)
+    @test all(r -> any(re -> re.kind == Testimonial.AlwaysRun, r.reasons), result)
+end
+
+@testset "static_provider returns empty when no static edges match" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+    ])
+
+    foo_ref = Testimonial.TestItemRef("test/foo.jl", 1, "test_foo")
+    index = Testimonial.CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        index.runtime_edges,
+        index.inference_edges,
+        Dict{String, Set{Testimonial.TestItemRef}}(
+            "src/lib.jl" => Set([foo_ref]),
+        ),
+        index.layer_data,
+        index.failed_item_count,
+        index.total_discovered_items,
+        index.available_layers,
+    )
+
+    # Different file changed — no match
+    result = Testimonial.static_provider(index, ["src/other.jl"])
+    @test isempty(result)
+end
+
+@testset "static_provider handles empty static_edges" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+    ])
+
+    # default static_edges is empty Dict
+    result = Testimonial.static_provider(index, ["src/lib.jl"])
+    @test isempty(result)
+end
+
+@testset "static_provider integrates with query" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+        ("test/bar.jl", "test_bar", [4, 5, 6]),
+    ])
+
+    foo_ref = Testimonial.TestItemRef("test/foo.jl", 1, "test_foo")
+    index = Testimonial.CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        index.runtime_edges,
+        index.inference_edges,
+        Dict{String, Set{Testimonial.TestItemRef}}(
+            "src/lib.jl" => Set([foo_ref]),
+        ),
+        index.layer_data,
+        index.failed_item_count,
+        index.total_discovered_items,
+        index.available_layers,
+    )
+
+    providers = [
+        Testimonial.static_provider,
+    ]
+    changed = Dict{String, Set{Int}}(
+        "src/lib.jl" => Set([42, 43]),
+    )
+
+    results = Testimonial.query(providers, index, changed)
+    @test length(results) == 1
+    @test results[1].item.name == "test_foo"
+    @test results[1].selected == true
+end
+
+@testset "static_provider creates provenance link with STATIC LayerKind" begin
+    index = make_test_index([
+        ("test/foo.jl", "test_foo", [1, 2, 3]),
+    ])
+
+    fref = Testimonial.TestItemRef("test/foo.jl", 1, "test_foo")
+    index = Testimonial.CoverageIndex(
+        index.items,
+        index.git_hash,
+        index.julia_version,
+        index.schema_version,
+        index.created_at,
+        index.environment_fingerprint,
+        index.inter_component_edges,
+        index.runtime_edges,
+        index.inference_edges,
+        Dict{String, Set{Testimonial.TestItemRef}}(
+            "src/lib.jl" => Set([fref]),
+        ),
+        index.layer_data,
+        index.failed_item_count,
+        index.total_discovered_items,
+        index.available_layers,
+    )
+
+    results = Testimonial.static_provider(index, ["src/lib.jl"])
+    @test length(results) == 1
+    r = results[1]
+    @test length(r.reasons) == 1
+    reason = r.reasons[1]
+    @test !isempty(reason.chain)
+    link = reason.chain[1]
+    @test link.layer == Testimonial.STATIC
+    @test link.content_unit == "src/lib.jl"
+end

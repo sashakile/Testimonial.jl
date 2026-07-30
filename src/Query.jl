@@ -13,6 +13,7 @@ export query_files, coverage_gaps, nearest_covered_lines,
        query, direct_change_provider, unresolved_provider,
        must_run_provider, manual_edge_provider, runtime_edge_provider,
        inference_provider,
+       static_provider,
        external_input_provider, coverage_provider
 
 # ── Helpers ───────────────────────────────────
@@ -547,6 +548,73 @@ function inference_provider(index, changed_files::Vector{String}; component::Uni
         ]
         reason = parent.ImpactReason(parent.AlwaysRun, "inference edge: $(file_list) changed -> $(ref.name)", links)
         push!(results, parent.ImpactResult(ref, [reason], true))
+    end
+
+    return results
+end
+
+"""
+    static_provider(index, changed_files) -> Vector{ImpactResult}
+
+Provider: for source files with static_edges, returns `AlwaysRun` reasons
+when a changed file matches any static edge source file in the index.
+
+Reads static edges from `index.static_edges` (testimonial-777t). For each
+source file in the static_edges dict, if any changed file path matches
+(suffix match), the associated test items are selected. Static analysis
+is additive — it never removes selections (openspec/project.md — static-layer).
+
+This is a provider function suitable for use with `query`.
+"""
+function static_provider(index, changed_files::Vector{String}; component::Union{String,Nothing}=nothing)::Vector
+    parent = _parent()
+
+    isempty(index.static_edges) && return parent.ImpactResult[]
+    isempty(changed_files) && return parent.ImpactResult[]
+
+    results = parent.ImpactResult[]
+    seen = Set{Pair{String, String}}()
+
+    for (src_file, test_items) in index.static_edges
+        isempty(test_items) && continue
+
+        # Check if any changed file matches this static edge source file
+        matched = false
+        if any(f -> endswith(f, src_file), changed_files)
+            matched = true
+        end
+
+        if !matched
+            continue
+        end
+
+        for ref in test_items
+            # Filter by component if specified
+            if component !== nothing
+                if ref.component == "" || ref.component != component
+                    continue
+                end
+            end
+
+            key = ref.file => ref.name
+            if key in seen
+                continue
+            end
+            push!(seen, key)
+
+            link = parent.ProvenanceLink(
+                parent.STATIC,
+                src_file,
+                "static analysis edge",
+                nothing,
+            )
+            reason = parent.ImpactReason(
+                parent.AlwaysRun,
+                "static edge: $(src_file) -> $(ref.name)",
+                [link],
+            )
+            push!(results, parent.ImpactResult(ref, [reason], true))
+        end
     end
 
     return results
