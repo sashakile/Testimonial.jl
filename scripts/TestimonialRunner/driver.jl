@@ -160,6 +160,7 @@ end
 # ── Read environment ──────────────────────────
 
 test_file = get(ENV, "TESTIMONIAL_FILE", nothing)
+test_run_all = get(ENV, "TESTIMONIAL_RUN_ALL", nothing) == "true"
 test_item = get(ENV, "TESTIMONIAL_ITEM", nothing)
 test_items_raw = get(ENV, "TESTIMONIAL_ITEMS", nothing)
 
@@ -168,16 +169,22 @@ if test_file === nothing
     exit(3)
 end
 
-# Batch form takes precedence; single-item form is the fallback.
-item_names = if test_items_raw !== nothing
-    filter(!isempty, split(test_items_raw, "\n"))
+if test_run_all
+    # File-level mode: run all tests in the file without filtering by name
+    item_names = String[]
+    # Pass the test file directly to runtests
 else
-    test_item === nothing ? String[] : String[test_item]
-end
+    # Batch form takes precedence; single-item form is the fallback.
+    item_names = if test_items_raw !== nothing
+        filter(!isempty, split(test_items_raw, "\n"))
+    else
+        test_item === nothing ? String[] : String[test_item]
+    end
 
-if isempty(item_names)
-    println(stderr, "driver.jl: missing TESTIMONIAL_ITEM or TESTIMONIAL_ITEMS")
-    exit(3)
+    if isempty(item_names)
+        println(stderr, "driver.jl: missing TESTIMONIAL_ITEM or TESTIMONIAL_ITEMS")
+        exit(3)
+    end
 end
 
 if !isfile(test_file)
@@ -216,7 +223,17 @@ push!(LOAD_PATH, pkg_under_test)
 trace_path = joinpath(pwd(), "inference_trace.jls")
 
 try
-    if HAS_SNOOPCOMPILE[]
+    if test_run_all
+        # File-level mode: run all tests in the file without filtering
+        if HAS_SNOOPCOMPILE[]
+            result = _capture_item(test_file, String[], USE_V3_API[])
+            extract_fn = USE_V3_API[] ? _extract_edges_tree : _extract_edges_table
+            edges = extract_fn(result)
+            Serialization.serialize(trace_path, edges)
+        else
+            ReTestItems.runtests(test_file)
+        end
+    elseif HAS_SNOOPCOMPILE[]
         result = _capture_item(test_file, item_names, USE_V3_API[])
         extract_fn = USE_V3_API[] ? _extract_edges_tree : _extract_edges_table
         edges = extract_fn(result)

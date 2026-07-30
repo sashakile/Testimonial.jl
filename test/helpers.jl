@@ -45,3 +45,14 @@ function Testimonial.record_batch(runner::MockRunner, refs::Vector{Testimonial.T
     end
     return [Testimonial.ItemCoverage(r, Int[], Int[], Dict()) for r in refs]
 end
+
+"""Record file-level coverage using MockRunner — captures command, doesn't spawn."""
+function Testimonial.record_file(runner::MockRunner, test_file::String)
+    cmd, env = Testimonial.build_driver_command(test_file)
+    lock(runner.lock) do
+        push!(runner.captured_cmd, cmd...)
+        merge!(runner.captured_env, env)
+    end
+    ref = Testimonial.TestItemRef(test_file, 0, basename(test_file))
+    return Testimonial.ItemCoverage(ref, Int[], Int[], Dict())
+end

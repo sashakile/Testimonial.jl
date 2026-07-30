@@ -2893,7 +2893,7 @@ export parse_unified_diff
 
 include("CoverageLayer.jl")
 using .CoverageLayer
-export record_item, record_batch, build_driver_command, AbstractRunner, SubprocessRunner, parse_cov_sidecar
+export record_item, record_batch, record_file, build_driver_command, AbstractRunner, SubprocessRunner, parse_cov_sidecar
 export InferenceEdge, parse_inference_trace, inference_content_units, merge_inference_edges
 
 include("StaticLayer.jl")

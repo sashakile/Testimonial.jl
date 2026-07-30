@@ -7,7 +7,7 @@
 
 module CoverageLayer
 
-export record_item, record_batch, build_driver_command, AbstractRunner, SubprocessRunner,
+export record_item, record_file, record_batch, build_driver_command, AbstractRunner, SubprocessRunner,
        parse_cov_sidecar, run_with_timeout, with_retry,
        TIMEOUT_PER_ITEM_DEFAULT, MAX_TIMEOUT_PER_ITEM, MAX_RETRIES,
        InferenceEdge, parse_inference_trace, inference_content_units
@@ -417,6 +417,65 @@ function record_batch(runner::SubprocessRunner, refs::Vector)
 
     test_covered, test_uncovered, source_files = _collect_coverage(test_file, parent)
     return [parent.ItemCoverage(ref, test_covered, test_uncovered, source_files) for ref in refs]
+end
+
+# ── File-level recording ────────────────────────
+
+"""
+    build_driver_command(test_file::AbstractString; runner_dir=...) -> Tuple{Vector{String}, Dict{String, String}}
+
+File-level variant: build the subprocess command for running ALL tests
+in a file (not filtered by @testitem name). Sets `TESTIMONIAL_RUN_ALL=true`
+so the driver runs via `ReTestItems.runtests(test_file)` without filtering.
+
+Used for recording coverage of @testset-based repos where individual test
+blocks cannot be isolated in separate subprocesses.
+"""
+function build_driver_command(
+    test_file::AbstractString;
+    runner_dir::AbstractString="scripts/TestimonialRunner"
+)::Tuple{Vector{String}, Dict{String, String}}
+    cmd = _base_driver_cmd(runner_dir)
+    env = Dict{String, String}(
+        "TESTIMONIAL_FILE" => String(test_file),
+        "TESTIMONIAL_RUN_ALL" => "true",
+    )
+    return (cmd, env)
+end
+
+"""
+    record_file(runner::AbstractRunner, test_file::AbstractString) -> Union{ItemCoverage, Nothing}
+
+Record coverage for all tests in a file as a single subprocess invocation.
+Returns a single `ItemCoverage` attributed to the file as a whole (line=0).
+
+This is the file-level equivalent of `record_item`. Used for @testset-based
+repos where individual test blocks cannot be isolated in subprocesses.
+
+Returns `nothing` if the file doesn't exist or the subprocess fails.
+"""
+function record_file(runner::AbstractRunner, test_file::AbstractString)
+    parent = Base.parentmodule(@__MODULE__)
+
+    if !isfile(test_file)
+        return nothing
+    end
+
+    cmd, env = build_driver_command(test_file; runner_dir=runner.runner_dir)
+
+    exitcode = with_retry(runner.timeout) do timeout
+        run_with_timeout(cmd, env, timeout)
+    end
+
+    if exitcode === nothing
+        return nothing
+    end
+
+    test_covered, test_uncovered, source_files = _collect_coverage(test_file, parent)
+
+    # Create a file-level ref (line=0, name=filename)
+    ref = parent.TestItemRef(test_file, 0, basename(test_file))
+    return parent.ItemCoverage(ref, test_covered, test_uncovered, source_files)
 end
 
 """
