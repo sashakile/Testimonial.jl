@@ -76,8 +76,8 @@ Three analysis layers stack for complete coverage:
 | `coverage-index` | `CoverageIndex` data model, persistence (`.testimonial/index.jls`) | Active |
 | `recording` | Per-item subprocess recording, parallelism, index construction | Active |
 | `smart-selection` | Git diff → query pipeline, coverage gap detection, `testimonial run` | Active |
-| `inference-layer` | `@snoopi_deep` capture and inference edge construction | Planned (Phase 2) — tickets created |
-| `static-layer` | JET-based entrypoint analysis and static edge construction | Planned (Phase 3) — tickets created |
+| `inference-layer` | `@snoopi_deep` capture and inference edge construction | Active (Phase 2) |
+| `static-layer` | JET-based entrypoint analysis and static edge construction | Active (Phase 3) |
 | `cli` | Command-line interface (`testimonial record`, `run`, `explain`, `gaps`, `incidents`) | Active |
 
 ### Adapter protocol capabilities (Layer 2 — only used when spawned by testaruda)
@@ -102,8 +102,8 @@ Three analysis layers stack for complete coverage:
 
 Per the specification:
 - **Phase 1 (MVP):** coverage layer core + standalone CLI — `Types`, `Persistence`, `ASTParser`, `GitDiff`, `CoverageLayer`, `IndexBuilder`, `Query`, `Testimonial.jl` (CLI entry points: `record`, `run`, `explain`, `gaps`). Plus the adapter protocol entry point (`testimonial adapter`).
-- **Phase 2:** inference layer — `@snoopi_deep` capture and inference edges
-- **Phase 3:** static layer — JET entrypoint analysis, `Testimonial.toml` config
+- **Phase 2:** inference layer — `@snoopi_deep` capture and inference edges ✅
+- **Phase 3:** static layer — JET entrypoint analysis, `Testimonial.toml` config ✅
 - **Phases 2–3** update both the standalone CLI and the adapter protocol's `static-deps`/`ingest` handlers.
 
 ## Tech Stack
