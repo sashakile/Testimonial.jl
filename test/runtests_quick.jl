@@ -54,4 +54,5 @@ include("test_shard_balance.jl")
     include("test_inference_edges.jl")
     include("test_format_reason.jl")
     include("test_static_analysis.jl")
+    include("test_static_integration.jl")
 end
