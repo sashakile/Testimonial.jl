@@ -1,0 +1,48 @@
+# Testimonial.jl — LLM Context
+
+Testimonial is a Julia-native test impact analysis engine. Given a git diff, it selects the minimal set of @testitems that must run.
+
+## Three Analysis Layers
+- **Coverage** (`--code-coverage=user`): precise line attribution (~95% of PRs)
+- **Inference** (`SnoopCompile.@snoopi_deep`): newly added methods not yet in coverage
+- **Static** (`JET.report_package`): abstract dispatch paths, declared entrypoints
+
+Layers are additive — never remove selections.
+
+## Key Files
+- `src/Testimonial.jl` — main module, types, CLI, public API
+- `src/Protocol.jl` — adapter protocol (handshake, discover, ingest, static-deps, fingerprint, run-args)
+- `src/CoverageLayer.jl` — subprocess recording, coverage parsing
+- `src/Query.jl` — impact analysis providers (coverage, inference, static, runtime, direct change)
+- `src/StaticLayer.jl` — JET-based static analysis
+- `src/IndexBuilder.jl` — index construction, caching, per-component persistence
+- `src/GitDiff.jl` — unified diff parsing
+- `src/CLI.jl` — command-line interface
+- `scripts/TestimonialRunner/driver.jl` — subprocess driver for coverage/inference recording
+
+## Architecture
+- Two-layer: standalone CLI (Layer 1) + protocol adapter for testaruda (Layer 2)
+- Per-item subprocess isolation (coverage counters can't be reset in-process)
+- Dual-indexed CoverageIndex (line_to_tests + test_to_lines)
+- Conservative fallback: run all on staleness, missing index, or coverage gaps
+
+## Protocol Commands (stdin/stdout JSON)
+- `handshake` — capabilities, version, languages
+- `discover` — find @testitem blocks in test directories
+- `ingest` — record coverage from run_output, returns runtime_edges + inference_edges
+- `static-deps` — return dependency edges for changed files (DepEdge array format)
+- `fingerprint` — SHA-256 file hash
+- `run-args` — ReTestItems.runtests invocation args
+
+## Key Types
+- `CoverageIndex` — items, git_hash, inference_edges, static_edges, layer_data, runtime_edges
+- `TestItemRef` — file, line, name, tags, component, file_hash
+- `ItemCoverage` — covered_lines, uncovered_lines, source_files
+- `InferenceEdge` — (caller_name, caller_file, caller_line, callee_name, callee_file, callee_line)
+- `ImpactResult` — item, reasons, selected
+- `ImpactReason` — kind (DirectChange, AlwaysRun, Unresolved), detail, provenance_links
+
+## Dependencies
+- Julia >= 1.11 (1.12+ recommended for workspace monorepos)
+- ReTestItems.jl, Coverage.jl, SnoopCompile.jl, JET.jl
+- JSON.jl for protocol serialization

@@ -29,6 +29,8 @@ just --list
 |---------|-------------|
 | **Coverage Recording** | Per-item subprocess recording with parallel execution and cache |
 | **Smart Selection** | Git diff → query → run only affected tests |
+| **Inference Layer** | `@snoopi_deep` capture for newly added methods not yet in coverage |
+| **Static Analysis** | JET-based entrypoint and abstract dispatch analysis |
 | **[Confidence Scoring](https://sashakile.github.io/Testimonial.jl/configuration/)** | 4 signals with threshold-based fallback |
 | **[Provenance & Explainability](https://sashakile.github.io/Testimonial.jl/architecture/)** | Reason chains, exclusion reasoning, persisted provenance |
 | **[Safety Invariants](https://sashakile.github.io/Testimonial.jl/architecture/)** | Always-run set, shadow mode, incident detection, flaky quarantine |

@@ -31,7 +31,19 @@ Testimonial.jl operates in two deployment modes sharing the same core:
 
 The core is independently useful as a standalone tool. The protocol layer reuses the same internals without duplicating orchestration logic.
 
-## Core Data Flow
+### Three Analysis Layers
+
+Testimonial uses three complementary analysis layers for complete coverage:
+
+| Layer | Mechanism | Primary Use |
+|---|---|---|
+| **Coverage** | `--code-coverage=user` | Precise line attribution (~95% of PRs) |
+| **Inference** | `SnoopCompile.@snoopi_deep` | Newly added methods not yet in coverage |
+| **Static** | `JET.report_package` | Abstract dispatch paths, declared entrypoints |
+
+Layers are additive: inference and static edges never remove selections, only add them.
+
+## Data Flow
 
 ```
 Code change (git diff)
@@ -72,7 +84,7 @@ Code change (git diff)
 | `Query.jl` | Impact analysis (direct change, dependency), coverage gap detection |
 | `GitDiff.jl` | Unified diff parsing (new, deleted, renamed files) |
 | `Protocol.jl` | testaruda adapter protocol handlers (discover, ingest, static-deps, fingerprint, run-args) |
-| `StaticLayer.jl` | Static analysis layer (planned: JET-based entrypoint analysis) |
+| `StaticLayer.jl` | Static analysis (JET-based entrypoint analysis, abstract dispatch) |
 
 ## Recording Pipeline
 

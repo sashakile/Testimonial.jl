@@ -13,26 +13,85 @@ All notable changes to Testimonial.jl are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] — 2026-07-29 — Highlights
+## [0.3.0] — 2026-07-30 — Highlights
 
 **For users:**
-- 🎯 **Smart selection** — Git diff → query → run only affected tests, turning 30-min CI into 30-sec feedback
-- 🛡️ **Safety invariants** — Shadow mode, incident detection, always-run set, flaky quarantine, reconciliation
-- 📊 **Confidence scoring** — 4-signal quality indicator with threshold-based fallback
-- 🔍 **Provenance & explainability** — Reason chains showing why a test was selected or excluded
-- 🧩 **Component boundary** — Per-component indices for monorepo support
-- 🔌 **Protocol adapter** — JSON stdin/stdout for testaruda integration
-- ⚡ **Runtime feedback** — Post-run ingestion, edge learning, run history
+- 🔬 **Inference Layer (Phase 2)** — `@snoopi_deep` capture, `InferenceProvider` in query pipeline, inference edges in adapter ingest
+- 🏗️ **Static Layer (Phase 3)** — JET-based entrypoint analysis, `StaticProvider`, `StaticLayerKind`
+- 🔌 **Protocol adapter enhancements** — `static-deps` handler returns DepEdge array format, `inference_edges` in ingest response
+- 📖 **Documentation overhaul** — Diátaxis restructure, tutorial, how-to, error reference, AI-readiness (llms.txt)
 
 **For developers:**
-- CI pipeline: nightly recording + PR smart selection
-- Lefthook pre-commit/pre-push hooks for code quality
-- 53 dont claims and espectacular spec-level validation
-- 7 openspec change proposals archived
+- All 3 analysis layers (coverage, inference, static) now complete and active
+- 1250+ quick tests across all layers
+- 3-layer integration tests for multi-provider query pipeline
 
 ---
 
 ## Detailed Changes
+
+## [0.3.0] — 2026-07-30
+
+### Added
+
+#### Inference Layer (Phase 2)
+- `inference_edges` field on `CoverageIndex` (caller→callee 6-tuples per `TestItemRef`)
+- `parse_inference_trace()` — deserializes driver.jl `inference_trace.jls` sidecar
+- `inference_content_units()` — projects caller source locations as deduped content units
+- `merge_inference_edges()` — additive, deduped merge preserving all other index fields
+- `InferenceProvider` — query provider selecting tests when inference edge caller files change
+- `INFERRED` LayerKind in provenance links
+- `InferenceEdge` type exported from `Testimonial`
+- Inference trace capture in driver.jl (SnoopCompile `@snoopi_deep` wrapper)
+- Inference trace sidecar cleaned up after consumption (not in `_collect_coverage`)
+- `inference_edges` in adapter ingest response (DepEdge array format, `origin: "inference"`)
+- 3 integration tests for multi-provider (runtime + inference) query pipeline
+
+#### Static Layer (Phase 3)
+- `static_edges` field on `CoverageIndex` (file → `Set{TestItemRef}`)
+- `layer_data` field on `CoverageIndex` for extensible metadata
+- `StaticLayer` module with `run_static_analysis()` — JET-based entrypoint analysis with graceful fallback to function-name scanning
+- `StaticProvider` — query provider for static analysis edges
+- `StaticLayerKind` in explain output and provenance links
+- Static-deps handler returns structured DepEdge array format
+- Enhanced `static-deps` handler: concrete edges from `session_static_edges` when available, empty array fallback
+- `_ensure_session_static_edges_loaded()` — loads static edges from `CoverageIndex` on disk
+- `_emit_static_edges()` — emits DepEdge entries from static analysis data
+- 7 static layer integration tests
+
+#### Protocol Adapter
+- `static-deps` handler returns DepEdge array `[{from, to, weight, origin}]` instead of `{file → "unresolved"}` dict
+- `inference_edges` field in ingest response alongside `runtime_edges`
+- `_build_inference_edges()` — reads inference trace, parses, builds DepEdge entries
+- `_cleanup_inference_trace()` in IndexBuilder for stale trace cleanup
+- Batch coverage recording by file in `_handle_ingest_run_output`
+
+#### Documentation
+- Full Diátaxis restructure (tutorial, how-to, explanation, reference)
+- Getting Started tutorial (`docs/src/tutorial.md`)
+- How-to guide for component boundaries (`docs/src/howto-components.md`)
+- Error Reference with troubleshooting tables (`docs/src/errors.md`)
+- Expanded Architecture: data flow diagrams, pipelines, CI artifact flow
+- AI-readiness: `llms.txt`, YAML front matter on all pages, TL;DR summaries
+- Documenter.jl Pages deployment (no `gh-pages` branch)
+- Custom CSS for fixed header offset and top-bar nav tree fix
+
+### Changed
+- `static-deps` handler response format: array of DepEdge dicts instead of filename→status dict
+- `_collect_coverage` no longer cleans up inference trace — caller is responsible
+- `openspec/project.md` capability statuses updated (inference/static: Planned → Active)
+- Architecture doc updated: StaticLayer no longer "planned"
+
+### Fixed
+- `StringIndexError` in `dont list` from multi-byte UTF-8 (char-safe truncation)
+- `discover` handler default dir: use `pwd()` instead of `@__DIR__` for external adapter mode
+- SnoopCompile optional: supports Julia < 1.12 without inference (graceful fallback)
+- SnoopCompile v2/v3 dual dispatch via runtime eval
+- JET weakdep to avoid transitive dep conflict in Runner project
+- Batch coverage recording: file-grouped subprocess per file (not per-item)
+- Docs build: cross-build-directory link rejection fix
+- Docs deploy: use Pages API (no `gh-pages` branch)
+- Docs top bar: custom CSS for fixed header offset, nested nav tree fix
 
 ## [0.2.0] — 2026-07-29
 
