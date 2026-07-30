@@ -451,14 +451,59 @@ function _handle_ingest_run_output(cmd, params)
         end
     end
 
+    # Read inference trace sidecar if present (testimonial-3t08)
+    inference_edges = _build_inference_edges()
+
     return JSON.json(Dict{String, Any}(
         "ok" => true,
         "result" => Dict{String, Any}(
             "runtime_edges" => edge_dicts,
+            "inference_edges" => inference_edges,
             "per_test_results" => test_results,
             "external_inputs" => String[]
         )
     ))
+end
+
+"""
+    _build_inference_edges() -> Vector{Dict}
+
+Read the inference trace sidecar (`inference_trace.jls`) and convert each
+`InferenceEdge` (caller_name, caller_file, caller_line, callee_name,
+callee_file, callee_line) to a DepEdge dict with `origin: "inference"`.
+
+Returns an empty array if no trace file exists or parsing fails.
+Cleans up the trace file after reading.
+"""
+function _build_inference_edges()
+    parent = Base.parentmodule(@__MODULE__)
+    trace_path = joinpath(pwd(), "inference_trace.jls")
+
+    isfile(trace_path) || return Vector{Dict{String, Any}}()
+
+    edges = Vector{Dict{String, Any}}()
+    try
+        raw_edges = parent.parse_inference_trace(trace_path)
+        for e in raw_edges
+            # e is InferenceEdge: (caller_name, caller_file, caller_line, callee_name, callee_file, callee_line)
+            push!(edges, Dict{String, Any}(
+                "from" => "$(e[2]):$(e[3])",       # caller_file:caller_line
+                "to" => "$(e[5]):$(e[6])",          # callee_file:callee_line
+                "weight" => 1_000_000,
+                "origin" => "inference"
+            ))
+        end
+    catch
+        # If parsing fails, return empty (graceful degradation)
+    end
+
+    # Clean up the trace file
+    try
+        rm(trace_path; force=true)
+    catch
+    end
+
+    return edges
 end
 
 """

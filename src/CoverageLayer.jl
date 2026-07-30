@@ -477,13 +477,6 @@ function _collect_coverage(test_file::String, parent::Module)
             rm(tracefile; force=true)
         catch
         end
-        # Clean up the inference trace sidecar (testimonial-1v4f). The
-        # inference-layer parser (testimonial-be7o) will deserialize and
-        # consume this before cleanup once it is wired in.
-        try
-            rm(joinpath(pwd(), "inference_trace.jls"); force=true)
-        catch
-        end
     else
         # ── .jl.cov sidecar path (Julia < 1.12) ──
         pkg_root = _project_root()

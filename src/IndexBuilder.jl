@@ -291,6 +291,12 @@ function record_all(
                     end
                 end
             end
+
+            # Clean up stale inference trace sidecar (testimonial-3t08).
+            # The adapter ingest handler reads and cleans up the trace for
+            # adapter-mode recording; for index-build mode, the trace is
+            # not needed here and should be removed to avoid file pollution.
+            _cleanup_inference_trace()
         else
             # Allocate a per-thread lock for results (no contention on Dict)
             Threads.@threads for idx in record_indices
@@ -1185,6 +1191,24 @@ function invalidate_all_selection_caches()::Nothing
     components = parent.load_routing(".testimonial")
     for comp in components
         invalidate_selection_cache(string(comp))
+    end
+    return nothing
+end
+
+"""
+    _cleanup_inference_trace()
+
+Remove the stale inference trace sidecar (`inference_trace.jls`) from pwd
+if it exists. Called after batch recording when the trace is not consumed
+by this code path (the adapter ingest handler reads it instead).
+
+See testimonial-3t08.
+"""
+function _cleanup_inference_trace()
+    trace_path = joinpath(pwd(), "inference_trace.jls")
+    try
+        isfile(trace_path) && rm(trace_path; force=true)
+    catch
     end
     return nothing
 end

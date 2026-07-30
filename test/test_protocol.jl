@@ -7,6 +7,8 @@ using Testimonial.Protocol
 using Test
 using JSON
 using SHA
+using Dates
+using Serialization
 
 # ── Handshake handler (PROTO-002) ──────────────
 
@@ -885,22 +887,81 @@ end
     @test occursin("run_output", parsed["error"]["message"])
 end
 
+# ── Inference edges in ingest response ───────
+
+@testset "Ingest response includes inference_edges field" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_inf.jl")
+        write(test_file, """@testitem "inf" begin @test 1==1 end""")
+
+        disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        disc_resp = Protocol.handle(disc_cmd)
+        disc = JSON.parse(disc_resp)
+        node_id = disc["result"][1]["node_id"]
+
+        run_output = """{\"test_id\":\"$(node_id)\",\"outcome\":\"passed\"}"""
+        cmd_dict = Dict(
+            "command" => "ingest",
+            "params" => Dict("run_output" => run_output)
+        )
+        cmd = JSON.json(cmd_dict)
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        @test parsed["ok"] == true
+        @test haskey(parsed["result"], "inference_edges")
+        @test isa(parsed["result"]["inference_edges"], Vector)
+    end
+end
+
+@testset "Ingest inference_edges has DepEdge format" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_inf2.jl")
+        write(test_file, """@testitem "inf2" begin @test 1==1 end""")
+
+        disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        disc_resp = Protocol.handle(disc_cmd)
+        disc = JSON.parse(disc_resp)
+        node_id = disc["result"][1]["node_id"]
+
+        run_output = """{\"test_id\":\"$(node_id)\",\"outcome\":\"passed\"}"""
+        cmd_dict = Dict(
+            "command" => "ingest",
+            "params" => Dict("run_output" => run_output)
+        )
+        cmd = JSON.json(cmd_dict)
+        resp = Protocol.handle(cmd)
+        parsed = JSON.parse(resp)
+
+        edges = parsed["result"]["inference_edges"]
+        for edge in edges
+            @test haskey(edge, "from")
+            @test haskey(edge, "to")
+            @test haskey(edge, "weight")
+            @test haskey(edge, "origin")
+            @test edge["origin"] == "inference"
+        end
+    end
+end
+
 # ── Static-deps handler (PROTO-005) ───────────
 
-@testset "Static-deps unresolved when no coverage recorded" begin
+@testset "Static-deps empty when no coverage recorded" begin
     # Clear any session state from previous tests
     empty!(Protocol.session_coverage)
+    empty!(Protocol.session_static_edges)
 
     resp = Protocol.handle("""{"command":"static-deps","params":{"changed_files":["src/foo.jl"]}}""")
     parsed = JSON.parse(resp)
 
     @test parsed["ok"] == true
     @test haskey(parsed["result"], "edges")
-    @test parsed["result"]["edges"]["src/foo.jl"] == "unresolved"
+    @test parsed["result"]["edges"] == []
 end
 
-@testset "Static-deps multiple files all unresolved" begin
+@testset "Static-deps multiple files empty when no coverage" begin
     empty!(Protocol.session_coverage)
+    empty!(Protocol.session_static_edges)
 
     cmd = """{"command":"static-deps","params":{"changed_files":["a.jl","b.jl","c.jl"]}}"""
     resp = Protocol.handle(cmd)
@@ -908,10 +969,8 @@ end
 
     @test parsed["ok"] == true
     edges = parsed["result"]["edges"]
-    @test length(edges) == 3
-    @test edges["a.jl"] == "unresolved"
-    @test edges["b.jl"] == "unresolved"
-    @test edges["c.jl"] == "unresolved"
+    @test length(edges) == 0
+    @test edges == []
 end
 
 @testset "Static-deps missing params" begin
@@ -932,11 +991,12 @@ end
     resp = Protocol.handle("""{"command":"static-deps","params":{"changed_files":[]}}""")
     parsed = JSON.parse(resp)
     @test parsed["ok"] == true
-    @test parsed["result"]["edges"] == Dict{String, Any}()
+    @test parsed["result"]["edges"] == []
 end
 
-@testset "Static-deps with prior ingest returns edges not unresolved" begin
+@testset "Static-deps with prior ingest returns DepEdge array" begin
     empty!(Protocol.session_coverage)
+    empty!(Protocol.session_static_edges)
 
     mktempdir() do dir
         test_file = joinpath(dir, "test_edgy.jl")
@@ -953,21 +1013,32 @@ end
         ingest_cmd = """{"command":"ingest","params":{"selected":["$(node_id)"]}}"""
         Protocol.handle(ingest_cmd)
 
-        # Now static-deps should find edges for this file
+        # Now static-deps should find DepEdge entries for this file
         sd_cmd = """{"command":"static-deps","params":{"changed_files":["$(abs_file)"]}}"""
         sd_resp = Protocol.handle(sd_cmd)
         sd = JSON.parse(sd_resp)
 
         @test sd["ok"] == true
-        @test haskey(sd["result"]["edges"], abs_file)
-        # The file should NOT be "unresolved" — should be a dict (even if empty)
-        @test !isa(sd["result"]["edges"][abs_file], String)  # not "unresolved"
-        @test isa(sd["result"]["edges"][abs_file], AbstractDict)  # edges dict
+        @test haskey(sd["result"], "edges")
+        edges = sd["result"]["edges"]
+        @test length(edges) > 0
+        # Each edge should be a DepEdge dict with from, to, weight, origin
+        found_edge = false
+        for edge in edges
+            if edge["to"] == abs_file
+                found_edge = true
+                @test haskey(edge, "from")
+                @test haskey(edge, "weight")
+                @test edge["origin"] == "static"
+            end
+        end
+        @test found_edge
     end
 end
 
-@testset "Static-deps mixed: some covered, some unresolved" begin
+@testset "Static-deps mixed: covered file returns edges, unknown file omitted" begin
     empty!(Protocol.session_coverage)
+    empty!(Protocol.session_static_edges)
 
     mktempdir() do dir
         test_file = joinpath(dir, "covered.jl")
@@ -990,12 +1061,17 @@ end
 
         @test sd["ok"] == true
         edges = sd["result"]["edges"]
-        @test length(edges) == 2
-        @test haskey(edges, abs_file)
-        @test haskey(edges, "other.jl")
-        @test !isa(edges[abs_file], String)  # not "unresolved"
-        @test isa(edges[abs_file], AbstractDict)  # covered → edges dict
-        @test edges["other.jl"] == "unresolved"  # unknown → unresolved
+        # Should have edges for the covered file but not the unknown one
+        @test length(edges) >= 1
+        covered_edges = filter(e -> e["to"] == abs_file, edges)
+        @test length(covered_edges) >= 1
+        for edge in covered_edges
+            @test haskey(edge, "from")
+            @test haskey(edge, "weight")
+            @test edge["origin"] == "static"
+        end
+        unknown_edges = filter(e -> e["to"] == "other.jl", edges)
+        @test isempty(unknown_edges)
     end
 end
 
@@ -1056,7 +1132,7 @@ end
             # Should find an edge from the static analysis
             found_static_edge = false
             for edge in edges
-                if edge["origin"] == "static" && edge["to"] == "src/lib.jl"
+                if edge["origin"] == "static" && endswith(edge["to"], "src/lib.jl")
                     found_static_edge = true
                     @test edge["from"] == "$(test_file):1"
                     @test edge["weight"] == 1_000_000
