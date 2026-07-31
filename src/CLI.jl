@@ -970,24 +970,13 @@ function _run_component_aware(
 
     Threads.@threads for i in 1:n_comps
         comp = comps[i]
-
-        # Check selection cache: skip query if fingerprint unchanged
-        cached = parent.load_selection_cache(comp)
-        current_fp = parent.compute_dependency_fingerprint(comp, path_map, edges, project_dir)
-
-        if cached !== nothing && cached[1] == current_fp
-            comp_results[i] = cached[2]
-        else
-            results = parent.query(
-                [parent.direct_change_provider, parent.coverage_provider(changed), parent.unresolved_provider],
-                index,
-                changed;
-                component=comp,
-            )
-            # Cache the fresh results
-            parent.save_selection_cache(comp, current_fp, results)
-            comp_results[i] = results
-        end
+        results = parent.query(
+            [parent.direct_change_provider, parent.coverage_provider(changed), parent.unresolved_provider],
+            index,
+            changed;
+            component=comp,
+        )
+        comp_results[i] = results
     end
 
     # Merge results and filter by test directories

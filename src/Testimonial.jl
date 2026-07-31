@@ -2976,7 +2976,7 @@ export run_static_analysis, analyze_source_files
 
 include("IndexBuilder.jl")
 using .IndexBuilder
-export record_all, build_index, save_index, load_index, is_index_stale, clean_cache, migrate_index, build_component_graph!, save_component_graph, load_component_graph, compute_dependency_fingerprint, save_fingerprint, load_fingerprint, save_selection_cache, load_selection_cache, invalidate_selection_cache, invalidate_all_selection_caches
+export record_all, build_index, save_index, load_index, is_index_stale, clean_cache, migrate_index, build_component_graph!, save_component_graph, load_component_graph, compute_dependency_fingerprint, save_fingerprint, load_fingerprint
 
 include("Query.jl")
 using .Query

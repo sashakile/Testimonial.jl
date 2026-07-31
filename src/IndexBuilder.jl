@@ -521,9 +521,6 @@ function _save_per_component_indices(
     component_names = [Symbol(k) for k in keys(comp_groups)]
     save_routing(".testimonial", component_names)
 
-    # Invalidate all selection caches — fingerprints have been recomputed
-    invalidate_all_selection_caches()
-
     return nothing
 end
 
@@ -1069,9 +1066,6 @@ function migrate_index(testimonial_dir::AbstractString, project_dir::AbstractStr
     # Save component graph alongside routing file
     _save_graph_file(edges)
 
-    # Invalidate all selection caches — fingerprints have been recomputed
-    invalidate_all_selection_caches()
-
     return nothing
 end
 
@@ -1219,90 +1213,7 @@ function load_fingerprint(component_name::String)::Union{String, Nothing}
     end
 end
 
-# ── Selection cache ────────────────────────────
-
-"""
-    save_selection_cache(component_name, fingerprint, results) -> Nothing
-
-Save the selection results for a component, keyed on its dependency
-fingerprint, to `.testimonial/components/<component_name>/selection.jls`.
-
-The cache stores a tuple `(fingerprint, results)` where `results` is a
-`Vector{ImpactResult}`.
-
-Creates parent directories if needed and writes atomically.
-"""
-function save_selection_cache(component_name::String, fingerprint::String, results::Vector)::Nothing
-    cache_path = joinpath(".testimonial", "components", component_name, "selection.jls")
-    mkpath(dirname(cache_path))
-    tmppath = cache_path * ".tmp"
-    open(tmppath, "w") do io
-        serialize(io, (fingerprint, results))
-    end
-    mv(tmppath, cache_path; force=true)
-    return nothing
-end
-
-"""
-    load_selection_cache(component_name::String) -> Union{Tuple{String, Vector}, Nothing}
-
-Load the cached selection results for a component.
-
-Returns a tuple `(fingerprint, results)` where `results` is a
-`Vector{ImpactResult}`, or `nothing` if no cache exists, the file is
-corrupted, or deserialization fails.
-"""
-function load_selection_cache(component_name::String)::Union{Tuple{String, Vector}, Nothing}
-    cache_path = joinpath(".testimonial", "components", component_name, "selection.jls")
-    if !isfile(cache_path)
-        return nothing
-    end
-    try
-        result = open(deserialize, cache_path, "r")
-        if result isa Tuple{String, Vector}
-            return result
-        end
-        return nothing
-    catch
-        return nothing
-    end
-end
-
-# ── Cache invalidation ───────────────────────────
-
-"""
-    invalidate_selection_cache(component_name::String) -> Nothing
-
-Delete the selection cache file for a component.
-
-Removes `.testimonial/components/<component_name>/selection.jls` if it exists.
-No-op if the file doesn't exist.
-"""
-function invalidate_selection_cache(component_name::String)::Nothing
-    cache_path = joinpath(".testimonial", "components", component_name, "selection.jls")
-    if isfile(cache_path)
-        rm(cache_path; force=true)
-    end
-    return nothing
-end
-
-"""
-    invalidate_all_selection_caches() -> Nothing
-
-Delete all per-component selection cache files.
-
-Reads the routing file at `.testimonial/index.jls` to discover components,
-then deletes each component's `selection.jls`. No-op if no routing file
-or no components are registered.
-"""
-function invalidate_all_selection_caches()::Nothing
-    parent = Base.parentmodule(@__MODULE__)
-    components = parent.load_routing(".testimonial")
-    for comp in components
-        invalidate_selection_cache(string(comp))
-    end
-    return nothing
-end
+# ── Cache cleanup on stale inference trace ───────────
 
 """
     _cleanup_inference_trace()
@@ -1324,8 +1235,6 @@ end
 
 export migrate_index, build_component_graph!,
        save_component_graph, load_component_graph,
-       compute_dependency_fingerprint, save_fingerprint, load_fingerprint,
-       save_selection_cache, load_selection_cache,
-       invalidate_selection_cache, invalidate_all_selection_caches
+       compute_dependency_fingerprint, save_fingerprint, load_fingerprint
 
 end # module IndexBuilder
