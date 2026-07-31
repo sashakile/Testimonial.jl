@@ -737,8 +737,19 @@ function run_with_timeout(command::Vector{String}, env::Dict{String, String}, ti
     proc = run(cmd; wait=false)
 
     timer = Timer(timeout) do t
-        # Timeout fired — kill the process
-        kill(proc)
+        # Timeout fired — kill the process and attempt to clean up
+        # descendant processes to prevent orphaned subprocess trees
+        # (testimonial-in3s.4).
+        try
+            kill(proc)  # SIGTERM
+        catch
+        end
+        # Brief grace period for children to terminate
+        sleep(0.2)
+        try
+            kill(proc, 9)  # SIGKILL escalation
+        catch
+        end
     end
 
     # Wait for the process to finish or be killed

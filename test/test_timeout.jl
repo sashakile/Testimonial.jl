@@ -164,3 +164,21 @@ end
     end
     @test result === nothing
 end
+
+# ── Subprocess tree termination (testimonial-in3s.4) ──
+
+@testset "run_with_timeout kills descendant processes" begin
+    # Spawn a shell that creates a background child (sleep 30) then
+    # sleeps itself. The timeout should kill both via SIGTERM/SIGKILL.
+    marker = tempname()
+    cmd = ["sh", "-c", string(
+        "touch ", marker, "\n",
+        "sleep 30 &\n",   # background child
+        "echo \$! > ", marker, ".pid\n",
+        "sleep 30\n",     # direct process
+    )]
+    env = Dict{String, String}()
+
+    result = Testimonial.run_with_timeout(cmd, env, 0.2)
+    @test result === nothing  # timeout
+end
