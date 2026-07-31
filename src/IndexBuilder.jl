@@ -119,13 +119,15 @@ end
     _is_dirty() -> Bool
 
 Check if the git workspace has uncommitted changes.
+Returns `true` if the workspace is dirty OR if git is unavailable or errors
+(fail closed — unknown state is treated as dirty, testimonial-3yem.7).
 """
 function _is_dirty()::Bool
     try
         result = read(`git status --porcelain`, String)
         return !isempty(strip(result))
     catch
-        return false
+        return true  # Fail closed: unknown Git state treated as dirty (testimonial-3yem.7)
     end
 end
 

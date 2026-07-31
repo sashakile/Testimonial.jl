@@ -9,6 +9,7 @@
 using Testimonial
 using Test
 using Serialization
+using Dates
 
 @testset "record_item returns ItemCoverage" begin
     mktempdir() do dir
@@ -104,6 +105,10 @@ end
 @testset "is_index_stale returns false for fresh index" begin
     mktempdir() do dir
         cd(dir) do
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+            run(`git commit --allow-empty -m init`)
             index = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(),
                 "abc123",
@@ -119,6 +124,10 @@ end
 @testset "is_index_stale returns true for old index" begin
     mktempdir() do dir
         cd(dir) do
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+            run(`git commit --allow-empty -m init`)
             old_time = now() - Dates.Day(2)
             index = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(),
@@ -135,6 +144,10 @@ end
 @testset "is_index_stale respects custom threshold" begin
     mktempdir() do dir
         cd(dir) do
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+            run(`git commit --allow-empty -m init`)
             old_time = now() - Dates.Hour(12)
             index = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(),
@@ -143,22 +156,39 @@ end
                 v"0.1.0",
                 old_time,
             )
-            # 12h old, threshold 24h — not stale
             @test !is_index_stale(index; stale_threshold_hours=24)
-            # 12h old, threshold 6h — stale
             @test is_index_stale(index; stale_threshold_hours=6)
         end
     end
 end
-# ── Schema mismatch & round-trip ──────────────
 
 @testset "is_index_stale detects Julia version mismatch" begin
     mktempdir() do dir
         cd(dir) do
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+            run(`git commit --allow-empty -m init`)
             index = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(),
                 "abc123",
                 "1.0.0",
+                v"0.1.0",
+                now(),
+            )
+            @test is_index_stale(index)
+        end
+    end
+end
+
+@testset "is_index_stale treats unknown git state as stale (testimonial-3yem.7)" begin
+    mktempdir() do dir
+        cd(dir) do
+            # No git repo — _is_dirty() will fail, treated as stale
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(),
+                "abc123",
+                string(VERSION),
                 v"0.1.0",
                 now(),
             )
