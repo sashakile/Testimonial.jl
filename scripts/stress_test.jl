@@ -168,23 +168,28 @@ function has_testitems(file::String)::Bool
     end
 end
 
-"""Run discovery on a repo directory. Returns discovered items or empty."""
-function discover_items(repo_dir::String, config::StressConfig)::Vector{Testimonial.TestItemRef}
+"""Run discovery on a repo directory. Returns discovered items and type breakdown."""
+function discover_items(repo_dir::String, config::StressConfig)::Tuple{Vector{Testimonial.TestItemRef}, Dict{String, Int}}
     test_dir = joinpath(repo_dir, "test")
     if !isdir(test_dir)
         @warn "  No test/ directory found"
-        return Testimonial.TestItemRef[]
+        return Testimonial.TestItemRef[], Dict("testitem" => 0, "testset" => 0, "file_level" => 0)
     end
 
     try
         cd(repo_dir) do
-            items = Testimonial.discover_testitems([test_dir])
-            @info "  Discovered $(length(items)) @testitem(s)"
-            return items
+            items = Testimonial.discover_all_test_blocks([test_dir])
+            # Count by type
+            testitems = count(i -> i.line > 0 && Testimonial.Protocol._is_testitem_at_line(i.file, i.line), items)
+            testsets = count(i -> i.line > 0 && !Testimonial.Protocol._is_testitem_at_line(i.file, i.line), items)
+            file_level = count(i -> i.line == 0, items)
+            breakdown = Dict("testitem" => testitems, "testset" => testsets, "file_level" => file_level)
+            @info "  Discovered $(length(items)) items: $(testitems) @testitem, $(testsets) @testset, $(file_level) file-level"
+            return items, breakdown
         end
     catch e
         @warn "  Discovery failed: $e"
-        return Testimonial.TestItemRef[]
+        return Testimonial.TestItemRef[], Dict("testitem" => 0, "testset" => 0, "file_level" => 0)
     end
 end
 
@@ -363,6 +368,8 @@ struct RepoResult
     file_count::Int
     test_file_count::Int
     testitem_count::Int
+    testset_count::Int
+    file_level_count::Int
     source_files::Int
     has_testitems::Bool
     discovery_time::Float64
@@ -397,7 +404,8 @@ function print_report(results::Vector{RepoResult}, config::StressConfig)::Nothin
             println()
             continue
         end
-        println("     Files:      $(r.file_count) source, $(r.test_file_count) test ($(r.testitem_count) @testitems)")
+        println("     Files:      $(r.file_count) source, $(r.test_file_count) test")
+        println("     Items:      $(r.testitem_count) @testitem, $(r.testset_count) @testset, $(r.file_level_count) file-level")
         println("     Sources:    $(r.source_files) sampled")
         println("     Discovery:  $(format_duration(r.discovery_time))")
         println("     Recording:  $(format_duration(r.recording_time))  ($(r.index_item_count) items)")
@@ -416,6 +424,12 @@ function print_report(results::Vector{RepoResult}, config::StressConfig)::Nothin
     println("  Summary: $(ok_count) passed, $(skip_count) skipped, $(fail_count) failed")
 
     if ok_count > 0
+        # Test-type breakdown
+        total_testitem = sum(r.testitem_count for r in results if r.status == "ok")
+        total_testset = sum(r.testset_count for r in results if r.status == "ok")
+        total_file_level = sum(r.file_level_count for r in results if r.status == "ok")
+        println("  Test-type breakdown: $(total_testitem) @testitem, $(total_testset) @testset, $(total_file_level) file-level")
+
         avg_source_cov = mean([r.source_coverage_pct for r in results if r.status == "ok"])
         avg_test_cov = mean([r.test_coverage_pct for r in results if r.status == "ok"])
         avg_recording = mean([r.recording_time for r in results if r.status == "ok" && r.recording_time > 0])
@@ -453,6 +467,8 @@ function save_results_json(results::Vector{RepoResult}, config::StressConfig)::N
         "file_count" => r.file_count,
         "test_file_count" => r.test_file_count,
         "testitem_count" => r.testitem_count,
+        "testset_count" => r.testset_count,
+        "file_level_count" => r.file_level_count,
         "source_files" => r.source_files,
         "has_testitems" => r.has_testitems,
         "discovery_time_s" => r.discovery_time,
@@ -507,31 +523,30 @@ function main()::Int
         # Step 1: Clone
         if !clone_repo(org, name, repo_dir)
             push!(errors, "Clone failed")
-            push!(results, RepoResult(name, org, description, "failed", 0, 0, 0, 0, false, 0.0, 0.0, 0.0, 0, 0, 0.0, 0.0, 0.0, errors))
+            push!(results, RepoResult(name, org, description, "failed", 0, 0, 0, 0, 0, 0, false, 0.0, 0.0, 0.0, 0, 0, 0.0, 0.0, 0.0, errors))
             continue
         end
 
         # Step 2: Count files
         source_files_list = find_source_files(repo_dir)
         test_files = find_test_files(repo_dir)
-        test_files_with_items = filter(f -> has_testitems(f), test_files)
         file_count = length(source_files_list)
-        test_file_count = length(test_files_with_items)
+        test_file_count = length(test_files)
 
-        if isempty(test_files_with_items)
-            @info "  No @testitem files found — skipping"
-            push!(results, RepoResult(name, org, description, "skipped", file_count, length(test_files), 0, 0, false, 0.0, 0.0, 0.0, 0, 0, 0.0, 0.0, 0.0, errors))
+        if isempty(test_files)
+            @info "  No test files found — skipping"
+            push!(results, RepoResult(name, org, description, "skipped", file_count, 0, 0, 0, 0, 0, false, 0.0, 0.0, 0.0, 0, 0, 0.0, 0.0, 0.0, errors))
             continue
         end
 
         # Step 3: Discover
         disc_start = time_ns()
-        items = discover_items(repo_dir, config)
+        items, breakdown = discover_items(repo_dir, config)
         disc_time = (time_ns() - disc_start) / 1e9
 
         if isempty(items)
-            @info "  No @testitems discovered — skipping"
-            push!(results, RepoResult(name, org, description, "skipped", file_count, length(test_files_with_items), 0, 0, true, disc_time, 0.0, 0.0, 0, 0, 0.0, 0.0, 0.0, errors))
+            @info "  No test blocks discovered — skipping"
+            push!(results, RepoResult(name, org, description, "skipped", file_count, test_file_count, 0, 0, 0, 0, false, disc_time, 0.0, 0.0, 0, 0, 0.0, 0.0, 0.0, errors))
             continue
         end
 
@@ -540,7 +555,9 @@ function main()::Int
 
         if index === nothing
             push!(errors, "Recording failed")
-            push!(results, RepoResult(name, org, description, "failed", file_count, length(test_files_with_items), length(items), 0, true, disc_time, 0.0, 0.0, 0, 0, 0.0, 0.0, 0.0, errors))
+            push!(results, RepoResult(name, org, description, "failed", file_count, test_file_count,
+                breakdown["testitem"], breakdown["testset"], breakdown["file_level"], 0,
+                breakdown["testitem"] > 0, disc_time, 0.0, 0.0, 0, 0, 0.0, 0.0, 0.0, errors))
             continue
         end
 
@@ -556,8 +573,9 @@ function main()::Int
 
         push!(results, RepoResult(
             name, org, description, "ok",
-            file_count, length(test_files_with_items), length(items),
-            length(source_samples), true,
+            file_count, test_file_count,
+            breakdown["testitem"], breakdown["testset"], breakdown["file_level"],
+            length(source_samples), breakdown["testitem"] > 0,
             disc_time, rec_time, idx_time, idx_size, length(index.items),
             source_cov, test_cov, query_time, errors,
         ))

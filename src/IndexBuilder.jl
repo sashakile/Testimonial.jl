@@ -314,24 +314,46 @@ function record_all(
             # not needed here and should be removed to avoid file pollution.
             _cleanup_inference_trace()
         else
-            # Allocate a per-thread lock for results (no contention on Dict)
-            Threads.@threads for idx in record_indices
+            # Separate file-level items (record_file) from per-item (record_item).
+            # File-level items are grouped by file to avoid redundant subprocesses:
+            # multiple @testset items in the same file all map to one file-level
+            # recording, and the result is attributed to each item.
+            file_level_groups = Dict{String, Vector{Int}}()
+            per_item_indices = Int[]
+            for idx in record_indices
                 ref = items[idx]
-                # Dispatch based on item type:
-                # - line == 0: file-level fallback → record_file
-                # - line > 0 but not a @testitem (e.g. @testset) → record_file
-                # - line > 0 and is a @testitem → record_item
-                # Uses _is_testitem_at_line to distinguish @testitem from @testset.
                 is_file_level = !parent.Protocol._is_testitem_at_line(ref.file, ref.line)
-                result = if is_file_level
-                    parent.record_file(runner, ref.file)
+                if is_file_level
+                    f = String(ref.file)
+                    push!(get!(file_level_groups, f, Int[]), idx)
                 else
-                    parent.record_item(runner, ref)
+                    push!(per_item_indices, idx)
                 end
-                fresh_results[idx] = result
-                if result !== nothing
-                    # Cache the result
-                    _save_cached_record(result)
+            end
+
+            # Record file-level items — one subprocess per file, attribute
+            # the result to all items in that file.
+            if !isempty(file_level_groups)
+                for (file, idxs) in file_level_groups
+                    result = parent.record_file(runner, file)
+                    for idx in idxs
+                        fresh_results[idx] = result
+                        if result !== nothing
+                            _save_cached_record(result)
+                        end
+                    end
+                end
+            end
+
+            # Record per-item @testitems — parallel via Threads.@threads
+            if !isempty(per_item_indices)
+                Threads.@threads for idx in per_item_indices
+                    ref = items[idx]
+                    result = parent.record_item(runner, ref)
+                    fresh_results[idx] = result
+                    if result !== nothing
+                        _save_cached_record(result)
+                    end
                 end
             end
         end
@@ -350,7 +372,16 @@ function record_all(
         end
 
         if ic !== nothing
-            item_map[ref] = ic
+            # For file-level recordings (record_file), use the result's
+            # own ref (line=0, name=basename(file)) as the key. This
+            # collapses multiple @testset items in the same file into a
+            # single file-level index entry, matching how record_file
+            # records the whole file as one unit.
+            if ic.item.line == 0
+                item_map[ic.item] = ic
+            else
+                item_map[ref] = ic
+            end
         end
     end
 

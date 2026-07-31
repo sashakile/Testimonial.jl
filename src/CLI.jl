@@ -51,7 +51,7 @@ exists, returns a NamedTuple with `item_count=0`.
 - `item_count` — number of successfully recorded items
 - `file_count` — number of distinct source files with coverage
 - `age_hours` — hours since index was built
-- `total_discovered_items` — total @testitem blocks found
+- `total_discovered_items` — total test blocks found (@testitem + @testset + file-level)
 - `failed_item_count` — items that failed to record
 - `index_present` — whether an index file exists on disk
 """
@@ -63,7 +63,7 @@ function index_info(; index_path::String=".testimonial/index.jls",
     index = parent.load_index(index_path)
 
     if index === nothing
-        discovered = parent.discover_testitems(test_dirs)
+        discovered = parent.discover_all_test_blocks(test_dirs)
         return (
             git_sha = "",
             julia_version = string(VERSION),
@@ -86,7 +86,7 @@ function index_info(; index_path::String=".testimonial/index.jls",
     end
     file_count = length(files)
 
-    discovered = parent.discover_testitems(test_dirs)
+    discovered = parent.discover_all_test_blocks(test_dirs)
     total_discovered = length(discovered)
     failed = total_discovered - item_count
     age = (now() - index.created_at).value / (1000 * 3600)
