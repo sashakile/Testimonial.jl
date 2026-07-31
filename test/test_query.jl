@@ -1005,3 +1005,124 @@ end
     @test results[1].selected == true
     @test length(results[1].reasons[1].chain) == 2  # two changed lines covered
 end
+
+# ── File-level query support (line==0 items) ───
+
+@testset "coverage_provider selects file-level test when source file changed" begin
+    # File-level test item (line=0) with source_files coverage
+    changed = Dict{String, Set{Int}}(
+        "src/lib.jl" => Set([20]),
+    )
+    source_files = Dict(
+        "src/lib.jl" => ([10, 20, 30], [15, 25]),
+    )
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 0, "foo_test.jl")
+    ic = Testimonial.ItemCoverage(ref, Int[], Int[], source_files)
+    items = Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}(ref => ic)
+    index = Testimonial.CoverageIndex(
+        items, "abc1234", string(VERSION), v"0.1.0", now()
+    )
+
+    provider = Testimonial.coverage_provider(changed)
+    results = provider(index, ["src/lib.jl"])
+
+    @test length(results) == 1
+    @test results[1].selected == true
+    @test results[1].item.name == "foo_test.jl"
+    @test results[1].item.line == 0
+end
+
+@testset "mixed query selects both file-level and per-item tests" begin
+    changed = Dict{String, Set{Int}}(
+        "src/lib.jl" => Set([20]),
+    )
+
+    # File-level test covering src/lib.jl
+    file_ref = Testimonial.TestItemRef("/proj/test/set_test.jl", 0, "set_test.jl")
+    file_ic = Testimonial.ItemCoverage(file_ref, Int[], Int[], Dict(
+        "src/lib.jl" => ([10, 20, 30], [15, 25]),
+    ))
+
+    # Per-item @testitem covering src/lib.jl
+    item_ref = Testimonial.TestItemRef("/proj/test/item_test.jl", 10, "test_a")
+    item_ic = Testimonial.ItemCoverage(item_ref, [1, 2, 3], Int[], Dict(
+        "src/lib.jl" => ([10, 20, 30], [15, 25]),
+    ))
+
+    items = Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}(
+        file_ref => file_ic,
+        item_ref => item_ic,
+    )
+    index = Testimonial.CoverageIndex(
+        items, "abc1234", string(VERSION), v"0.1.0", now()
+    )
+
+    providers = [
+        Testimonial.direct_change_provider,
+        Testimonial.coverage_provider(changed),
+        Testimonial.unresolved_provider,
+    ]
+    results = Testimonial.query(providers, index, changed)
+
+    # Should have selected both file-level and per-item tests
+    selected = [r for r in results if r.selected]
+    @test length(selected) == 2
+
+    names = sort([r.item.name for r in selected])
+    @test names == ["set_test.jl", "test_a"]
+
+    # The file-level test should have line==0
+    file_result = filter(r -> r.item.line == 0, selected)
+    @test length(file_result) == 1
+    @test file_result[1].item.name == "set_test.jl"
+end
+
+@testset "no duplicate selections for file-level and per-item covering same source" begin
+    changed = Dict{String, Set{Int}}(
+        "src/lib.jl" => Set([20]),
+    )
+
+    source_files = Dict{String, Tuple{Vector{Int}, Vector{Int}}}(
+        "src/lib.jl" => ([10, 20, 30], [15, 25]),
+    )
+
+    # Same file, different names — both cover src/lib.jl
+    ref1 = Testimonial.TestItemRef("/proj/test/foo_test.jl", 0, "foo_test.jl")
+    ic1 = Testimonial.ItemCoverage(ref1, Int[], Int[], source_files)
+
+    ref2 = Testimonial.TestItemRef("/proj/test/foo_test.jl", 10, "test_a")
+    ic2 = Testimonial.ItemCoverage(ref2, [1, 2, 3], Int[], source_files)
+
+    items = Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}(ref1 => ic1, ref2 => ic2)
+    index = Testimonial.CoverageIndex(
+        items, "abc1234", string(VERSION), v"0.1.0", now()
+    )
+
+    provider = Testimonial.coverage_provider(changed)
+    results = provider(index, ["src/lib.jl"])
+
+    # Each item should appear exactly once
+    @test length(results) == 2
+    @test all(r.selected for r in results)
+    # Different names — no duplicates
+    @test sort([r.item.name for r in results]) == ["foo_test.jl", "test_a"]
+end
+
+@testset "file-level test with no coverage data returns empty" begin
+    changed = Dict{String, Set{Int}}(
+        "src/lib.jl" => Set([20]),
+    )
+
+    # File-level test with EMPTY source_files
+    ref = Testimonial.TestItemRef("/proj/test/foo_test.jl", 0, "foo_test.jl")
+    ic = Testimonial.ItemCoverage(ref, Int[], Int[], Dict())
+    items = Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}(ref => ic)
+    index = Testimonial.CoverageIndex(
+        items, "abc1234", string(VERSION), v"0.1.0", now()
+    )
+
+    provider = Testimonial.coverage_provider(changed)
+    results = provider(index, ["src/lib.jl"])
+
+    @test isempty(results)
+end
