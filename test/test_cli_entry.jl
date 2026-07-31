@@ -246,12 +246,14 @@ end
 
             ref = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
             ic = ItemCoverage(ref, [1], Int[], Dict())
+            current_fp = Testimonial.compute_environment_fingerprint(pwd())
             index = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(ref => ic),
                 readchomp(`git rev-parse HEAD`),
                 string(VERSION),
                 v"0.1.0",
                 now(),
+                current_fp,
             )
             save_index(index, ".testimonial/index.jls")
 

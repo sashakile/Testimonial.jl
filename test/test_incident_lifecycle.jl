@@ -29,12 +29,14 @@ using Dates
             ref_b = TestItemRef(abspath("test/test_b.jl"), 1, "test_b", Symbol[], "def")
             ic_a = ItemCoverage(ref_a, [1], Int[], Dict())
             ic_b = ItemCoverage(ref_b, [1], Int[], Dict())
+            current_fp = Testimonial.compute_environment_fingerprint(pwd())
             index = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(ref_a => ic_a, ref_b => ic_b),
                 readchomp(`git rev-parse HEAD`),
                 string(VERSION),
                 v"0.1.0",
                 now(),
+                current_fp,
             )
             save_index(index, ".testimonial/index.jls")
 

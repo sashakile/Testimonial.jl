@@ -426,12 +426,19 @@ function record_all(
 
     git_sha = _git_hash() * dirty_suffix
 
-    # Save per-component indices if project_dir is provided
-    if project_dir !== nothing
-        _save_per_component_indices(parent, item_map, String(project_dir), git_sha)
+    # Compute environment fingerprint for safety metadata
+    env_fp = if project_dir !== nothing
+        parent.compute_environment_fingerprint(String(project_dir))
+    else
+        parent.compute_environment_fingerprint(pwd())
     end
 
-    return parent.CoverageIndex(item_map, git_sha, string(VERSION), v"0.1.0", now())
+    # Save per-component indices if project_dir is provided
+    if project_dir !== nothing
+        _save_per_component_indices(parent, item_map, String(project_dir), git_sha, env_fp)
+    end
+
+    return parent.CoverageIndex(item_map, git_sha, string(VERSION), v"0.1.0", now(), env_fp)
 end
 
 # ── Per-component index persistence ────────────
@@ -453,7 +460,8 @@ function _save_per_component_indices(
     parent::Module,
     item_map::Dict,
     project_dir::String,
-    git_sha::String
+    git_sha::String,
+    env_fp::String="",
 )::Nothing
     # Discover components and their workspace paths
     path_map = parent.component_paths(project_dir)
@@ -495,7 +503,7 @@ function _save_per_component_indices(
         end
 
         comp_index = parent.CoverageIndex(
-            comp_map, git_sha, string(VERSION), v"0.1.0", now(), "", edges
+            comp_map, git_sha, string(VERSION), v"0.1.0", now(), env_fp, edges
         )
         comp_path = parent.component_index_path(comp_name)
         save_index(comp_index, comp_path)
@@ -667,7 +675,10 @@ function build_index(items_dir::AbstractString)::Any
         end
     end
 
-    return parent.CoverageIndex(item_map, _git_hash(), string(VERSION), v"0.1.0", now())
+    # Compute environment fingerprint for safety metadata
+    env_fp = parent.compute_environment_fingerprint(pwd())
+
+    return parent.CoverageIndex(item_map, _git_hash(), string(VERSION), v"0.1.0", now(), env_fp)
 end
 
 # ── Index persistence ──────────────────────────

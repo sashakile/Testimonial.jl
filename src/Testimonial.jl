@@ -709,8 +709,11 @@ the expected fingerprint. Returns true if the index has no fingerprint
 (empty string), since we cannot verify and should not block on old indexes.
 """
 function environment_matches(index::CoverageIndex, expected_fp::String)::Bool
+    # Empty fingerprint means the index was built without one — unsafe.
+    # Legacy deserialization is still supported, but unverifiable data
+    # is never considered safe (testimonial-3yem.3).
     if isempty(index.environment_fingerprint)
-        return true  # Legacy index — can't verify, assume match
+        return false
     end
     return index.environment_fingerprint == expected_fp
 end
