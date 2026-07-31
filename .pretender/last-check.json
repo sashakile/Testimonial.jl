@@ -246,7 +246,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 1318.0,
+          "actual": 1329.0,
           "limit": 400.0
         }
       ],
@@ -305,7 +305,7 @@
         {
           "name": "load_index",
           "kind": "Function",
-          "start_line": 702,
+          "start_line": 713,
           "metrics": {
             "cyclomatic": 5,
             "cognitive": 4,
@@ -320,7 +320,7 @@
         {
           "name": "_cleanup_inference_trace",
           "kind": "Function",
-          "start_line": 1303,
+          "start_line": 1314,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -993,7 +993,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 2996.0,
+          "actual": 2999.0,
           "limit": 400.0
         }
       ],
@@ -1046,7 +1046,7 @@
         {
           "name": "record_run",
           "kind": "Function",
-          "start_line": 1286,
+          "start_line": 1289,
           "metrics": {
             "cyclomatic": 2,
             "cognitive": 1,
@@ -1061,7 +1061,7 @@
         {
           "name": "reset_always_run_state",
           "kind": "Function",
-          "start_line": 1311,
+          "start_line": 1314,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -1076,7 +1076,7 @@
         {
           "name": "record_duration!",
           "kind": "Function",
-          "start_line": 1401,
+          "start_line": 1404,
           "metrics": {
             "cyclomatic": 2,
             "cognitive": 1,
@@ -1091,7 +1091,7 @@
         {
           "name": "record_outcome_history!",
           "kind": "Function",
-          "start_line": 1441,
+          "start_line": 1444,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -1106,7 +1106,7 @@
         {
           "name": "save_run_history",
           "kind": "Function",
-          "start_line": 1468,
+          "start_line": 1471,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -1121,7 +1121,7 @@
         {
           "name": "_with_exclusive_lock",
           "kind": "Function",
-          "start_line": 1521,
+          "start_line": 1524,
           "metrics": {
             "cyclomatic": 8,
             "cognitive": 7,
@@ -1136,7 +1136,7 @@
         {
           "name": "save_ingested_run_key",
           "kind": "Function",
-          "start_line": 1568,
+          "start_line": 1571,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -1151,7 +1151,7 @@
         {
           "name": "save_provenance",
           "kind": "Function",
-          "start_line": 1948,
+          "start_line": 1951,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -1166,7 +1166,7 @@
         {
           "name": "save_incidents",
           "kind": "Function",
-          "start_line": 2028,
+          "start_line": 2031,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -1181,7 +1181,7 @@
         {
           "name": "append_incident",
           "kind": "Function",
-          "start_line": 2072,
+          "start_line": 2075,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -1196,7 +1196,7 @@
         {
           "name": "save_manual_edges",
           "kind": "Function",
-          "start_line": 2485,
+          "start_line": 2488,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -1211,7 +1211,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 2992,
+          "start_line": 2995,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -1347,7 +1347,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 441.0,
+          "actual": 443.0,
           "limit": 400.0
         }
       ],
@@ -2137,52 +2137,52 @@
     "top_hotspots": [
       {
         "fingerprint": "src/GitDiff.jl::_parse_diff_section::cognitive_max",
-        "count": 157,
+        "count": 158,
         "distinct_days": 10
       },
       {
         "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cognitive_max",
-        "count": 123,
+        "count": 124,
         "distinct_days": 8
       },
       {
-        "fingerprint": "src/Protocol.jl::handle_ingest::function_lines_max",
-        "count": 121,
-        "distinct_days": 7
-      },
-      {
-        "fingerprint": "src/Protocol.jl::_append_runtime_edges::function_lines_max",
-        "count": 121,
-        "distinct_days": 7
-      },
-      {
-        "fingerprint": "src/Protocol.jl::_build_static_edges::function_lines_max",
-        "count": 121,
-        "distinct_days": 7
-      },
-      {
-        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::function_lines_max",
-        "count": 121,
-        "distinct_days": 7
-      },
-      {
-        "fingerprint": "src/GitDiff.jl::_parse_diff_section::function_lines_max",
-        "count": 121,
-        "distinct_days": 7
-      },
-      {
         "fingerprint": "src/IndexBuilder.jl::_record_single_item::function_lines_max",
-        "count": 121,
+        "count": 122,
         "distinct_days": 7
       },
       {
-        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cyclomatic_max",
-        "count": 121,
+        "fingerprint": "src/GitDiff.jl::_parse_diff_section::abc_max",
+        "count": 122,
+        "distinct_days": 7
+      },
+      {
+        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::cyclomatic_max",
+        "count": 122,
         "distinct_days": 7
       },
       {
         "fingerprint": "src/Protocol.jl::handle_run_args::cyclomatic_max",
-        "count": 121,
+        "count": 122,
+        "distinct_days": 7
+      },
+      {
+        "fingerprint": "src/Protocol.jl::_append_runtime_edges::function_lines_max",
+        "count": 122,
+        "distinct_days": 7
+      },
+      {
+        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cyclomatic_max",
+        "count": 122,
+        "distinct_days": 7
+      },
+      {
+        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::abc_max",
+        "count": 122,
+        "distinct_days": 7
+      },
+      {
+        "fingerprint": "src/Protocol.jl::handle_run_args::function_lines_max",
+        "count": 122,
         "distinct_days": 7
       }
     ],
@@ -2191,7 +2191,7 @@
         "rule_key": "function_lines_max",
         "role": "app",
         "area": "src",
-        "count": 1329,
+        "count": 1342,
         "distinct_files": 6,
         "distinct_days": 7
       },
@@ -2199,7 +2199,7 @@
         "rule_key": "cyclomatic_max",
         "role": "app",
         "area": "src",
-        "count": 741,
+        "count": 750,
         "distinct_files": 5,
         "distinct_days": 7
       },
@@ -2207,7 +2207,7 @@
         "rule_key": "abc_max",
         "role": "app",
         "area": "src",
-        "count": 506,
+        "count": 511,
         "distinct_files": 4,
         "distinct_days": 7
       },
@@ -2215,7 +2215,7 @@
         "rule_key": "cognitive_max",
         "role": "app",
         "area": "src",
-        "count": 348,
+        "count": 353,
         "distinct_files": 4,
         "distinct_days": 10
       }
