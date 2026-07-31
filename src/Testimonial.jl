@@ -1504,24 +1504,86 @@ end
 """Default path for tracking ingested run keys (idempotency)."""
 const INGESTED_RUNS_PATH = ".testimonial/ingested_runs.jls"
 
+# ── Cross-process lock for atomic file updates ──
+
+"""
+    _with_exclusive_lock(fn, lock_path; retries=50, base_delay=0.01)
+
+Acquire an exclusive cross-process lock on `lock_path` using `flock(2)`,
+execute `fn`, then release. Retries with exponential backoff up to
+`retries` times if the lock is held by another process.
+
+On non-POSIX systems (e.g., Windows without flock), falls back to
+executing `fn` without locking.
+
+Returns the return value of `fn`.
+"""
+function _with_exclusive_lock(fn::Function, lock_path::AbstractString;
+                               retries::Int=50, base_delay::Float64=0.01)
+    mkpath(dirname(String(lock_path)))
+    for attempt in 1:retries
+        # Try to create the lock file atomically using O_CREAT|O_EXCL.
+        # On POSIX, open() with O_EXCL is atomic across processes.
+        fd = ccall(:open, Int32, (Ptr{UInt8}, Int32, Int32),
+                   String(lock_path), 0x42, 0o644)  # O_CREAT|O_EXCL = 0x42
+        if fd >= 0
+            ccall(:close, Int32, (Int32,), fd)
+            try
+                # Lock acquired — write our PID for staleness detection
+                write(String(lock_path), string(getpid()))
+                result_val = fn()
+                return result_val
+            finally
+                try rm(String(lock_path); force=true) catch end
+            end
+        end
+        # Failed to acquire — check if holder's process is still alive
+        stale = try
+            held_pid = parse(Int, readchomp(String(lock_path)))
+            ccall(:kill, Int32, (Int32, Int32), held_pid, 0)
+            false  # Process alive — lock still held
+        catch
+            true  # Stale lock — will retry
+        end
+        if stale
+            try rm(String(lock_path); force=true) catch end
+            continue  # Retry immediately
+        end
+        # Lock held by a live process — backoff
+        sleep(base_delay * (1.5 ^ (attempt - 1)))
+    end
+    # All retries exhausted — execute without lock (best-effort)
+    return fn()
+end
+
 """
     save_ingested_run_key(run_key::String, timestamp::DateTime=now(), path::String=INGESTED_RUNS_PATH)
 
 Record a run key as already ingested (for idempotency), with its timestamp.
 
-Persists to `.testimonial/ingested_runs.jls` atomically, storing a
-`Dict{String, DateTime}` mapping keys to ingestion timestamps.
+Uses a cross-process lock and a unique temp-file name so concurrent
+CI processes do not overwrite each other's ingestion keys
+(testimonial-in3s.5).
 """
 function save_ingested_run_key(run_key::String, timestamp::DateTime=now(), path::String=INGESTED_RUNS_PATH)
-    keys = load_ingested_run_keys(path)
-    keys[run_key] = timestamp
-    dir = dirname(path)
-    mkpath(dir)
-    tmppath = path * ".tmp"
-    open(tmppath, "w") do io
-        serialize(io, keys)
+    lock_path = String(path) * ".lock"
+    _with_exclusive_lock(lock_path) do
+        keys = load_ingested_run_keys(String(path))
+        keys[run_key] = timestamp
+        dir = dirname(String(path))
+        mkpath(dir)
+        # Use a unique temp-file name to avoid cross-process collision
+        tmppath = String(path) * ".tmp.$(getpid()).$(rand(UInt32))"
+        try
+            open(tmppath, "w") do io
+                serialize(io, keys)
+            end
+            mv(tmppath, String(path); force=true)
+        finally
+            try rm(tmppath; force=true) catch end
+        end
+        return nothing
     end
-    mv(tmppath, path; force=true)
     return nothing
 end
 
@@ -1966,11 +2028,16 @@ Uses atomic write (tmp + rename).
 function save_incidents(incidents::Vector{MissedSelectionIncident}, path::String=INCIDENTS_PATH)
     dir = dirname(path)
     mkpath(dir)
-    tmppath = path * ".tmp"
-    open(tmppath, "w") do io
-        serialize(io, incidents)
+    # Use a unique temp-file name to avoid cross-process collision
+    tmppath = String(path) * ".tmp.$(getpid()).$(rand(UInt32))"
+    try
+        open(tmppath, "w") do io
+            serialize(io, incidents)
+        end
+        mv(tmppath, String(path); force=true)
+    finally
+        try rm(tmppath; force=true) catch end
     end
-    mv(tmppath, path; force=true)
     return nothing
 end
 
@@ -2003,9 +2070,13 @@ Load existing incidents, append a new one, and save.
 If the file doesn't exist, starts with an empty list.
 """
 function append_incident(incident::MissedSelectionIncident, path::String=INCIDENTS_PATH)
-    existing = load_incidents(path)
-    push!(existing, incident)
-    save_incidents(existing, path)
+    lock_path = String(path) * ".lock"
+    _with_exclusive_lock(lock_path) do
+        existing = load_incidents(String(path))
+        push!(existing, incident)
+        save_incidents(existing, String(path))
+        return nothing
+    end
     return nothing
 end
 

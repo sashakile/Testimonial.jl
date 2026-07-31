@@ -77,3 +77,29 @@ end
     @test INCIDENTS_PATH isa String
     @test endswith(INCIDENTS_PATH, "incidents.jls")
 end
+
+# ── Concurrent access safety (testimonial-in3s.5) ──
+
+@testset "save_ingested_run_key uses unique temp files" begin
+    mktempdir() do dir
+        path = joinpath(dir, ".testimonial", "ingested_runs.jls")
+        Testimonial.save_ingested_run_key("key-1", now(), path)
+        Testimonial.save_ingested_run_key("key-2", now(), path)
+        keys = Testimonial.load_ingested_run_keys(path)
+        @test haskey(keys, "key-1")
+        @test haskey(keys, "key-2")
+        @test length(keys) == 2
+    end
+end
+
+@testset "append_incident uses unique temp files" begin
+    mktempdir() do dir
+        path = joinpath(dir, ".testimonial", "incidents.jls")
+        inc1 = MissedSelectionIncident("a.jl", TestItemRef("/a.jl", 1, "t1"), now(), IncidentStatus(0))
+        inc2 = MissedSelectionIncident("b.jl", TestItemRef("/b.jl", 1, "t2"), now(), IncidentStatus(0))
+        Testimonial.append_incident(inc1, path)
+        Testimonial.append_incident(inc2, path)
+        loaded = Testimonial.load_incidents(path)
+        @test length(loaded) == 2
+    end
+end
