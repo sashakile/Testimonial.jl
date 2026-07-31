@@ -220,7 +220,11 @@ push!(LOAD_PATH, pkg_under_test)
 # in pwd, consumed by testimonial-be7o.  If SnoopCompile is unavailable,
 # inference capture is skipped (coverage-only fallback).
 
-trace_path = joinpath(pwd(), "inference_trace.jls")
+trace_path = if haskey(ENV, "TESTIMONIAL_TRACE_OUTPUT_DIR")
+    joinpath(ENV["TESTIMONIAL_TRACE_OUTPUT_DIR"], "inference_trace.jls")
+else
+    joinpath(pwd(), "inference_trace.jls")
+end
 
 try
     if test_run_all

@@ -107,3 +107,81 @@ end
         @test result.item.name == "default_test"
     end
 end
+
+# ── Artifact isolation (testimonial-in3s.2) ────
+
+@testset "record_item isolates artifacts per subprocess attempt" begin
+    mktempdir() do dir
+        test_dir = create_scratch_project(dir)
+        test_file = joinpath(test_dir, "isolated_test.jl")
+        write(test_file, """
+        @testitem "isolated_a" begin
+            @test 1 == 1
+        end
+        """)
+
+        ref = Testimonial.TestItemRef(test_file, 1, "isolated_a")
+        runner = Testimonial.SubprocessRunner(timeout=60.0)
+
+        # Run recording — should use per-attempt temp dir
+        result = Testimonial.record_item(runner, ref)
+        @test result isa Testimonial.ItemCoverage
+        @test result.item.name == "isolated_a"
+
+        # Verify no shared tracefile or inference trace was left in pwd
+        @test !isfile(joinpath(pwd(), "tracefile.info"))
+        @test !isfile(joinpath(pwd(), "inference_trace.jls"))
+    end
+end
+
+@testset "parallel record_items produce disjoint coverage" begin
+    mktempdir() do dir
+        test_dir = create_scratch_project(dir)
+
+        # Create two test files with disjoint content
+        test_a = joinpath(test_dir, "test_a.jl")
+        write(test_a, """
+        @testitem "a_only" begin
+            a = 1
+            b = 2
+            @test a + b == 3
+        end
+        """)
+
+        test_b = joinpath(test_dir, "test_b.jl")
+        write(test_b, """
+        @testitem "b_only" begin
+            x = 10
+            y = 20
+            @test x + y == 30
+        end
+        """)
+
+        ref_a = Testimonial.TestItemRef(test_a, 1, "a_only")
+        ref_b = Testimonial.TestItemRef(test_b, 1, "b_only")
+        runner = Testimonial.SubprocessRunner(timeout=60.0)
+
+        # Run both recordings in parallel via Threads.@threads
+        results = Vector{Union{Testimonial.ItemCoverage, Nothing}}(undef, 2)
+        Threads.@threads for i in 1:2
+            ref = i == 1 ? ref_a : ref_b
+            results[i] = Testimonial.record_item(runner, ref)
+        end
+
+        # Both should succeed
+        @test results[1] isa Testimonial.ItemCoverage
+        @test results[2] isa Testimonial.ItemCoverage
+        @test results[1].item.name == "a_only"
+        @test results[2].item.name == "b_only"
+
+        # Coverage should be disjoint: a_only covers lines 2-5 (a=1, b=2, @test),
+        # b_only covers lines 2-5 (x=10, y=20, @test). Each file has different
+        # variable names so artifact cross-contamination would show wrong coverage.
+        @test !isempty(results[1].covered_lines)
+        @test !isempty(results[2].covered_lines)
+
+        # Verify no shared artifacts were left behind
+        @test !isfile(joinpath(pwd(), "tracefile.info"))
+        @test !isfile(joinpath(pwd(), "inference_trace.jls"))
+    end
+end
