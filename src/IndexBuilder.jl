@@ -753,34 +753,44 @@ function _load_per_component_indices(parent::Module, components::Vector{Symbol})
 
     for comp in components
         comp_path = parent.component_index_path(string(comp))
+
+        # Every routed component must load as a valid CoverageIndex.
+        # Missing, corrupt, or wrong-type data causes full load failure
+        # (testimonial-3yem.6).
         if !isfile(comp_path)
-            continue
+            @warn "Missing component index: $comp_path"
+            return nothing
         end
 
-        try
-            comp_index = open(deserialize, comp_path, "r")
-            if comp_index isa parent.CoverageIndex
-                for (ref, ic) in comp_index.items
-                    merged_items[ref] = ic
-                end
-                # Use the most recent created_at
-                if comp_index.created_at > merged_created_at
-                    merged_created_at = comp_index.created_at
-                end
-                # Use the first non-empty git_hash found
-                if isempty(merged_git_hash) && !isempty(comp_index.git_hash)
-                    merged_git_hash = comp_index.git_hash
-                end
-                # Capture the first non-empty component graph.
-                # Invariant: all per-component indices share the same full
-                # inter_component_edges (the graph is built once and saved
-                # identically to each). Taking the first non-empty one is safe.
-                if isempty(merged_edges) && !isempty(comp_index.inter_component_edges)
-                    merged_edges = comp_index.inter_component_edges
-                end
-            end
+        comp_index = try
+            open(deserialize, comp_path, "r")
         catch
-            continue
+            @warn "Corrupt component index: $comp_path"
+            return nothing
+        end
+
+        if !(comp_index isa parent.CoverageIndex)
+            @warn "Unexpected data type in component index: $comp_path"
+            return nothing
+        end
+
+        for (ref, ic) in comp_index.items
+            merged_items[ref] = ic
+        end
+        # Use the most recent created_at
+        if comp_index.created_at > merged_created_at
+            merged_created_at = comp_index.created_at
+        end
+        # Use the first non-empty git_hash found
+        if isempty(merged_git_hash) && !isempty(comp_index.git_hash)
+            merged_git_hash = comp_index.git_hash
+        end
+        # Capture the first non-empty component graph.
+        # Invariant: all per-component indices share the same full
+        # inter_component_edges (the graph is built once and saved
+        # identically to each). Taking the first non-empty one is safe.
+        if isempty(merged_edges) && !isempty(comp_index.inter_component_edges)
+            merged_edges = comp_index.inter_component_edges
         end
     end
 

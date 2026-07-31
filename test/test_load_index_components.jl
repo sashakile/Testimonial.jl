@@ -78,17 +78,69 @@ end
     end
 end
 
-@testset "load_index with missing component dir loads empty index" begin
+@testset "load_index rejects missing component index (testimonial-3yem.6)" begin
     mktempdir() do dir
         cd(dir) do
-            # Routing file says there's a component, but no component dir exists
-            Testimonial.save_routing(".testimonial", [:GhostPkg])
+            Testimonial.save_routing(".testimonial", [:GhostPkg, :RealPkg])
+
+            # Create RealPkg but not GhostPkg
+            ref = TestItemRef("pkgs/RealPkg/test/r.jl", 10, "test_r")
+            ic = ItemCoverage(ref, [1, 2], Int[], Dict())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref => ic),
+                "abc", string(VERSION), v"0.1.0", now()
+            )
+            Testimonial.save_index(index, Testimonial.component_index_path("RealPkg"))
+
+            # Partial load should be rejected — missing GhostPkg causes failure
+            loaded = Testimonial.load_index(".testimonial/index.jls")
+            @test loaded === nothing
+        end
+    end
+end
+
+@testset "load_index rejects corrupt component index (testimonial-3yem.6)" begin
+    mktempdir() do dir
+        cd(dir) do
+            ref = TestItemRef("pkgs/PkgA/test/a.jl", 10, "test_a")
+            ic = ItemCoverage(ref, [1, 2], Int[], Dict())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref => ic),
+                "abc", string(VERSION), v"0.1.0", now()
+            )
+            Testimonial.save_index(index, Testimonial.component_index_path("PkgA"))
+            Testimonial.save_routing(".testimonial", [:PkgA, :PkgB])
+
+            # Write garbage over PkgB's index (ensure dir exists)
+            mkpath(dirname(Testimonial.component_index_path("PkgB")))
+            write(Testimonial.component_index_path("PkgB"), "{{corrupt data}}")
 
             loaded = Testimonial.load_index(".testimonial/index.jls")
+            @test loaded === nothing
+        end
+    end
+end
 
-            # Should return an empty index rather than nothing
-            @test loaded isa CoverageIndex
-            @test isempty(loaded.items)
+@testset "load_index rejects wrong-type component index (testimonial-3yem.6)" begin
+    mktempdir() do dir
+        cd(dir) do
+            ref = TestItemRef("pkgs/PkgA/test/a.jl", 10, "test_a")
+            ic = ItemCoverage(ref, [1, 2], Int[], Dict())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref => ic),
+                "abc", string(VERSION), v"0.1.0", now()
+            )
+            Testimonial.save_index(index, Testimonial.component_index_path("PkgA"))
+            Testimonial.save_routing(".testimonial", [:PkgA, :PkgB])
+
+            # Write a valid serialized object that is NOT a CoverageIndex
+            mkpath(dirname(Testimonial.component_index_path("PkgB")))
+            open(Testimonial.component_index_path("PkgB"), "w") do io
+                serialize(io, "not_a_coverage_index")
+            end
+
+            loaded = Testimonial.load_index(".testimonial/index.jls")
+            @test loaded === nothing
         end
     end
 end
