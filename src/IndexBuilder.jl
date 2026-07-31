@@ -515,8 +515,10 @@ function _save_per_component_indices(
         end
     end
 
-    # Save routing file with all component names (excluding unmapped)
-    component_names = [Symbol(k) for k in keys(comp_groups) if k != "__unmapped__"]
+    # Save routing file with all component names, including __unmapped__.
+    # Unmapped items are saved to their own component index but were excluded
+    # from routing, causing silent data loss on reload (testimonial-3yem.4).
+    component_names = [Symbol(k) for k in keys(comp_groups)]
     save_routing(".testimonial", component_names)
 
     # Invalidate all selection caches — fingerprints have been recomputed

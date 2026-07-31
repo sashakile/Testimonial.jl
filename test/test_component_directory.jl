@@ -67,3 +67,65 @@ end
         @test isempty(loaded)
     end
 end
+
+# ── Unmapped component routing (testimonial-3yem.4) ──
+
+@testset "__unmapped__ items survive component save and load" begin
+    mktempdir() do dir
+        cd(dir) do
+            # Create a test item not under any known component
+            ref = Testimonial.TestItemRef(abspath("test/unmapped_test.jl"), 1, "unmapped_item")
+            ic = Testimonial.ItemCoverage(ref, [1], Int[], Dict{String, Tuple{Vector{Int}, Vector{Int}}}())
+
+            # Create a component test item
+            comp_ref = Testimonial.TestItemRef(abspath("pkgs/MyApp/test/app_test.jl"), 1, "mapped_item")
+            comp_ic = Testimonial.ItemCoverage(comp_ref, [1], Int[], Dict{String, Tuple{Vector{Int}, Vector{Int}}}())
+
+            item_map = Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}(
+                ref => ic,
+                comp_ref => comp_ic,
+            )
+
+            # Create Project.toml with workspace components
+            write("Project.toml", """
+name = "TestPkg"
+version = "1.0.0"
+
+[workspace]
+packages = ["pkgs/MyApp"]
+""")
+            mkpath("pkgs/MyApp")
+            write("pkgs/MyApp/Project.toml", """
+name = "MyApp"
+version = "0.1.0"
+""")
+
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+            run(`git add -A`)
+            run(`git commit -m init`)
+
+            # Call the internal save function
+            parent = Base.parentmodule(Testimonial.IndexBuilder)
+            git_sha = String(readchomp(`git rev-parse HEAD`))
+            Testimonial.IndexBuilder._save_per_component_indices(
+                parent, item_map, dir,
+                git_sha,
+                "v1.12.0+abc123",
+            )
+
+            # Verify the routing file includes __unmapped__
+            routing = Testimonial.load_routing(".testimonial")
+            @test :__unmapped__ in routing
+
+            # Load through the routing path and verify both items present
+            loaded = Testimonial.load_index(".testimonial/index.jls")
+            @test loaded !== nothing
+
+            found_names = Set(r.name for (r, _) in loaded.items)
+            @test "unmapped_item" in found_names
+            @test "mapped_item" in found_names
+        end
+    end
+end

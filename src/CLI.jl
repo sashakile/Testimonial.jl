@@ -875,13 +875,22 @@ function _resolve_affected_components(
 )::Set{String}
     parent = Base.parentmodule(@__MODULE__)
 
-    # Step 1: Find which components own the changed files
+    # Step 1: Find which components own the changed files.
+    # Files outside known components trigger a conservative fallback:
+    # include __unmapped__ so its tests are at least queried (testimonial-3yem.4).
     changed_components = Set{String}()
+    has_unowned = false
     for f in changed_files
         comp = parent.component_of(f, path_map)
         if comp !== nothing
             push!(changed_components, string(comp))
+        else
+            has_unowned = true
         end
+    end
+
+    if has_unowned
+        push!(changed_components, "__unmapped__")
     end
 
     isempty(changed_components) && return changed_components
