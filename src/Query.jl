@@ -101,30 +101,34 @@ end
 """
     coverage_gaps(index, changed) -> Vector{CoverageGap}
 
-Find coverage gaps (contiguous uncovered regions) in changed files.
+Find coverage gaps (contiguous uncovered regions) in changed source files.
 
 `changed` is a `Dict{String, Set{Int}}` mapping file paths to the set
 of changed line numbers (from `parse_unified_diff`).
 
-For each changed file that is tracked in the `CoverageIndex`, computes
-which lines are covered (aggregated across all test items in that file)
-and which are not. Contiguous regions of uncovered lines within the
-changed regions are returned as `CoverageGap`s.
+For each changed file that has coverage data in the `CoverageIndex`
+(via `ItemCoverage.source_files`), computes which lines are covered
+(aggregated across all test items that cover that file) and which are
+not. Contiguous regions of uncovered lines within the changed regions
+are returned as `CoverageGap`s.
 
-Files not tracked in the index are excluded from the result.
+Files not tracked in any item's `source_files` are excluded from the result.
 """
 function coverage_gaps(index, changed::Dict{String, Set{Int}})::Vector
     parent = _parent()
     isempty(changed) && return parent.CoverageGap[]
 
-    # Aggregate coverage by file: file -> Set{covered_lines}
+    # Aggregate coverage by SOURCE file from ItemCoverage.source_files.
+    # This correctly captures coverage of source files (e.g. src/foo.jl)
+    # rather than just test-file lines.
     file_coverage = Dict{String, Set{Int}}()
     for (ref, item_cov) in index.items
-        f = ref.file
-        if !haskey(file_coverage, f)
-            file_coverage[f] = Set{Int}()
+        for (src_file, (covered_lines, _uncovered)) in item_cov.source_files
+            if !haskey(file_coverage, src_file)
+                file_coverage[src_file] = Set{Int}()
+            end
+            union!(file_coverage[src_file], covered_lines)
         end
-        union!(file_coverage[f], item_cov.covered_lines)
     end
 
     gaps = parent.CoverageGap[]

@@ -18,7 +18,11 @@ function make_test_index(pairs::Vector{Tuple{String, String, Vector{Int}}})
     items = Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}()
     for (file, name, covered) in pairs
         ref = Testimonial.TestItemRef(file, 1, name)
-        items[ref] = Testimonial.ItemCoverage(ref, covered, Int[], Dict())
+        # Populate source_files so coverage_gaps can find test-file coverage
+        source_files = Dict{String, Tuple{Vector{Int}, Vector{Int}}}(
+            file => (covered, Int[]),
+        )
+        items[ref] = Testimonial.ItemCoverage(ref, covered, Int[], source_files)
     end
     return Testimonial.CoverageIndex(
         items,
@@ -34,7 +38,10 @@ function make_scoped_index(pairs::Vector{Tuple{String, String, Vector{Int}, Stri
     items = Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}()
     for (file, name, covered, component) in pairs
         ref = Testimonial.TestItemRef(file, 1, name, Symbol[], "", nothing, component)
-        items[ref] = Testimonial.ItemCoverage(ref, covered, Int[], Dict())
+        source_files = Dict{String, Tuple{Vector{Int}, Vector{Int}}}(
+            file => (covered, Int[]),
+        )
+        items[ref] = Testimonial.ItemCoverage(ref, covered, Int[], source_files)
     end
     return Testimonial.CoverageIndex(
         items,
@@ -874,4 +881,127 @@ end
     link = reason.chain[1]
     @test link.layer == Testimonial.STATIC
     @test link.content_unit == "src/lib.jl"
+end
+
+# ── coverage_provider (source-file attribution) ───
+
+"""Create a CoverageIndex with source_files coverage for testing."""
+function make_index_with_source_files(
+    test_file::String,
+    item_name::String,
+    covered_lines::Vector{Int},
+    source_files::Dict{String, Tuple{Vector{Int}, Vector{Int}}},
+)
+    ref = Testimonial.TestItemRef(test_file, 1, item_name)
+    ic = Testimonial.ItemCoverage(ref, covered_lines, Int[], source_files)
+    items = Dict{Testimonial.TestItemRef, Testimonial.ItemCoverage}(ref => ic)
+    return Testimonial.CoverageIndex(
+        items, "abc1234", string(VERSION), v"0.1.0", now()
+    )
+end
+
+@testset "query_files returns Unresolved for source-file change (test-file-only lookup)" begin
+    # A test item covers a source file via source_files, but query_files
+    # only looks at test-file paths — so it returns Unresolved.
+    source_files = Dict(
+        "src/lib.jl" => ([10, 20, 30], [15, 25]),
+    )
+    index = make_index_with_source_files(
+        "/proj/test/foo_test.jl", "test_a", [1, 2, 3], source_files,
+    )
+
+    # query_files only checks if the changed file IS a test file
+    result = Testimonial.query_files(index, ["src/lib.jl"])
+
+    # Returns Unresolved — source file not in test-file index
+    @test length(result) == 1
+    @test result[1].selected == false
+    @test result[1].reasons[1].kind == Testimonial.Unresolved
+end
+
+@testset "coverage_provider selects test when source file changed" begin
+    changed = Dict{String, Set{Int}}(
+        "src/lib.jl" => Set([20]),  # line 20 changed, which is covered
+    )
+    source_files = Dict(
+        "src/lib.jl" => ([10, 20, 30], [15, 25]),
+    )
+    index = make_index_with_source_files(
+        "/proj/test/foo_test.jl", "test_a", [1, 2, 3], source_files,
+    )
+
+    provider = Testimonial.coverage_provider(changed)
+    results = provider(index, ["src/lib.jl"])
+
+    @test length(results) == 1
+    @test results[1].selected == true
+    @test results[1].item.name == "test_a"
+    @test length(results[1].reasons) == 1
+    @test results[1].reasons[1].kind == Testimonial.DirectChange
+    # Should have a provenance chain with COVERAGE layer
+    @test !isempty(results[1].reasons[1].chain)
+    @test results[1].reasons[1].chain[1].layer == Testimonial.COVERAGE
+end
+
+@testset "query with coverage_provider selects test for covered source change" begin
+    changed = Dict{String, Set{Int}}(
+        "src/lib.jl" => Set([20]),  # line 20 changed, covered
+    )
+    source_files = Dict(
+        "src/lib.jl" => ([10, 20, 30], [15, 25]),
+    )
+    index = make_index_with_source_files(
+        "/proj/test/foo_test.jl", "test_a", [1, 2, 3], source_files,
+    )
+
+    providers = [
+        Testimonial.direct_change_provider,
+        Testimonial.coverage_provider(changed),
+        Testimonial.unresolved_provider,
+    ]
+    results = Testimonial.query(providers, index, changed)
+
+    # Two results: one for the covered test (selected), one for the
+    # source file (unresolved — not a test file, but covered by the test)
+    selected_results = [r for r in results if r.selected]
+    @test length(selected_results) == 1
+    @test selected_results[1].item.name == "test_a"
+end
+
+@testset "coverage_provider unchanged source line does not select test" begin
+    changed = Dict{String, Set{Int}}(
+        "src/lib.jl" => Set([15]),  # line 15 changed, NOT covered (in uncovered)
+    )
+    source_files = Dict(
+        "src/lib.jl" => ([10, 20, 30], [15, 25]),
+    )
+    index = make_index_with_source_files(
+        "/proj/test/foo_test.jl", "test_a", [1, 2, 3], source_files,
+    )
+
+    provider = Testimonial.coverage_provider(changed)
+    results = provider(index, ["src/lib.jl"])
+
+    @test isempty(results)
+end
+
+@testset "coverage_provider with multiple source files" begin
+    changed = Dict{String, Set{Int}}(
+        "src/lib.jl" => Set([20]),
+        "src/utils.jl" => Set([50]),
+    )
+    source_files = Dict(
+        "src/lib.jl" => ([10, 20, 30], Int[]),
+        "src/utils.jl" => ([40, 50, 60], Int[]),
+    )
+    index = make_index_with_source_files(
+        "/proj/test/foo_test.jl", "test_a", [1, 2, 3], source_files,
+    )
+
+    provider = Testimonial.coverage_provider(changed)
+    results = provider(index, ["src/lib.jl", "src/utils.jl"])
+
+    @test length(results) == 1
+    @test results[1].selected == true
+    @test length(results[1].reasons[1].chain) == 2  # two changed lines covered
 end

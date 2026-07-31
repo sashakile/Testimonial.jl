@@ -537,7 +537,10 @@ function run(; base_ref::String="origin/main",
         if isempty(path_map)
             # Project.toml missing — fall back to flat mode
             @warn "No components discovered — falling back to flat mode"
-            selected = parent.query_files(index, changed_files)
+            selected = parent.query(
+                [parent.direct_change_provider, parent.coverage_provider(changed), parent.unresolved_provider],
+                index, changed,
+            )
             filtered = [
                 item for item in selected
                 if any(startswith(item.item.file, d) for d in abs_test_dirs)
@@ -548,8 +551,11 @@ function run(; base_ref::String="origin/main",
             )
         end
     else
-        # Step 6: Flat mode — single query
-        selected = parent.query_files(index, changed_files)
+        # Step 6: Flat mode — single query with provider pipeline
+        selected = parent.query(
+            [parent.direct_change_provider, parent.coverage_provider(changed), parent.unresolved_provider],
+            index, changed,
+        )
         filtered = [
             item for item in selected
             if any(startswith(item.item.file, d) for d in abs_test_dirs)
@@ -964,7 +970,7 @@ function _run_component_aware(
             comp_results[i] = cached[2]
         else
             results = parent.query(
-                [parent.direct_change_provider, parent.unresolved_provider],
+                [parent.direct_change_provider, parent.coverage_provider(changed), parent.unresolved_provider],
                 index,
                 changed;
                 component=comp,
