@@ -2,52 +2,52 @@
   "top_hotspots": [
     {
       "fingerprint": "src/GitDiff.jl::_parse_diff_section::cognitive_max",
-      "count": 157,
+      "count": 158,
       "distinct_days": 10
     },
     {
       "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cognitive_max",
-      "count": 123,
+      "count": 124,
       "distinct_days": 8
     },
     {
-      "fingerprint": "src/Protocol.jl::handle_ingest::function_lines_max",
-      "count": 121,
-      "distinct_days": 7
-    },
-    {
-      "fingerprint": "src/Protocol.jl::_append_runtime_edges::function_lines_max",
-      "count": 121,
-      "distinct_days": 7
-    },
-    {
-      "fingerprint": "src/Protocol.jl::_build_static_edges::function_lines_max",
-      "count": 121,
-      "distinct_days": 7
-    },
-    {
-      "fingerprint": "src/CoverageLayer.jl::_collect_coverage::function_lines_max",
-      "count": 121,
-      "distinct_days": 7
-    },
-    {
-      "fingerprint": "src/GitDiff.jl::_parse_diff_section::function_lines_max",
-      "count": 121,
-      "distinct_days": 7
-    },
-    {
       "fingerprint": "src/IndexBuilder.jl::_record_single_item::function_lines_max",
-      "count": 121,
+      "count": 122,
       "distinct_days": 7
     },
     {
-      "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cyclomatic_max",
-      "count": 121,
+      "fingerprint": "src/GitDiff.jl::_parse_diff_section::abc_max",
+      "count": 122,
+      "distinct_days": 7
+    },
+    {
+      "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::cyclomatic_max",
+      "count": 122,
       "distinct_days": 7
     },
     {
       "fingerprint": "src/Protocol.jl::handle_run_args::cyclomatic_max",
-      "count": 121,
+      "count": 122,
+      "distinct_days": 7
+    },
+    {
+      "fingerprint": "src/Protocol.jl::_append_runtime_edges::function_lines_max",
+      "count": 122,
+      "distinct_days": 7
+    },
+    {
+      "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cyclomatic_max",
+      "count": 122,
+      "distinct_days": 7
+    },
+    {
+      "fingerprint": "src/CoverageLayer.jl::_collect_coverage::abc_max",
+      "count": 122,
+      "distinct_days": 7
+    },
+    {
+      "fingerprint": "src/Protocol.jl::handle_run_args::function_lines_max",
+      "count": 122,
       "distinct_days": 7
     }
   ],
@@ -56,7 +56,7 @@
       "rule_key": "function_lines_max",
       "role": "app",
       "area": "src",
-      "count": 1329,
+      "count": 1342,
       "distinct_files": 6,
       "distinct_days": 7
     },
@@ -64,7 +64,7 @@
       "rule_key": "cyclomatic_max",
       "role": "app",
       "area": "src",
-      "count": 741,
+      "count": 750,
       "distinct_files": 5,
       "distinct_days": 7
     },
@@ -72,7 +72,7 @@
       "rule_key": "abc_max",
       "role": "app",
       "area": "src",
-      "count": 506,
+      "count": 511,
       "distinct_files": 4,
       "distinct_days": 7
     },
@@ -80,7 +80,7 @@
       "rule_key": "cognitive_max",
       "role": "app",
       "area": "src",
-      "count": 348,
+      "count": 353,
       "distinct_files": 4,
       "distinct_days": 10
     }
