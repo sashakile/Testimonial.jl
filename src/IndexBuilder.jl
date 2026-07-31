@@ -169,7 +169,11 @@ end
 """
     record_all(items, runner=SubprocessRunner(); incremental=true, force=false, test_dirs=["test/"], project_dir=nothing) -> CoverageIndex
 
-Record coverage for all discovered @testitems and build a CoverageIndex.
+Record coverage for all discovered items and build a CoverageIndex.
+
+Supports mixed-mode recording: items with `line == 0` (file-level items
+from @testset/@test blocks) are recorded via `record_file`, while items
+with `line > 0` (per-@testitem) are recorded via `record_item`.
 
 Parallel recording via `Threads.@threads` — each item is recorded in its
 own subprocess. The `runner` parameter allows injecting a mock runner
@@ -282,12 +286,24 @@ function record_all(
             Threads.@threads for gf in group_files
                 idxs = groups[gf]
                 refs = [items[i] for i in idxs]
-                results = parent.record_batch(runner, refs)
-                for (k, idx) in enumerate(idxs)
-                    r = results[k]
-                    fresh_results[idx] = r
-                    if r !== nothing
-                        _save_cached_record(r)
+                # File-level items (line == 0) use record_file instead of
+                # record_batch, since record_batch expects @testitem names.
+                is_file_level = parent.Protocol._is_testitem_at_line(refs[1].file, refs[1].line) == false
+                if is_file_level
+                    # Single file-level item per file — use record_file
+                    result = parent.record_file(runner, refs[1].file)
+                    fresh_results[idxs[1]] = result
+                    if result !== nothing
+                        _save_cached_record(result)
+                    end
+                else
+                    results = parent.record_batch(runner, refs)
+                    for (k, idx) in enumerate(idxs)
+                        r = results[k]
+                        fresh_results[idx] = r
+                        if r !== nothing
+                            _save_cached_record(r)
+                        end
                     end
                 end
             end
@@ -301,7 +317,17 @@ function record_all(
             # Allocate a per-thread lock for results (no contention on Dict)
             Threads.@threads for idx in record_indices
                 ref = items[idx]
-                result = parent.record_item(runner, ref)
+                # Dispatch based on item type:
+                # - line == 0: file-level fallback → record_file
+                # - line > 0 but not a @testitem (e.g. @testset) → record_file
+                # - line > 0 and is a @testitem → record_item
+                # Uses _is_testitem_at_line to distinguish @testitem from @testset.
+                is_file_level = !parent.Protocol._is_testitem_at_line(ref.file, ref.line)
+                result = if is_file_level
+                    parent.record_file(runner, ref.file)
+                else
+                    parent.record_item(runner, ref)
+                end
                 fresh_results[idx] = result
                 if result !== nothing
                     # Cache the result

@@ -208,6 +208,122 @@ end
     end
 end
 
+# ── Mixed-mode recording ────────────────────────
+
+"""Create a temp directory with both @testitem and file-level items."""
+function create_mixed_project(dir::String)
+    test_dir = joinpath(dir, "test")
+    mkpath(test_dir)
+
+    # File with @testitem (per-item recording)
+    write(joinpath(test_dir, "item_test.jl"), """
+    @testitem "test_a" begin
+        @test 1 == 1
+    end
+
+    @testitem "test_b" begin
+        @test 2 == 2
+    end
+    """)
+
+    # File with @testset blocks (file-level recording)
+    write(joinpath(test_dir, "set_test.jl"), """
+    @testset "outer" begin
+        @test 1 == 1
+    end
+
+    @testset "nested" begin
+        @test 2 == 2
+    end
+    """)
+
+    # File with no test blocks at all (triggers file-level fallback, line=0)
+    write(joinpath(test_dir, "spec_test.jl"), """
+    # This file has no test blocks — just simple tests
+    @test 1 == 1
+    @test 2 == 2
+    """)
+
+    return test_dir
+end
+
+@testset "record_all dispatches file-level items to record_file" begin
+    mktempdir() do dir
+        test_dir = create_mixed_project(dir)
+        runner = MockRunner()
+
+        # Discover all items — includes @testitem, @testset, and file-level (line=0) items
+        items = Testimonial.discover_all_test_blocks([test_dir])
+
+        # Filter to only file-level items (those with line == 0)
+        file_items = [item for item in items if item.line == 0]
+        @test !isempty(file_items)
+
+        result = record_all(file_items, runner; force=true)
+
+        # MockRunner should have been called with TESTIMONIAL_RUN_ALL (record_file)
+        @test haskey(runner.captured_env, "TESTIMONIAL_RUN_ALL")
+        @test runner.captured_env["TESTIMONIAL_RUN_ALL"] == "true"
+        # Should NOT have TESTIMONIAL_ITEM (that's for record_item)
+        @test !haskey(runner.captured_env, "TESTIMONIAL_ITEM")
+        @test !haskey(runner.captured_env, "TESTIMONIAL_ITEMS")
+    end
+end
+
+@testset "record_all dispatches @testitem items to record_item" begin
+    mktempdir() do dir
+        test_dir = create_mixed_project(dir)
+        runner = MockRunner()
+
+        items = Testimonial.discover_all_test_blocks([test_dir])
+
+        # Filter to only @testitem items (those with line > 0 at a @testitem line)
+        item_items = [item for item in items if item.line > 0 && Testimonial.Protocol._is_testitem_at_line(item.file, item.line)]
+        @test !isempty(item_items)
+
+        record_all(item_items, runner; force=true)
+
+        # MockRunner should have been called with TESTIMONIAL_ITEM (record_item)
+        @test haskey(runner.captured_env, "TESTIMONIAL_ITEM")
+        @test runner.captured_env["TESTIMONIAL_ITEM"] != ""
+        # Should NOT have TESTIMONIAL_RUN_ALL (that's for record_file)
+        @test !haskey(runner.captured_env, "TESTIMONIAL_RUN_ALL")
+    end
+end
+
+@testset "record_all mixed-mode produces valid CoverageIndex" begin
+    mktempdir() do dir
+        test_dir = create_mixed_project(dir)
+        runner = MockRunner()
+
+        items = Testimonial.discover_all_test_blocks([test_dir])
+
+        # Record ALL items (mixed: @testitem + file-level)
+        index = record_all(items, runner; force=true)
+
+        @test index isa CoverageIndex
+
+        # Count item types: @testitem items are those with line > 0 whose
+        # line actually contains a @testitem; file-level items are line==0
+        # or @testset items (both recorded via record_file → line==0 refs)
+        item_items = [ic for (ref, ic) in index.items if ref.line > 0]
+        file_items = [ic for (ref, ic) in index.items if ref.line == 0]
+
+        @test !isempty(item_items)
+        @test !isempty(file_items)
+
+        # Verify total items
+        @test length(index.items) == length(item_items) + length(file_items)
+
+        # File-level items should have basename as name
+        for (ref, ic) in index.items
+            if ref.line == 0
+                @test ref.name == basename(ref.file)
+            end
+        end
+    end
+end
+
 @testset "build_index sets metadata fields" begin
     mktempdir() do dir
         items_dir = joinpath(dir, "items")
@@ -218,5 +334,30 @@ end
         @test index.schema_version == v"0.1.0"
         @test index.git_hash isa String
         @test index.created_at isa DateTime
+    end
+end
+
+@testset "record_all with batch_by_file handles file-level items" begin
+    mktempdir() do dir
+        test_dir = create_mixed_project(dir)
+        runner = MockRunner()
+
+        # Discover all items
+        items = Testimonial.discover_all_test_blocks([test_dir])
+
+        # Record with batch_by_file=true — should handle file-level items
+        index = record_all(items, runner; force=true, batch_by_file=true)
+
+        @test index isa CoverageIndex
+
+        # Should have both @testitem and file-level items
+        item_items = [ic for (ref, ic) in index.items if ref.line > 0]
+        file_items = [ic for (ref, ic) in index.items if ref.line == 0]
+        @test !isempty(item_items)
+        @test !isempty(file_items)
+
+        # MockRunner should have captured both TESTIMONIAL_ITEM (batch) and TESTIMONIAL_RUN_ALL (file-level)
+        @test haskey(runner.captured_env, "TESTIMONIAL_RUN_ALL")
+        @test haskey(runner.captured_env, "TESTIMONIAL_ITEM") || haskey(runner.captured_env, "TESTIMONIAL_ITEMS")
     end
 end
