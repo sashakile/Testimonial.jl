@@ -107,7 +107,7 @@ end
     @test 3 in result[abs_path]
 end
 
-@testset "parse_unified_diff: deleted file omitted" begin
+@testset "parse_unified_diff: deleted file included" begin
     diff = make_diff(
         ["diff --git a/src/deleted.jl b/src/deleted.jl",
          "deleted file mode 100644",
@@ -121,7 +121,11 @@ end
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
-    @test isempty(result)  # deleted files are not included
+    # Deleted files are included so edge providers can find old paths
+    @test length(result) == 1
+    abs_path = abspath(joinpath(pwd(), "src/deleted.jl"))
+    @test haskey(result, abs_path)
+    @test isempty(result[abs_path])  # no changed lines for deleted files
 end
 
 @testset "parse_unified_diff: renamed file (no content changes)" begin
@@ -134,8 +138,14 @@ end
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
-    # Pure rename with no content changes → empty result
-    @test isempty(result)
+    # Pure rename is included: old path for edge matching, new path with empty lines
+    @test length(result) == 2
+    abs_old = abspath(joinpath(pwd(), "src/old_name.jl"))
+    abs_new = abspath(joinpath(pwd(), "src/new_name.jl"))
+    @test haskey(result, abs_old)
+    @test haskey(result, abs_new)
+    @test isempty(result[abs_old])
+    @test isempty(result[abs_new])
 end
 
 @testset "parse_unified_diff: renamed file with content changes" begin
@@ -153,9 +163,13 @@ end
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
-    abs_path = abspath(joinpath(pwd(), "src/new_name.jl"))
-    @test haskey(result, abs_path)
-    @test 2 in result[abs_path]
+    @test length(result) == 2
+    abs_old = abspath(joinpath(pwd(), "src/old_name.jl"))
+    abs_new = abspath(joinpath(pwd(), "src/new_name.jl"))
+    @test haskey(result, abs_old)
+    @test isempty(result[abs_old])  # old path has no changed lines
+    @test haskey(result, abs_new)
+    @test 2 in result[abs_new]  # new path has the added line
 end
 
 # ── Hunk edge cases ────────────────────────────
@@ -194,12 +208,14 @@ end
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
-    # File with only deletions should not be in the result
+    # File with only deletions is included (empty changed lines)
+    # so deleted-only hunks don't produce an empty selection
     abs_path = abspath(joinpath(pwd(), "src/bar.jl"))
-    @test !haskey(result, abs_path)
+    @test haskey(result, abs_path)
+    @test isempty(result[abs_path])
 end
 
-@testset "parse_unified_diff: context-only lines not counted" begin
+@testset "parse_unified_diff: context-only lines not counted as changed lines" begin
     diff = make_diff(
         ["diff --git a/src/only_ctx.jl b/src/only_ctx.jl",
          "--- a/src/only_ctx.jl",
@@ -212,9 +228,11 @@ end
 
     result = Testimonial.parse_unified_diff(diff, pwd())
 
-    # Context-only diff should produce no changes
+    # The file is included in the result (it's in the diff) 
+    # but with empty changed lines since nothing was added
     abs_path = abspath(joinpath(pwd(), "src/only_ctx.jl"))
-    @test !haskey(result, abs_path)
+    @test haskey(result, abs_path)
+    @test isempty(result[abs_path])
 end
 
 # ── Empty / edge cases ─────────────────────────
@@ -250,6 +268,28 @@ end
     result = Testimonial.parse_unified_diff(diff, pwd())
 
     @test isempty(result)
+end
+
+@testset "parse_unified_diff: renamed from .jl to non-Julia file includes old path" begin
+    diff = make_diff(
+        ["diff --git a/src/old_module.jl b/src/old_module.md",
+         "similarity index 60%",
+         "rename from src/old_module.jl",
+         "rename to src/old_module.md",
+         "--- a/src/old_module.jl",
+         "+++ b/src/old_module.md"],
+        ["@@ -1,1 +1,2 @@",
+         " context",
+         "+new_markdown_line"]
+    )
+
+    result = Testimonial.parse_unified_diff(diff, pwd())
+
+    # Old .jl path should be included for edge provider matching
+    @test length(result) == 1
+    abs_old = abspath(joinpath(pwd(), "src/old_module.jl"))
+    @test haskey(result, abs_old)
+    @test isempty(result[abs_old])  # no changed lines on the old path
 end
 
 @testset "parse_unified_diff: Project.toml changes are included" begin

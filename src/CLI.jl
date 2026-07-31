@@ -1011,7 +1011,7 @@ function _get_git_diff(base_ref::String)::Union{String, Nothing}
         if isempty(strip(result))
             return nothing
         end
-        diff = read(`git diff $(strip(result))..HEAD --diff-filter=AM`, String)
+        diff = read(`git diff $(strip(result))..HEAD -M --diff-filter=AMDR`, String)
         return diff
     catch
         return nothing

@@ -21,9 +21,11 @@ context lines (space-prefixed or blank) are ignored. Only `.jl` and `.toml`
 files are included in the result.
 
 Paths in the diff are resolved relative to `repo_root` and normalized to
-absolute form. Files deleted in the diff are excluded from the result.
-New files have all their added lines included. Renamed files use the new
-path. Binary files are skipped.
+absolute form. Deleted files are included with an empty set of changed
+lines so the selection engine can detect them. Renamed files produce two
+entries: the new path (with any changed lines) and the old path (empty)
+for edge provider matching. New files have all their added lines included.
+Binary files are skipped.
 """
 function parse_unified_diff(diff_text::AbstractString, repo_root::AbstractString)::Dict{String, Set{Int}}
     result = Dict{String, Set{Int}}()
@@ -100,7 +102,12 @@ function _parse_diff_section(section::AbstractString, repo_root::AbstractString,
 
     # --- Determine effective file path ---
     if is_deleted
-        return  # deleted files are not included
+        # Deleted files are included so edge providers can find old paths
+        old_abs = _resolve_path(a_path, repo_root)
+        if endswith(old_abs, ".jl") || endswith(old_abs, ".toml")
+            result[old_abs] = Set{Int}()
+        end
+        return
     end
 
     # For renamed files, use the new name
@@ -112,8 +119,15 @@ function _parse_diff_section(section::AbstractString, repo_root::AbstractString,
         b_path
     end
 
-    # Filter to .jl and .toml files only
+    # Filter to .jl and .toml files only.
+    # For renames from .jl/.toml to a non-tracked type, still add the old path
+    # so edge providers can find historical references.
     if !(endswith(file_path, ".jl") || endswith(file_path, ".toml"))
+        if is_renamed && old_name !== nothing &&
+           (endswith(old_name, ".jl") || endswith(old_name, ".toml"))
+            old_abs = _resolve_path(old_name, repo_root)
+            result[old_abs] = Set{Int}()
+        end
         return
     end
 
@@ -169,8 +183,19 @@ function _parse_diff_section(section::AbstractString, repo_root::AbstractString,
         end
     end
 
-    if !isempty(changed_lines)
-        result[abs_path] = changed_lines
+    # Always add the file to the result, even with no changed lines.
+    # This ensures deleted-only hunks, pure renames, and other edge cases
+    # produce a non-empty changed_files so the selection engine doesn't
+    # see "no relevant change" and run no tests.
+    result[abs_path] = changed_lines
+
+    # For renames, also add the old path with empty lines so edge providers
+    # can match against historical source file references.
+    if is_renamed && old_name !== nothing
+        old_abs = _resolve_path(old_name, repo_root)
+        if !haskey(result, old_abs)
+            result[old_abs] = Set{Int}()
+        end
     end
 end
 
