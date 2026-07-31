@@ -7,7 +7,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 1138.0,
+          "actual": 1164.0,
           "limit": 400.0
         }
       ],
@@ -15,7 +15,7 @@
         {
           "name": "main",
           "kind": "Function",
-          "start_line": 742,
+          "start_line": 768,
           "metrics": {
             "cyclomatic": 12,
             "cognitive": 11,
@@ -47,7 +47,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 631.0,
+          "actual": 863.0,
           "limit": 400.0
         }
       ],
@@ -55,22 +55,22 @@
         {
           "name": "_find_tracefile",
           "kind": "Function",
-          "start_line": 152,
+          "start_line": 176,
           "metrics": {
-            "cyclomatic": 2,
-            "cognitive": 1,
+            "cyclomatic": 4,
+            "cognitive": 3,
             "assertions": 0,
-            "function_lines": 8,
+            "function_lines": 17,
             "params": 0,
             "nesting_max": 0,
-            "abc": 4.242640687119285
+            "abc": 7.0
           },
           "violations": []
         },
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 320,
+          "start_line": 353,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -85,22 +85,22 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 335,
+          "start_line": 390,
           "metrics": {
-            "cyclomatic": 3,
-            "cognitive": 2,
+            "cyclomatic": 5,
+            "cognitive": 4,
             "assertions": 0,
-            "function_lines": 27,
+            "function_lines": 37,
             "params": 1,
             "nesting_max": 0,
-            "abc": 10.488088481701515
+            "abc": 14.0
           },
           "violations": []
         },
         {
           "name": "record_batch",
           "kind": "Function",
-          "start_line": 377,
+          "start_line": 442,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -115,50 +115,65 @@
         {
           "name": "record_batch",
           "kind": "Function",
-          "start_line": 394,
+          "start_line": 459,
           "metrics": {
-            "cyclomatic": 4,
-            "cognitive": 3,
+            "cyclomatic": 6,
+            "cognitive": 5,
             "assertions": 0,
-            "function_lines": 25,
+            "function_lines": 33,
             "params": 0,
             "nesting_max": 0,
-            "abc": 12.569805089976535
+            "abc": 16.06237840420901
+          },
+          "violations": []
+        },
+        {
+          "name": "record_file",
+          "kind": "Function",
+          "start_line": 532,
+          "metrics": {
+            "cyclomatic": 5,
+            "cognitive": 4,
+            "assertions": 0,
+            "function_lines": 31,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 14.866068747318506
           },
           "violations": []
         },
         {
           "name": "_collect_coverage",
           "kind": "Function",
-          "start_line": 443,
+          "start_line": 587,
           "metrics": {
-            "cyclomatic": 19,
-            "cognitive": 18,
+            "cyclomatic": 22,
+            "cognitive": 21,
             "assertions": 0,
-            "function_lines": 104,
+            "function_lines": 122,
             "params": 0,
             "nesting_max": 0,
-            "abc": 61.84658438426491
+            "abc": 69.03622237637282
           },
           "violations": [
             {
               "metric": "cyclomatic",
-              "actual": 19.0,
+              "actual": 22.0,
               "limit": 10.0
             },
             {
               "metric": "cognitive",
-              "actual": 18.0,
+              "actual": 21.0,
               "limit": 15.0
             },
             {
               "metric": "function_lines",
-              "actual": 104.0,
+              "actual": 122.0,
               "limit": 40.0
             },
             {
               "metric": "abc",
-              "actual": 61.84658438426491,
+              "actual": 69.03622237637282,
               "limit": 30.0
             }
           ]
@@ -166,7 +181,7 @@
         {
           "name": "with_retry",
           "kind": "Function",
-          "start_line": 616,
+          "start_line": 789,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -189,35 +204,35 @@
         {
           "name": "_parse_diff_section",
           "kind": "Function",
-          "start_line": 45,
+          "start_line": 47,
           "metrics": {
-            "cyclomatic": 29,
-            "cognitive": 27,
+            "cyclomatic": 37,
+            "cognitive": 35,
             "assertions": 0,
-            "function_lines": 131,
+            "function_lines": 154,
             "params": 0,
             "nesting_max": 0,
-            "abc": 60.663003552412405
+            "abc": 74.35052118176442
           },
           "violations": [
             {
               "metric": "cyclomatic",
-              "actual": 29.0,
+              "actual": 37.0,
               "limit": 10.0
             },
             {
               "metric": "cognitive",
-              "actual": 27.0,
+              "actual": 35.0,
               "limit": 15.0
             },
             {
               "metric": "function_lines",
-              "actual": 131.0,
+              "actual": 154.0,
               "limit": 40.0
             },
             {
               "metric": "abc",
-              "actual": 60.663003552412405,
+              "actual": 74.35052118176442,
               "limit": 30.0
             }
           ]
@@ -231,7 +246,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 1198.0,
+          "actual": 1318.0,
           "limit": 400.0
         }
       ],
@@ -290,7 +305,7 @@
         {
           "name": "load_index",
           "kind": "Function",
-          "start_line": 600,
+          "start_line": 702,
           "metrics": {
             "cyclomatic": 5,
             "cognitive": 4,
@@ -299,6 +314,21 @@
             "params": 0,
             "nesting_max": 0,
             "abc": 7.810249675906654
+          },
+          "violations": []
+        },
+        {
+          "name": "_cleanup_inference_trace",
+          "kind": "Function",
+          "start_line": 1303,
+          "metrics": {
+            "cyclomatic": 3,
+            "cognitive": 2,
+            "assertions": 0,
+            "function_lines": 8,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 5.477225575051661
           },
           "violations": []
         }
@@ -311,7 +341,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 945.0,
+          "actual": 1137.0,
           "limit": 400.0
         }
       ],
@@ -319,22 +349,22 @@
         {
           "name": "run_adapter_protocol",
           "kind": "Function",
-          "start_line": 29,
+          "start_line": 40,
           "metrics": {
             "cyclomatic": 4,
             "cognitive": 3,
             "assertions": 0,
-            "function_lines": 19,
+            "function_lines": 20,
             "params": 0,
             "nesting_max": 0,
-            "abc": 10.862780491200215
+            "abc": 11.789826122551595
           },
           "violations": []
         },
         {
           "name": "handle",
           "kind": "Function",
-          "start_line": 55,
+          "start_line": 67,
           "metrics": {
             "cyclomatic": 4,
             "cognitive": 3,
@@ -349,7 +379,7 @@
         {
           "name": "handle_handshake",
           "kind": "Function",
-          "start_line": 93,
+          "start_line": 105,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -364,7 +394,7 @@
         {
           "name": "handle_fingerprint",
           "kind": "Function",
-          "start_line": 119,
+          "start_line": 131,
           "metrics": {
             "cyclomatic": 9,
             "cognitive": 8,
@@ -379,20 +409,25 @@
         {
           "name": "handle_discover",
           "kind": "Function",
-          "start_line": 172,
+          "start_line": 184,
           "metrics": {
-            "cyclomatic": 10,
-            "cognitive": 9,
+            "cyclomatic": 11,
+            "cognitive": 10,
             "assertions": 0,
-            "function_lines": 58,
+            "function_lines": 62,
             "params": 1,
             "nesting_max": 0,
-            "abc": 22.15851980616034
+            "abc": 24.919871588754223
           },
           "violations": [
             {
+              "metric": "cyclomatic",
+              "actual": 11.0,
+              "limit": 10.0
+            },
+            {
               "metric": "function_lines",
-              "actual": 58.0,
+              "actual": 62.0,
               "limit": 40.0
             }
           ]
@@ -400,7 +435,7 @@
         {
           "name": "handle_ingest",
           "kind": "Function",
-          "start_line": 275,
+          "start_line": 291,
           "metrics": {
             "cyclomatic": 10,
             "cognitive": 9,
@@ -421,38 +456,58 @@
         {
           "name": "_handle_ingest_run_output",
           "kind": "Function",
-          "start_line": 330,
+          "start_line": 346,
           "metrics": {
-            "cyclomatic": 13,
-            "cognitive": 12,
+            "cyclomatic": 22,
+            "cognitive": 21,
             "assertions": 0,
-            "function_lines": 77,
+            "function_lines": 121,
             "params": 2,
             "nesting_max": 0,
-            "abc": 34.597687784012386
+            "abc": 53.68426212587819
           },
           "violations": [
             {
               "metric": "cyclomatic",
-              "actual": 13.0,
+              "actual": 22.0,
               "limit": 10.0
             },
             {
+              "metric": "cognitive",
+              "actual": 21.0,
+              "limit": 15.0
+            },
+            {
               "metric": "function_lines",
-              "actual": 77.0,
+              "actual": 121.0,
               "limit": 40.0
             },
             {
               "metric": "abc",
-              "actual": 34.597687784012386,
+              "actual": 53.68426212587819,
               "limit": 30.0
             }
           ]
         },
         {
+          "name": "_build_inference_edges",
+          "kind": "Function",
+          "start_line": 478,
+          "metrics": {
+            "cyclomatic": 5,
+            "cognitive": 4,
+            "assertions": 0,
+            "function_lines": 30,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 12.36931687685298
+          },
+          "violations": []
+        },
+        {
           "name": "_record_item_for_ingest",
           "kind": "Function",
-          "start_line": 415,
+          "start_line": 516,
           "metrics": {
             "cyclomatic": 6,
             "cognitive": 5,
@@ -467,7 +522,7 @@
         {
           "name": "_append_runtime_edges",
           "kind": "Function",
-          "start_line": 458,
+          "start_line": 559,
           "metrics": {
             "cyclomatic": 9,
             "cognitive": 8,
@@ -488,7 +543,7 @@
         {
           "name": "_ingest_one_item",
           "kind": "Function",
-          "start_line": 516,
+          "start_line": 617,
           "metrics": {
             "cyclomatic": 6,
             "cognitive": 5,
@@ -509,7 +564,7 @@
         {
           "name": "_build_edges_for_item",
           "kind": "Function",
-          "start_line": 581,
+          "start_line": 682,
           "metrics": {
             "cyclomatic": 6,
             "cognitive": 5,
@@ -524,7 +579,7 @@
         {
           "name": "_normalize_path",
           "kind": "Function",
-          "start_line": 617,
+          "start_line": 718,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -539,7 +594,7 @@
         {
           "name": "_add_line_edges",
           "kind": "Function",
-          "start_line": 627,
+          "start_line": 728,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -554,7 +609,7 @@
         {
           "name": "_resolve_node_id",
           "kind": "Function",
-          "start_line": 643,
+          "start_line": 744,
           "metrics": {
             "cyclomatic": 10,
             "cognitive": 9,
@@ -575,7 +630,7 @@
         {
           "name": "handle_run_args",
           "kind": "Function",
-          "start_line": 705,
+          "start_line": 806,
           "metrics": {
             "cyclomatic": 20,
             "cognitive": 19,
@@ -611,7 +666,7 @@
         {
           "name": "json_error",
           "kind": "Function",
-          "start_line": 820,
+          "start_line": 921,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -626,12 +681,12 @@
         {
           "name": "handle_static_deps",
           "kind": "Function",
-          "start_line": 839,
+          "start_line": 940,
           "metrics": {
             "cyclomatic": 7,
             "cognitive": 6,
             "assertions": 0,
-            "function_lines": 33,
+            "function_lines": 31,
             "params": 1,
             "nesting_max": 0,
             "abc": 16.431676725154983
@@ -641,28 +696,58 @@
         {
           "name": "_build_static_edges",
           "kind": "Function",
-          "start_line": 885,
+          "start_line": 987,
           "metrics": {
-            "cyclomatic": 12,
-            "cognitive": 11,
+            "cyclomatic": 11,
+            "cognitive": 10,
             "assertions": 0,
-            "function_lines": 59,
+            "function_lines": 60,
             "params": 1,
             "nesting_max": 0,
-            "abc": 23.366642891095847
+            "abc": 18.708286933869708
           },
           "violations": [
             {
               "metric": "cyclomatic",
-              "actual": 12.0,
+              "actual": 11.0,
               "limit": 10.0
             },
             {
               "metric": "function_lines",
-              "actual": 59.0,
+              "actual": 60.0,
               "limit": 40.0
             }
           ]
+        },
+        {
+          "name": "_ensure_session_static_edges_loaded",
+          "kind": "Function",
+          "start_line": 1061,
+          "metrics": {
+            "cyclomatic": 8,
+            "cognitive": 6,
+            "assertions": 0,
+            "function_lines": 27,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 11.74734012447073
+          },
+          "violations": []
+        },
+        {
+          "name": "_emit_static_edges",
+          "kind": "Function",
+          "start_line": 1098,
+          "metrics": {
+            "cyclomatic": 9,
+            "cognitive": 8,
+            "assertions": 0,
+            "function_lines": 38,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 18.027756377319946
+          },
+          "violations": []
         }
       ]
     },
@@ -673,7 +758,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 630.0,
+          "actual": 768.0,
           "limit": 400.0
         }
       ],
@@ -681,7 +766,7 @@
         {
           "name": "nearest_covered_lines",
           "kind": "Function",
-          "start_line": 180,
+          "start_line": 186,
           "metrics": {
             "cyclomatic": 8,
             "cognitive": 7,
@@ -696,7 +781,7 @@
         {
           "name": "must_run_provider",
           "kind": "Function",
-          "start_line": 341,
+          "start_line": 347,
           "metrics": {
             "cyclomatic": 9,
             "cognitive": 7,
@@ -711,7 +796,7 @@
         {
           "name": "coverage_provider",
           "kind": "Function",
-          "start_line": 564,
+          "start_line": 702,
           "metrics": {
             "cyclomatic": 9,
             "cognitive": 8,
@@ -726,7 +811,7 @@
         {
           "name": "_coverage_links_for_item",
           "kind": "Function",
-          "start_line": 608,
+          "start_line": 746,
           "metrics": {
             "cyclomatic": 6,
             "cognitive": 5,
@@ -741,13 +826,174 @@
       ]
     },
     {
+      "path": "src/StaticLayer.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [
+        {
+          "metric": "file_lines",
+          "actual": 469.0,
+          "limit": 400.0
+        }
+      ],
+      "units": [
+        {
+          "name": "_empty_edges",
+          "kind": "Function",
+          "start_line": 35,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 4,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 3.1622776601683795
+          },
+          "violations": []
+        },
+        {
+          "name": "_empty_item_set",
+          "kind": "Function",
+          "start_line": 45,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 4,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 3.1622776601683795
+          },
+          "violations": []
+        },
+        {
+          "name": "run_static_analysis",
+          "kind": "Function",
+          "start_line": 77,
+          "metrics": {
+            "cyclomatic": 6,
+            "cognitive": 5,
+            "assertions": 0,
+            "function_lines": 25,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 10.723805294763608
+          },
+          "violations": []
+        },
+        {
+          "name": "_analyze_with_jet",
+          "kind": "Function",
+          "start_line": 114,
+          "metrics": {
+            "cyclomatic": 7,
+            "cognitive": 6,
+            "assertions": 0,
+            "function_lines": 32,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 13.152946437965905
+          },
+          "violations": []
+        },
+        {
+          "name": "_run_jet_analysis",
+          "kind": "Function",
+          "start_line": 154,
+          "metrics": {
+            "cyclomatic": 7,
+            "cognitive": 6,
+            "assertions": 0,
+            "function_lines": 38,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 11.916375287812984
+          },
+          "violations": []
+        },
+        {
+          "name": "_analyze_source_files_fallback",
+          "kind": "Function",
+          "start_line": 206,
+          "metrics": {
+            "cyclomatic": 19,
+            "cognitive": 17,
+            "assertions": 0,
+            "function_lines": 70,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 31.25699921617557
+          },
+          "violations": [
+            {
+              "metric": "cyclomatic",
+              "actual": 19.0,
+              "limit": 10.0
+            },
+            {
+              "metric": "cognitive",
+              "actual": 17.0,
+              "limit": 15.0
+            },
+            {
+              "metric": "function_lines",
+              "actual": 70.0,
+              "limit": 40.0
+            },
+            {
+              "metric": "abc",
+              "actual": 31.25699921617557,
+              "limit": 30.0
+            }
+          ]
+        },
+        {
+          "name": "_extract_call_edges",
+          "kind": "Function",
+          "start_line": 291,
+          "metrics": {
+            "cyclomatic": 11,
+            "cognitive": 10,
+            "assertions": 0,
+            "function_lines": 39,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 17.832554500127006
+          },
+          "violations": [
+            {
+              "metric": "cyclomatic",
+              "actual": 11.0,
+              "limit": 10.0
+            }
+          ]
+        },
+        {
+          "name": "_find_test_items_referencing",
+          "kind": "Function",
+          "start_line": 378,
+          "metrics": {
+            "cyclomatic": 7,
+            "cognitive": 6,
+            "assertions": 0,
+            "function_lines": 31,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 13.152946437965905
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
       "path": "src/Testimonial.jl",
       "role": "app",
       "diagnostics": [],
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 2819.0,
+          "actual": 2996.0,
           "limit": 400.0
         }
       ],
@@ -768,9 +1014,24 @@
           "violations": []
         },
         {
+          "name": "merge_inference_edges",
+          "kind": "Function",
+          "start_line": 316,
+          "metrics": {
+            "cyclomatic": 4,
+            "cognitive": 3,
+            "assertions": 0,
+            "function_lines": 21,
+            "params": 1,
+            "nesting_max": 0,
+            "abc": 10.44030650891055
+          },
+          "violations": []
+        },
+        {
           "name": "atomic_write",
           "kind": "Function",
-          "start_line": 281,
+          "start_line": 344,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -785,7 +1046,7 @@
         {
           "name": "record_run",
           "kind": "Function",
-          "start_line": 1187,
+          "start_line": 1286,
           "metrics": {
             "cyclomatic": 2,
             "cognitive": 1,
@@ -800,7 +1061,7 @@
         {
           "name": "reset_always_run_state",
           "kind": "Function",
-          "start_line": 1212,
+          "start_line": 1311,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -815,7 +1076,7 @@
         {
           "name": "record_duration!",
           "kind": "Function",
-          "start_line": 1302,
+          "start_line": 1401,
           "metrics": {
             "cyclomatic": 2,
             "cognitive": 1,
@@ -830,7 +1091,7 @@
         {
           "name": "record_outcome_history!",
           "kind": "Function",
-          "start_line": 1342,
+          "start_line": 1441,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -845,7 +1106,7 @@
         {
           "name": "save_run_history",
           "kind": "Function",
-          "start_line": 1369,
+          "start_line": 1468,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -858,24 +1119,39 @@
           "violations": []
         },
         {
-          "name": "save_ingested_run_key",
+          "name": "_with_exclusive_lock",
           "kind": "Function",
-          "start_line": 1416,
+          "start_line": 1521,
           "metrics": {
-            "cyclomatic": 1,
-            "cognitive": 0,
+            "cyclomatic": 8,
+            "cognitive": 7,
             "assertions": 0,
-            "function_lines": 12,
+            "function_lines": 37,
             "params": 0,
             "nesting_max": 0,
-            "abc": 8.94427190999916
+            "abc": 29.13760456866693
+          },
+          "violations": []
+        },
+        {
+          "name": "save_ingested_run_key",
+          "kind": "Function",
+          "start_line": 1568,
+          "metrics": {
+            "cyclomatic": 3,
+            "cognitive": 2,
+            "assertions": 0,
+            "function_lines": 21,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 17.832554500127006
           },
           "violations": []
         },
         {
           "name": "save_provenance",
           "kind": "Function",
-          "start_line": 1787,
+          "start_line": 1948,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -890,7 +1166,22 @@
         {
           "name": "save_incidents",
           "kind": "Function",
-          "start_line": 1867,
+          "start_line": 2028,
+          "metrics": {
+            "cyclomatic": 3,
+            "cognitive": 2,
+            "assertions": 0,
+            "function_lines": 15,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 11.357816691600547
+          },
+          "violations": []
+        },
+        {
+          "name": "append_incident",
+          "kind": "Function",
+          "start_line": 2072,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -898,29 +1189,14 @@
             "function_lines": 10,
             "params": 0,
             "nesting_max": 0,
-            "abc": 6.324555320336759
-          },
-          "violations": []
-        },
-        {
-          "name": "append_incident",
-          "kind": "Function",
-          "start_line": 1906,
-          "metrics": {
-            "cyclomatic": 1,
-            "cognitive": 0,
-            "assertions": 0,
-            "function_lines": 6,
-            "params": 0,
-            "nesting_max": 0,
-            "abc": 4.123105625617661
+            "abc": 8.246211251235321
           },
           "violations": []
         },
         {
           "name": "save_manual_edges",
           "kind": "Function",
-          "start_line": 2315,
+          "start_line": 2485,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -935,7 +1211,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 2815,
+          "start_line": 2992,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -1033,6 +1309,27 @@
             "abc": 11.180339887498949
           },
           "violations": []
+        },
+        {
+          "name": "create_mixed_scratch_repo",
+          "kind": "Function",
+          "start_line": 211,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 43,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 13.152946437965905
+          },
+          "violations": [
+            {
+              "metric": "function_lines",
+              "actual": 43.0,
+              "limit": 40.0
+            }
+          ]
         }
       ]
     },
@@ -1140,7 +1437,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 485.0,
+          "actual": 487.0,
           "limit": 400.0
         }
       ],
@@ -1243,7 +1540,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 414.0,
+          "actual": 454.0,
           "limit": 400.0
         }
       ],
@@ -1285,6 +1582,90 @@
       "diagnostics": [],
       "file_violations": [],
       "units": []
+    },
+    {
+      "path": "test/test_inference_capture.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "_create_inference_scratch",
+          "kind": "Function",
+          "start_line": 18,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 16,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 9.219544457292887
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
+      "path": "test/test_inference_edges.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "_write_trace",
+          "kind": "Function",
+          "start_line": 27,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 4,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 2.0
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
+      "path": "test/test_inference_integration.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "_make_integration_index",
+          "kind": "Function",
+          "start_line": 17,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 20,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 5.0
+          },
+          "violations": []
+        },
+        {
+          "name": "_all_providers",
+          "kind": "Function",
+          "start_line": 39,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 6,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 1.0
+          },
+          "violations": []
+        }
+      ]
     },
     {
       "path": "test/test_ingest.jl",
@@ -1400,7 +1781,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 1115.0,
+          "actual": 1366.0,
           "limit": 400.0
         }
       ],
@@ -1408,7 +1789,7 @@
         {
           "name": "run_protocol_commands",
           "kind": "Function",
-          "start_line": 388,
+          "start_line": 481,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -1459,7 +1840,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 577.0,
+          "actual": 1128.0,
           "limit": 400.0
         }
       ],
@@ -1472,25 +1853,40 @@
             "cyclomatic": 2,
             "cognitive": 1,
             "assertions": 0,
-            "function_lines": 14,
+            "function_lines": 18,
             "params": 0,
             "nesting_max": 0,
-            "abc": 8.602325267042627
+            "abc": 9.0
           },
           "violations": []
         },
         {
           "name": "make_scoped_index",
           "kind": "Function",
-          "start_line": 33,
+          "start_line": 37,
           "metrics": {
             "cyclomatic": 2,
             "cognitive": 1,
             "assertions": 0,
-            "function_lines": 14,
+            "function_lines": 17,
             "params": 0,
             "nesting_max": 0,
-            "abc": 8.602325267042627
+            "abc": 9.0
+          },
+          "violations": []
+        },
+        {
+          "name": "make_index_with_source_files",
+          "kind": "Function",
+          "start_line": 889,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 13,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 7.615773105863909
           },
           "violations": []
         }
@@ -1537,7 +1933,13 @@
       "path": "test/test_record_all.jl",
       "role": "app",
       "diagnostics": [],
-      "file_violations": [],
+      "file_violations": [
+        {
+          "metric": "file_lines",
+          "actual": 415.0,
+          "limit": 400.0
+        }
+      ],
       "units": [
         {
           "name": "create_test_project",
@@ -1551,6 +1953,21 @@
             "params": 0,
             "nesting_max": 0,
             "abc": 7.0710678118654755
+          },
+          "violations": []
+        },
+        {
+          "name": "create_mixed_project",
+          "kind": "Function",
+          "start_line": 214,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 35,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 9.055385138137417
           },
           "violations": []
         }
@@ -1643,6 +2060,42 @@
       "units": []
     },
     {
+      "path": "test/test_static_analysis.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": []
+    },
+    {
+      "path": "test/test_static_integration.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "create_scratch_static_repo",
+          "kind": "Function",
+          "start_line": 16,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 47,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 11.180339887498949
+          },
+          "violations": [
+            {
+              "metric": "function_lines",
+              "actual": 47.0,
+              "limit": 40.0
+            }
+          ]
+        }
+      ]
+    },
+    {
       "path": "test/test_subprocess_record.jl",
       "role": "app",
       "diagnostics": [],
@@ -1684,53 +2137,53 @@
     "top_hotspots": [
       {
         "fingerprint": "src/GitDiff.jl::_parse_diff_section::cognitive_max",
-        "count": 135,
-        "distinct_days": 8
+        "count": 157,
+        "distinct_days": 10
       },
       {
         "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cognitive_max",
-        "count": 101,
-        "distinct_days": 6
+        "count": 123,
+        "distinct_days": 8
       },
       {
-        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::cyclomatic_max",
-        "count": 99,
-        "distinct_days": 5
+        "fingerprint": "src/Protocol.jl::handle_ingest::function_lines_max",
+        "count": 121,
+        "distinct_days": 7
       },
       {
-        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::abc_max",
-        "count": 99,
-        "distinct_days": 5
+        "fingerprint": "src/Protocol.jl::_append_runtime_edges::function_lines_max",
+        "count": 121,
+        "distinct_days": 7
       },
       {
-        "fingerprint": "src/Protocol.jl::_ingest_one_item::function_lines_max",
-        "count": 99,
-        "distinct_days": 5
+        "fingerprint": "src/Protocol.jl::_build_static_edges::function_lines_max",
+        "count": 121,
+        "distinct_days": 7
       },
       {
-        "fingerprint": "src/Protocol.jl::handle_run_args::abc_max",
-        "count": 99,
-        "distinct_days": 5
+        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::function_lines_max",
+        "count": 121,
+        "distinct_days": 7
       },
       {
-        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::abc_max",
-        "count": 99,
-        "distinct_days": 5
+        "fingerprint": "src/GitDiff.jl::_parse_diff_section::function_lines_max",
+        "count": 121,
+        "distinct_days": 7
       },
       {
         "fingerprint": "src/IndexBuilder.jl::_record_single_item::function_lines_max",
-        "count": 99,
-        "distinct_days": 5
+        "count": 121,
+        "distinct_days": 7
       },
       {
-        "fingerprint": "src/Protocol.jl::_build_static_edges::cyclomatic_max",
-        "count": 99,
-        "distinct_days": 5
+        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cyclomatic_max",
+        "count": 121,
+        "distinct_days": 7
       },
       {
-        "fingerprint": "src/Protocol.jl::handle_run_args::function_lines_max",
-        "count": 99,
-        "distinct_days": 5
+        "fingerprint": "src/Protocol.jl::handle_run_args::cyclomatic_max",
+        "count": 121,
+        "distinct_days": 7
       }
     ],
     "top_patterns": [
@@ -1738,33 +2191,33 @@
         "rule_key": "function_lines_max",
         "role": "app",
         "area": "src",
-        "count": 1043,
-        "distinct_files": 5,
-        "distinct_days": 5
+        "count": 1329,
+        "distinct_files": 6,
+        "distinct_days": 7
       },
       {
         "rule_key": "cyclomatic_max",
         "role": "app",
         "area": "src",
-        "count": 547,
-        "distinct_files": 4,
-        "distinct_days": 5
+        "count": 741,
+        "distinct_files": 5,
+        "distinct_days": 7
       },
       {
         "rule_key": "abc_max",
         "role": "app",
         "area": "src",
-        "count": 396,
-        "distinct_files": 3,
-        "distinct_days": 5
+        "count": 506,
+        "distinct_files": 4,
+        "distinct_days": 7
       },
       {
         "rule_key": "cognitive_max",
         "role": "app",
         "area": "src",
-        "count": 238,
-        "distinct_files": 3,
-        "distinct_days": 8
+        "count": 348,
+        "distinct_files": 4,
+        "distinct_days": 10
       }
     ]
   }
