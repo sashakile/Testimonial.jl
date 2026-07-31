@@ -356,6 +356,28 @@ function record_item(ref)
 end
 
 """
+    _recording_succeeded(exitcode, artifact_dir) -> Bool
+
+Check whether a subprocess recording attempt produced a valid artifact.
+
+A recording is valid only when:
+1. The driver exited with code 0 (success)
+2. The LCOV tracefile was actually written to the isolated artifact directory
+   (on Julia 1.12+, where tracefile isolation is active)
+
+All other outcomes (timeout, setup error, internal error, missing artifact)
+are classified failures and must never be cached (testimonial-in3s.3).
+"""
+function _recording_succeeded(exitcode::Union{Int,Nothing}, artifact_dir::Union{String,Nothing})::Bool
+    exitcode === 0 || return false
+    if artifact_dir !== nothing && _is_julia_12_or_later()
+        return isfile(joinpath(artifact_dir, "tracefile.info"))
+    end
+    # Legacy path: no artifact isolation or pre-1.12 — trust exit 0
+    return true
+end
+
+"""
     record_item(runner::SubprocessRunner, ref) -> Union{ItemCoverage, Nothing}
 
 Record coverage for a single @testitem by spawning an isolated Julia
@@ -387,8 +409,9 @@ function record_item(runner::SubprocessRunner, ref)
             run_with_timeout(cmd, env, timeout)
         end
 
-        if exitcode === nothing
-            # All retries exhausted — timeout
+        # Classified failure: timeout, nonzero exit, or missing artifact
+        # must never produce or cache coverage (testimonial-in3s.3).
+        if !_recording_succeeded(exitcode, artifact_dir)
             return nothing
         end
 
@@ -454,7 +477,9 @@ function record_batch(runner::SubprocessRunner, refs::Vector)
 
         nothings = Union{parent.ItemCoverage, Nothing}[nothing for _ in refs]
 
-        if exitcode === nothing
+        # Classified failure: timeout, nonzero exit, or missing artifact
+        # must never produce or cache coverage (testimonial-in3s.3).
+        if !_recording_succeeded(exitcode, artifact_dir)
             return nothings
         end
 
@@ -520,7 +545,9 @@ function record_file(runner::AbstractRunner, test_file::AbstractString)
             run_with_timeout(cmd, env, timeout)
         end
 
-        if exitcode === nothing
+        # Classified failure: timeout, nonzero exit, or missing artifact
+        # must never produce or cache coverage (testimonial-in3s.3).
+        if !_recording_succeeded(exitcode, artifact_dir)
             return nothing
         end
 
@@ -565,6 +592,13 @@ function _collect_coverage(test_file::String, parent::Module; artifact_dir::Unio
     if _is_julia_12_or_later()
         # ── LCOV tracefile path (Julia 1.12+) ──
         tracefile = _find_tracefile(; artifact_dir=artifact_dir)
+        if tracefile === nothing
+            # No tracefile found — return empty coverage (testimonial-in3s.3).
+            # The caller (record_item/record_batch/record_file) should have
+            # already checked _recording_succeeded, so this is a defensive
+            # guard against uncaught nothing passed to the parser.
+            return (covered_lines, uncovered_lines, source_files)
+        end
         lcov_result = _parse_lcov_tracefile(tracefile)
 
         # Build per-source-file coverage dict

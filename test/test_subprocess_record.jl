@@ -185,3 +185,56 @@ end
         @test !isfile(joinpath(pwd(), "inference_trace.jls"))
     end
 end
+
+# ── Exit code and artifact validation (testimonial-in3s.3) ──
+
+@testset "_recording_succeeded rejects timeout" begin
+    @test !Testimonial.CoverageLayer._recording_succeeded(nothing, nothing)
+end
+
+@testset "_recording_succeeded rejects nonzero exit" begin
+    @test !Testimonial.CoverageLayer._recording_succeeded(1, nothing)
+    @test !Testimonial.CoverageLayer._recording_succeeded(2, nothing)
+    @test !Testimonial.CoverageLayer._recording_succeeded(3, nothing)
+    @test !Testimonial.CoverageLayer._recording_succeeded(-1, nothing)
+end
+
+@testset "_recording_succeeded accepts exit 0 without artifact_dir" begin
+    @test Testimonial.CoverageLayer._recording_succeeded(0, nothing)
+end
+
+@testset "_recording_succeeded rejects missing tracefile in artifact_dir" begin
+    mktempdir() do dir
+        @test !Testimonial.CoverageLayer._recording_succeeded(0, dir)
+    end
+end
+
+@testset "_recording_succeeded accepts present tracefile in artifact_dir" begin
+    mktempdir() do dir
+        touch(joinpath(dir, "tracefile.info"))
+        @test Testimonial.CoverageLayer._recording_succeeded(0, dir)
+    end
+end
+
+@testset "_collect_coverage handles missing tracefile without throw" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test.jl")
+        write(test_file, "1+1")
+        result = Testimonial.CoverageLayer._collect_coverage(
+            test_file, Testimonial; artifact_dir=dir,
+        )
+        @test result == (Int[], Int[], Dict{String, Tuple{Vector{Int}, Vector{Int}}}())
+    end
+end
+
+@testset "_collect_coverage handles malformed tracefile without throw" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test.jl")
+        write(test_file, "1+1")
+        write(joinpath(dir, "tracefile.info"), "garbage content")
+        result = Testimonial.CoverageLayer._collect_coverage(
+            test_file, Testimonial; artifact_dir=dir,
+        )
+        @test result isa Tuple
+    end
+end

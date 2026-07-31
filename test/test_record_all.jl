@@ -366,6 +366,19 @@ end
 
 @testset "record_all() discovers and persists default index" begin
     mktempdir() do dir
+        # Create a minimal Julia project so the driver exits 0
+        write(joinpath(dir, "Project.toml"), """
+        name = "RecordAllTest"
+        uuid = "00000000-0000-0000-0000-000000000003"
+        """)
+        src_dir = joinpath(dir, "src")
+        mkpath(src_dir)
+        write(joinpath(src_dir, "RecordAllTest.jl"), """
+        module RecordAllTest
+        greet() = "hello"
+        end
+        """)
+
         # Create a test project with @testitem files
         test_dir = joinpath(dir, "test")
         mkpath(test_dir)
@@ -376,6 +389,8 @@ end
         """)
 
         # Call record_all() with no arguments, pointing to the temp project
+        # Note: the test project must have a Project.toml for the driver
+        # to succeed (testimonial-in3s.3 enforces exit 0 validation).
         index = Testimonial.record_all(;
             project_dir=dir,
             test_dirs=[test_dir],
