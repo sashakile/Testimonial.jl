@@ -361,3 +361,40 @@ end
         @test haskey(runner.captured_env, "TESTIMONIAL_ITEM") || haskey(runner.captured_env, "TESTIMONIAL_ITEMS")
     end
 end
+
+# ── record_all() — no-argument workflow ──────────
+
+@testset "record_all() discovers and persists default index" begin
+    mktempdir() do dir
+        # Create a test project with @testitem files
+        test_dir = joinpath(dir, "test")
+        mkpath(test_dir)
+        write(joinpath(test_dir, "foo_test.jl"), """
+        @testitem "test_a" begin
+            @test 1 == 1
+        end
+        """)
+
+        # Call record_all() with no arguments, pointing to the temp project
+        index = Testimonial.record_all(;
+            project_dir=dir,
+            test_dirs=[test_dir],
+            force=true,
+        )
+
+        @test index isa CoverageIndex
+        @test length(index.items) == 1
+
+        # Verify the index was persisted
+        index_path = joinpath(dir, ".testimonial", "index.jls")
+        @test isfile(index_path)
+
+        # Load and verify
+        loaded = Testimonial.load_index(index_path)
+        @test loaded isa CoverageIndex
+        @test length(loaded.items) == 1
+
+        names = sort([ic.item.name for (_, ic) in loaded.items])
+        @test names == ["test_a"]
+    end
+end

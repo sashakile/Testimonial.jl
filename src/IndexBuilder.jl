@@ -210,6 +210,45 @@ index = record_all(discovered_items, SubprocessRunner(); incremental=true)
 index = record_all(discovered_items, SubprocessRunner(); force=true, project_dir=pwd())
 ```
 """
+function record_all(;
+    incremental::Bool=true,
+    force::Bool=false,
+    test_dirs::Vector{String}=String["test/"],
+    project_dir::Union{String,Nothing}=nothing,
+    skip_quarantined::Bool=false,
+    batch_by_file::Bool=false,
+    index_path::String=".testimonial/index.jls",
+)::Any
+    parent = Base.parentmodule(@__MODULE__)
+
+    # Resolve index_path relative to project_dir if provided
+    resolved_path = if project_dir !== nothing
+        joinpath(String(project_dir), String(index_path))
+    else
+        String(index_path)
+    end
+
+    # Discover all test blocks from the configured directories
+    items = parent.discover_all_test_blocks(test_dirs)
+
+    # Delegate to the item-taking record_all for the actual recording
+    index = record_all(
+        items,
+        nothing;
+        incremental=incremental,
+        force=force,
+        test_dirs=test_dirs,
+        project_dir=project_dir,
+        skip_quarantined=skip_quarantined,
+        batch_by_file=batch_by_file,
+    )
+
+    # Persist the index to the default path
+    save_index(index, resolved_path)
+
+    return index
+end
+
 function record_all(
     items::Vector,
     runner=nothing;
