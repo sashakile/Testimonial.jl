@@ -31,6 +31,45 @@ Testimonial.jl operates in two deployment modes sharing the same core:
 
 The core is independently useful as a standalone tool. The protocol layer reuses the same internals without duplicating orchestration logic.
 
+### Protocol Response Schema
+
+All protocol responses share a common JSON envelope and a standard dependency-edge representation. The field set is declared once as `Protocol.DEPEDGE_FIELDS` in `src/Protocol.jl` and enforced by contract tests, so the schema cannot silently drift.
+
+**Envelope** (every command):
+
+```json
+{ "ok": true|false, "result": { ... } }
+```
+
+On error, `result` is replaced by `error: { message: string }`.
+
+**Standard DepEdge** (used by `static-deps` and the `ingest` run_output path's `runtime_edges` / `inference_edges`):
+
+```json
+{ "from": "<test_id or caller file:line>",
+  "to":   "<source file path, or callee file:line>",
+  "weight": 1000000,
+  "origin": "static" | "inference" | "runtime" }
+```
+
+- `from` / `to` are strings; `weight` is an integer; `origin` names the analysis layer.
+- An edge object has **exactly** these four fields — no more, no less.
+
+**`static-deps` response** — `result.edges` is a **DepEdge array** (never a map):
+
+| Scenario | `edges` |
+|---|---|
+| No coverage recorded, no static data on disk | `[]` (empty array — the core's `unresolved` fallback schedules a full run) |
+| Coverage recorded in this session | DepEdge entries with `origin: "static"` for each exercised source file |
+| No session coverage, but `CoverageIndex.static_edges` on disk | DepEdge entries with `origin: "static"` from the static-analysis layer |
+
+**`ingest` response** — two shapes depending on input:
+
+- `params.selected` (legacy): `result.edges` is a map `{file: {line: [node_id, ...]}}`.
+- `params.run_output` (current): `result` carries `runtime_edges` and `inference_edges`, each a **DepEdge array** with the appropriate `origin`.
+
+> **Note:** the `params.selected` map shape is a legacy format retained for backward compatibility with existing testaruda consumers. New integrations should prefer `run_output`, which uses the standard DepEdge representation. Migrating `selected` to DepEdge arrays is tracked separately.
+
 ### Three Analysis Layers
 
 Testimonial uses three complementary analysis layers for complete coverage:
