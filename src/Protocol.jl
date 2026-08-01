@@ -13,6 +13,23 @@ using SHA
 
 export run_adapter_protocol
 
+# ── Protocol response schema (testimonial-nl2b.2) ────────────────
+# The standard dependency-edge representation across protocol responses.
+# Every `static-deps` edge and every `ingest` (run_output) inference/runtime
+# edge is a JSON object with EXACTLY these four fields — no more, no less.
+# Pinning the field set here keeps the contract self-documenting in code
+# and lets contract tests guard against silent drift.
+#
+# Field semantics:
+#   from   — String; the depending unit (a test node id `file:line`, or a
+#            caller location `file:line` for inference edges)
+#   to     — String; the depended-on unit (a source file path for static
+#            edges, or a `file:line` location for inference/runtime edges)
+#   weight — Int; edge weight (currently a fixed sentinel, 1_000_000)
+#   origin — String; the layer that produced the edge: "static",
+#            "inference", or "runtime"
+const DEPEDGE_FIELDS = ("from", "to", "weight", "origin")
+
 """
 In-memory session coverage map, keyed by node ID (test_file:line).
 Built incrementally across `ingest` calls in the same adapter session.

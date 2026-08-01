@@ -1364,3 +1364,99 @@ end
         @test occursin(test_file, result["runner_args"][4])
     end
 end
+
+# ── Protocol response schema contract (testimonial-nl2b.2) ─
+# The static-deps regression (commit 6a7a832) switched `static-deps` from a
+# file→"unresolved" map to the standard DepEdge array. These contract tests
+# pin the documented schema so the contract cannot silently drift again.
+# The canonical field set is declared once in `Protocol.DEPEDGE_FIELDS`.
+
+@testset "Protocol schema: DEPEDGE_FIELDS is declared" begin
+    @test isdefined(Protocol, :DEPEDGE_FIELDS)
+    @test issetequal(Protocol.DEPEDGE_FIELDS, ["from", "to", "weight", "origin"])
+end
+
+@testset "Protocol schema: static-deps envelope shape" begin
+    empty!(Protocol.session_coverage)
+    empty!(Protocol.session_static_edges)
+
+    # No-coverage / unresolved fallback: edges is an empty array (NOT a map)
+    resp = Protocol.handle("""{"command":"static-deps","params":{"changed_files":["src/unknown.jl"]}}""")
+    parsed = JSON.parse(resp)
+    @test parsed["ok"] == true
+    @test parsed["result"] isa AbstractDict
+    @test Set(keys(parsed["result"])) == Set(["edges"])
+    @test parsed["result"]["edges"] isa Vector
+    @test isempty(parsed["result"]["edges"])
+end
+
+@testset "Protocol schema: every static-deps edge matches DEPEDGE_FIELDS exactly" begin
+    empty!(Protocol.session_coverage)
+    empty!(Protocol.session_static_edges)
+
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_schema.jl")
+        write(test_file, """@testitem \"schema\" begin @test 1==1 end""")
+
+        disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        disc_resp = Protocol.handle(disc_cmd)
+        disc = JSON.parse(disc_resp)
+        node_id = disc["result"][1]["node_id"]
+        abs_file = disc["result"][1]["file"]
+
+        # Ingest to populate session_coverage
+        Protocol.handle("""{"command":"ingest","params":{"selected":["$(node_id)"]}}""")
+
+        sd_resp = Protocol.handle("""{"command":"static-deps","params":{"changed_files":["$(abs_file)"]}}""")
+        sd = JSON.parse(sd_resp)
+        @test sd["ok"] == true
+        @test sd["result"]["edges"] isa AbstractVector
+        @test !isempty(sd["result"]["edges"])
+
+        for edge in sd["result"]["edges"]
+            @test Set(keys(edge)) == Set(Protocol.DEPEDGE_FIELDS)
+            @test edge["from"] isa String
+            @test edge["to"] isa String
+            @test edge["weight"] isa Number
+            @test edge["origin"] == "static"
+        end
+    end
+end
+
+@testset "Protocol schema: ingest run_output edges are DepEdge arrays" begin
+    mktempdir() do dir
+        test_file = joinpath(dir, "test_inf_schema.jl")
+        write(test_file, """@testitem \"inf_schema\" begin @test 1==1 end""")
+
+        disc_cmd = """{"command":"discover","params":{"test_directories":["$(dir)"]}}"""
+        disc_resp = Protocol.handle(disc_cmd)
+        disc = JSON.parse(disc_resp)
+        node_id = disc["result"][1]["node_id"]
+
+        run_output = """{\"test_id\":\"$(node_id)\",\"outcome\":\"passed\"}"""
+        cmd_dict = Dict("command" => "ingest", "params" => Dict("run_output" => run_output))
+        resp = Protocol.handle(JSON.json(cmd_dict))
+        parsed = JSON.parse(resp)
+        @test parsed["ok"] == true
+        @test parsed["result"] isa AbstractDict
+
+        # inference_edges must conform to DEPEDGE_FIELDS (when non-empty)
+        @test haskey(parsed["result"], "inference_edges")
+        inf_arr = parsed["result"]["inference_edges"]
+        @test inf_arr isa AbstractVector
+        for edge in inf_arr
+            @test Set(keys(edge)) == Set(Protocol.DEPEDGE_FIELDS)
+            @test edge["origin"] == "inference"
+        end
+
+        # runtime_edges, when present and non-empty, must also conform
+        if haskey(parsed["result"], "runtime_edges")
+            rt_arr = parsed["result"]["runtime_edges"]
+            @test rt_arr isa AbstractVector
+            for edge in rt_arr
+                @test Set(keys(edge)) == Set(Protocol.DEPEDGE_FIELDS)
+                @test edge["origin"] == "runtime"
+            end
+        end
+    end
+end
