@@ -1233,6 +1233,74 @@
       "units": []
     },
     {
+      "path": "test/manifest.jl",
+      "role": "app",
+      "diagnostics": [],
+      "file_violations": [],
+      "units": [
+        {
+          "name": "check_manifest_completeness",
+          "kind": "Function",
+          "start_line": 148,
+          "metrics": {
+            "cyclomatic": 4,
+            "cognitive": 3,
+            "assertions": 0,
+            "function_lines": 12,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 15.588457268119896
+          },
+          "violations": []
+        },
+        {
+          "name": "full_tests",
+          "kind": "Function",
+          "start_line": 167,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 3,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 1.0
+          },
+          "violations": []
+        },
+        {
+          "name": "quick_tests",
+          "kind": "Function",
+          "start_line": 177,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 3,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 1.0
+          },
+          "violations": []
+        },
+        {
+          "name": "slow_tests",
+          "kind": "Function",
+          "start_line": 186,
+          "metrics": {
+            "cyclomatic": 1,
+            "cognitive": 0,
+            "assertions": 0,
+            "function_lines": 3,
+            "params": 0,
+            "nesting_max": 0,
+            "abc": 1.0
+          },
+          "violations": []
+        }
+      ]
+    },
+    {
       "path": "test/runtests.jl",
       "role": "app",
       "diagnostics": [],
@@ -2123,52 +2191,52 @@
     "top_hotspots": [
       {
         "fingerprint": "src/GitDiff.jl::_parse_diff_section::cognitive_max",
-        "count": 164,
+        "count": 166,
         "distinct_days": 11
       },
       {
         "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cognitive_max",
-        "count": 130,
+        "count": 132,
         "distinct_days": 9
       },
       {
-        "fingerprint": "src/Protocol.jl::handle_run_args::function_lines_max",
-        "count": 128,
+        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::abc_max",
+        "count": 130,
         "distinct_days": 8
       },
       {
-        "fingerprint": "src/GitDiff.jl::_parse_diff_section::function_lines_max",
-        "count": 128,
+        "fingerprint": "src/GitDiff.jl::_parse_diff_section::cyclomatic_max",
+        "count": 130,
         "distinct_days": 8
       },
       {
-        "fingerprint": "src/Protocol.jl::handle_ingest::function_lines_max",
-        "count": 128,
+        "fingerprint": "src/Protocol.jl::handle_run_args::cyclomatic_max",
+        "count": 130,
         "distinct_days": 8
       },
       {
-        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::function_lines_max",
-        "count": 128,
-        "distinct_days": 8
-      },
-      {
-        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::cyclomatic_max",
-        "count": 128,
-        "distinct_days": 8
-      },
-      {
-        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::abc_max",
-        "count": 128,
+        "fingerprint": "src/Protocol.jl::handle_run_args::abc_max",
+        "count": 130,
         "distinct_days": 8
       },
       {
         "fingerprint": "src/GitDiff.jl::_parse_diff_section::abc_max",
-        "count": 128,
+        "count": 130,
         "distinct_days": 8
       },
       {
-        "fingerprint": "src/Protocol.jl::_build_static_edges::function_lines_max",
-        "count": 128,
+        "fingerprint": "src/Protocol.jl::handle_run_args::function_lines_max",
+        "count": 130,
+        "distinct_days": 8
+      },
+      {
+        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cyclomatic_max",
+        "count": 130,
+        "distinct_days": 8
+      },
+      {
+        "fingerprint": "src/Protocol.jl::_ingest_one_item::function_lines_max",
+        "count": 130,
         "distinct_days": 8
       }
     ],
@@ -2177,7 +2245,7 @@
         "rule_key": "function_lines_max",
         "role": "app",
         "area": "src",
-        "count": 1420,
+        "count": 1446,
         "distinct_files": 6,
         "distinct_days": 8
       },
@@ -2185,7 +2253,7 @@
         "rule_key": "cyclomatic_max",
         "role": "app",
         "area": "src",
-        "count": 804,
+        "count": 822,
         "distinct_files": 5,
         "distinct_days": 8
       },
@@ -2193,7 +2261,7 @@
         "rule_key": "abc_max",
         "role": "app",
         "area": "src",
-        "count": 541,
+        "count": 551,
         "distinct_files": 4,
         "distinct_days": 8
       },
@@ -2201,7 +2269,7 @@
         "rule_key": "cognitive_max",
         "role": "app",
         "area": "src",
-        "count": 383,
+        "count": 393,
         "distinct_files": 4,
         "distinct_days": 11
       }
