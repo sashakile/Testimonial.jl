@@ -341,7 +341,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 1137.0,
+          "actual": 1154.0,
           "limit": 400.0
         }
       ],
@@ -349,7 +349,7 @@
         {
           "name": "run_adapter_protocol",
           "kind": "Function",
-          "start_line": 40,
+          "start_line": 57,
           "metrics": {
             "cyclomatic": 4,
             "cognitive": 3,
@@ -364,7 +364,7 @@
         {
           "name": "handle",
           "kind": "Function",
-          "start_line": 67,
+          "start_line": 84,
           "metrics": {
             "cyclomatic": 4,
             "cognitive": 3,
@@ -379,7 +379,7 @@
         {
           "name": "handle_handshake",
           "kind": "Function",
-          "start_line": 105,
+          "start_line": 122,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -394,7 +394,7 @@
         {
           "name": "handle_fingerprint",
           "kind": "Function",
-          "start_line": 131,
+          "start_line": 148,
           "metrics": {
             "cyclomatic": 9,
             "cognitive": 8,
@@ -409,7 +409,7 @@
         {
           "name": "handle_discover",
           "kind": "Function",
-          "start_line": 184,
+          "start_line": 201,
           "metrics": {
             "cyclomatic": 11,
             "cognitive": 10,
@@ -435,7 +435,7 @@
         {
           "name": "handle_ingest",
           "kind": "Function",
-          "start_line": 291,
+          "start_line": 308,
           "metrics": {
             "cyclomatic": 10,
             "cognitive": 9,
@@ -456,7 +456,7 @@
         {
           "name": "_handle_ingest_run_output",
           "kind": "Function",
-          "start_line": 346,
+          "start_line": 363,
           "metrics": {
             "cyclomatic": 22,
             "cognitive": 21,
@@ -492,7 +492,7 @@
         {
           "name": "_build_inference_edges",
           "kind": "Function",
-          "start_line": 478,
+          "start_line": 495,
           "metrics": {
             "cyclomatic": 5,
             "cognitive": 4,
@@ -507,7 +507,7 @@
         {
           "name": "_record_item_for_ingest",
           "kind": "Function",
-          "start_line": 516,
+          "start_line": 533,
           "metrics": {
             "cyclomatic": 6,
             "cognitive": 5,
@@ -522,7 +522,7 @@
         {
           "name": "_append_runtime_edges",
           "kind": "Function",
-          "start_line": 559,
+          "start_line": 576,
           "metrics": {
             "cyclomatic": 9,
             "cognitive": 8,
@@ -543,7 +543,7 @@
         {
           "name": "_ingest_one_item",
           "kind": "Function",
-          "start_line": 617,
+          "start_line": 634,
           "metrics": {
             "cyclomatic": 6,
             "cognitive": 5,
@@ -564,7 +564,7 @@
         {
           "name": "_build_edges_for_item",
           "kind": "Function",
-          "start_line": 682,
+          "start_line": 699,
           "metrics": {
             "cyclomatic": 6,
             "cognitive": 5,
@@ -579,7 +579,7 @@
         {
           "name": "_normalize_path",
           "kind": "Function",
-          "start_line": 718,
+          "start_line": 735,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -594,7 +594,7 @@
         {
           "name": "_add_line_edges",
           "kind": "Function",
-          "start_line": 728,
+          "start_line": 745,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -609,7 +609,7 @@
         {
           "name": "_resolve_node_id",
           "kind": "Function",
-          "start_line": 744,
+          "start_line": 761,
           "metrics": {
             "cyclomatic": 10,
             "cognitive": 9,
@@ -630,7 +630,7 @@
         {
           "name": "handle_run_args",
           "kind": "Function",
-          "start_line": 806,
+          "start_line": 823,
           "metrics": {
             "cyclomatic": 20,
             "cognitive": 19,
@@ -666,7 +666,7 @@
         {
           "name": "json_error",
           "kind": "Function",
-          "start_line": 921,
+          "start_line": 938,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -681,7 +681,7 @@
         {
           "name": "handle_static_deps",
           "kind": "Function",
-          "start_line": 940,
+          "start_line": 957,
           "metrics": {
             "cyclomatic": 7,
             "cognitive": 6,
@@ -696,7 +696,7 @@
         {
           "name": "_build_static_edges",
           "kind": "Function",
-          "start_line": 987,
+          "start_line": 1004,
           "metrics": {
             "cyclomatic": 11,
             "cognitive": 10,
@@ -722,7 +722,7 @@
         {
           "name": "_ensure_session_static_edges_loaded",
           "kind": "Function",
-          "start_line": 1061,
+          "start_line": 1078,
           "metrics": {
             "cyclomatic": 8,
             "cognitive": 6,
@@ -737,7 +737,7 @@
         {
           "name": "_emit_static_edges",
           "kind": "Function",
-          "start_line": 1098,
+          "start_line": 1115,
           "metrics": {
             "cyclomatic": 9,
             "cognitive": 8,
@@ -1767,7 +1767,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 1366.0,
+          "actual": 1462.0,
           "limit": 400.0
         }
       ],
@@ -2123,53 +2123,53 @@
     "top_hotspots": [
       {
         "fingerprint": "src/GitDiff.jl::_parse_diff_section::cognitive_max",
-        "count": 162,
-        "distinct_days": 10
+        "count": 163,
+        "distinct_days": 11
       },
       {
         "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cognitive_max",
-        "count": 128,
+        "count": 129,
+        "distinct_days": 9
+      },
+      {
+        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::function_lines_max",
+        "count": 127,
         "distinct_days": 8
       },
       {
-        "fingerprint": "src/Protocol.jl::handle_discover::function_lines_max",
-        "count": 126,
-        "distinct_days": 7
+        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::function_lines_max",
+        "count": 127,
+        "distinct_days": 8
       },
       {
-        "fingerprint": "src/IndexBuilder.jl::_record_single_item::function_lines_max",
-        "count": 126,
-        "distinct_days": 7
+        "fingerprint": "src/Protocol.jl::handle_run_args::abc_max",
+        "count": 127,
+        "distinct_days": 8
       },
       {
-        "fingerprint": "src/Protocol.jl::_ingest_one_item::function_lines_max",
-        "count": 126,
-        "distinct_days": 7
-      },
-      {
-        "fingerprint": "src/GitDiff.jl::_parse_diff_section::abc_max",
-        "count": 126,
-        "distinct_days": 7
-      },
-      {
-        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::abc_max",
-        "count": 126,
-        "distinct_days": 7
+        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::cyclomatic_max",
+        "count": 127,
+        "distinct_days": 8
       },
       {
         "fingerprint": "src/Protocol.jl::_build_static_edges::function_lines_max",
-        "count": 126,
-        "distinct_days": 7
+        "count": 127,
+        "distinct_days": 8
       },
       {
-        "fingerprint": "src/Protocol.jl::handle_run_args::cyclomatic_max",
-        "count": 126,
-        "distinct_days": 7
+        "fingerprint": "src/GitDiff.jl::_parse_diff_section::function_lines_max",
+        "count": 127,
+        "distinct_days": 8
       },
       {
-        "fingerprint": "src/Protocol.jl::handle_ingest::function_lines_max",
-        "count": 126,
-        "distinct_days": 7
+        "fingerprint": "src/GitDiff.jl::_parse_diff_section::abc_max",
+        "count": 127,
+        "distinct_days": 8
+      },
+      {
+        "fingerprint": "src/GitDiff.jl::_parse_diff_section::cyclomatic_max",
+        "count": 127,
+        "distinct_days": 8
       }
     ],
     "top_patterns": [
@@ -2177,33 +2177,33 @@
         "rule_key": "function_lines_max",
         "role": "app",
         "area": "src",
-        "count": 1394,
+        "count": 1407,
         "distinct_files": 6,
-        "distinct_days": 7
+        "distinct_days": 8
       },
       {
         "rule_key": "cyclomatic_max",
         "role": "app",
         "area": "src",
-        "count": 786,
+        "count": 795,
         "distinct_files": 5,
-        "distinct_days": 7
+        "distinct_days": 8
       },
       {
         "rule_key": "abc_max",
         "role": "app",
         "area": "src",
-        "count": 531,
+        "count": 536,
         "distinct_files": 4,
-        "distinct_days": 7
+        "distinct_days": 8
       },
       {
         "rule_key": "cognitive_max",
         "role": "app",
         "area": "src",
-        "count": 373,
+        "count": 378,
         "distinct_files": 4,
-        "distinct_days": 10
+        "distinct_days": 11
       }
     ]
   }

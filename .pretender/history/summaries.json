@@ -2,53 +2,53 @@
   "top_hotspots": [
     {
       "fingerprint": "src/GitDiff.jl::_parse_diff_section::cognitive_max",
-      "count": 162,
-      "distinct_days": 10
+      "count": 163,
+      "distinct_days": 11
     },
     {
       "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cognitive_max",
-      "count": 128,
+      "count": 129,
+      "distinct_days": 9
+    },
+    {
+      "fingerprint": "src/CoverageLayer.jl::_collect_coverage::function_lines_max",
+      "count": 127,
       "distinct_days": 8
     },
     {
-      "fingerprint": "src/Protocol.jl::handle_discover::function_lines_max",
-      "count": 126,
-      "distinct_days": 7
+      "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::function_lines_max",
+      "count": 127,
+      "distinct_days": 8
     },
     {
-      "fingerprint": "src/IndexBuilder.jl::_record_single_item::function_lines_max",
-      "count": 126,
-      "distinct_days": 7
+      "fingerprint": "src/Protocol.jl::handle_run_args::abc_max",
+      "count": 127,
+      "distinct_days": 8
     },
     {
-      "fingerprint": "src/Protocol.jl::_ingest_one_item::function_lines_max",
-      "count": 126,
-      "distinct_days": 7
-    },
-    {
-      "fingerprint": "src/GitDiff.jl::_parse_diff_section::abc_max",
-      "count": 126,
-      "distinct_days": 7
-    },
-    {
-      "fingerprint": "src/CoverageLayer.jl::_collect_coverage::abc_max",
-      "count": 126,
-      "distinct_days": 7
+      "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::cyclomatic_max",
+      "count": 127,
+      "distinct_days": 8
     },
     {
       "fingerprint": "src/Protocol.jl::_build_static_edges::function_lines_max",
-      "count": 126,
-      "distinct_days": 7
+      "count": 127,
+      "distinct_days": 8
     },
     {
-      "fingerprint": "src/Protocol.jl::handle_run_args::cyclomatic_max",
-      "count": 126,
-      "distinct_days": 7
+      "fingerprint": "src/GitDiff.jl::_parse_diff_section::function_lines_max",
+      "count": 127,
+      "distinct_days": 8
     },
     {
-      "fingerprint": "src/Protocol.jl::handle_ingest::function_lines_max",
-      "count": 126,
-      "distinct_days": 7
+      "fingerprint": "src/GitDiff.jl::_parse_diff_section::abc_max",
+      "count": 127,
+      "distinct_days": 8
+    },
+    {
+      "fingerprint": "src/GitDiff.jl::_parse_diff_section::cyclomatic_max",
+      "count": 127,
+      "distinct_days": 8
     }
   ],
   "top_patterns": [
@@ -56,33 +56,33 @@
       "rule_key": "function_lines_max",
       "role": "app",
       "area": "src",
-      "count": 1394,
+      "count": 1407,
       "distinct_files": 6,
-      "distinct_days": 7
+      "distinct_days": 8
     },
     {
       "rule_key": "cyclomatic_max",
       "role": "app",
       "area": "src",
-      "count": 786,
+      "count": 795,
       "distinct_files": 5,
-      "distinct_days": 7
+      "distinct_days": 8
     },
     {
       "rule_key": "abc_max",
       "role": "app",
       "area": "src",
-      "count": 531,
+      "count": 536,
       "distinct_files": 4,
-      "distinct_days": 7
+      "distinct_days": 8
     },
     {
       "rule_key": "cognitive_max",
       "role": "app",
       "area": "src",
-      "count": 373,
+      "count": 378,
       "distinct_files": 4,
-      "distinct_days": 10
+      "distinct_days": 11
     }
   ]
 }
