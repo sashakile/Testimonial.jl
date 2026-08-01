@@ -1,53 +1,29 @@
+# Full test runner — includes every `test_*.jl` via canonical manifest.
+# CI uses runtests_quick.jl instead; runtests.jl is the full Pkg.test suite.
+#
+# Run: just test  (or  julia --project test/runtests.jl)
+
 using Testimonial
 using Test
 using Dates
 
 include("helpers.jl")
+include("manifest.jl")
 
-include("test_types.jl")
-include("test_persistence.jl")
-include("test_protocol.jl")
-include("test_astparser.jl")
-include("test_gitdiff.jl")
-include("test_runner.jl")
-include("test_driver.jl")
-include("test_command.jl")
-include("test_runner_types.jl")
-include("test_indexbuilder.jl")
-include("test_mockrunner.jl")
-include("test_cov_sidecar.jl")
-include("test_timeout.jl")
-include("test_subprocess_record.jl")
-include("test_inference_capture.jl")
-include("test_inference_edges.jl")
-include("test_inference_integration.jl")
-include("test_changed_detection.jl")
-include("test_query.jl")
-include("test_record_all.jl")
-include("test_batching.jl")
-include("test_provenance_link.jl")
-include("test_impact_reason_chain.jl")
-include("test_query_chain.jl")
-include("test_format_reason.jl")
-include("test_explain_exclude.jl")
-include("test_build_index_integration.jl")
-include("test_cli.jl")
-include("test_always_run.jl")
-include("test_environment_fingerprint.jl")
-include("test_must_run_config.jl")
-include("test_must_run_query.jl")
-include("test_scoped_fallback.jl")
-include("test_must_run_priority.jl")
-include("test_seeded_fault.jl")
-include("test_seeded_fault_verify.jl")
-include("test_must_run_integration.jl")
-include("test_component_discovery.jl")
-include("test_component_bottom_up.jl")
-include("test_component_fingerprint.jl")
-include("test_confidence.jl")
-include("test_components_override.jl")
-include("test_run_history.jl")
-include("test_shard_balance.jl")
-include("test_shard_files.jl")
-include("test_provenance_persistence.jl")
-include("test_static_analysis.jl")
+# ── Assert manifest completeness ───────────────
+# Every test_*.jl must be classified in test/manifest.jl.
+# Adding a file without classification is an error.
+result = check_manifest_completeness()
+if !isempty(result.unclassified)
+    error("""
+    Unclassified test files in test/:
+      $(join(result.unclassified, "\n  "))
+    Add each to TEST_MANIFEST in test/manifest.jl as :quick or :slow.
+    """)
+end
+@info "Test manifest: $(length(full_tests())) total ($(length(quick_tests())) quick, $(length(slow_tests())) slow)"
+
+# ── Include all test files ─────────────────────
+for f in full_tests()
+    include(f)
+end
