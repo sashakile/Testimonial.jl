@@ -1,3 +1,54 @@
+# PRIMARY OBJECTIVE
+
+> **Testimonial is a Julia-native test impact analysis engine. Given code
+> changes (from a git diff), it selects the minimal set of @testitems
+> required to validate those changes — turning a 30-minute CI suite into
+> a 30-second feedback loop on most PRs.**
+
+Every action taken in this session must serve this objective. If a task
+does not bring the project closer to this goal, stop and escalate.
+
+## Behavioral Principles
+
+1. **Proportionality** — make the smallest change that satisfies the
+   objective; do not refactor unrelated code, fix undiscovered bugs, or
+   expand scope beyond the current ticket.
+2. **Verifiability** — every claim requires evidence; output requires a
+   passing test; every decision requires a recorded rationale.
+3. **Corrigibility** — stop when uncertain; prefer asking over assuming.
+
+## PROHIBITED ACTIONS
+
+- **Never** write implementation before the failing test (TDD discipline).
+- **Never** use `git add -A` — always stage specific files with explicit paths.
+- **Never** skip `wai close` before ending a session — it enables resume detection.
+- **Never** edit managed blocks (DONT:START, WAI:START, etc.) — they are
+  auto-refreshed by their respective tools.
+- **Never** modify `.beads/`, `.wai/`, or `.espectacular/` files manually —
+  always use the CLI tools (`bd`, `wai`, `ah`).
+- **Never** skip the TDD pipeline (RED→GREEN→REFACTOR per ticket).
+- **Never** fabricate test output, spec content, or source citations —
+  if evidence doesn't exist, report the gap.
+- **Never** close a ticket or end a session without pushing to remote.
+
+## Escalation Triggers
+
+Stop and report (do not guess, do not proceed) when ANY of these conditions
+are met:
+
+| # | Trigger | Decision rule |
+|---|---------|---------------|
+| 1 | **Ambiguity** — The task objective, target user, or success criterion is unclear | Ask: "which interpretation matches the PRIMARY OBJECTIVE?" If still unclear, flag as blocking |
+| 2 | **Scope uncertainty** — A request spans multiple tickets, affects files outside the ticket's scope, or would change managed blocks | Restate scope; ask for explicit approval before expanding |
+| 3 | **Irreversibility** — The next action would delete files, force-push, overwrite history, or modify governance infrastructure | Ask: "this action is irreversible; confirm?" |
+| 4 | **Unexpected state** — Git workspace is dirty in unexpected ways, test output contradicts expectations, or a tool returns an error not covered by known failure modes | Report: "unexpected state: [x]; expected: [y]" |
+| 5 | **Conflicting instructions** — Different parts of AGENTS.md give contradictory guidance, or the user's request contradicts a stated prohibition | List the conflict; ask for resolution |
+| 6 | **High stakes** — The change affects CI/CD, security credentials, or the project's governance tooling (beads/wai/espectacular state) | Pause and describe the full impact before proceeding |
+| 7 | **Confidence below threshold** — The agent is <80% confident that the next action is correct, safe, and aligned with the PRIMARY OBJECTIVE | Ask: "I'm uncertain about [x]; here's what I think is going on:" |
+
+If a tool call fails 2× in a row for any reason, stop, report the failure
+pattern, and await direction.
+
 <!-- DONT:START -->
 # DONT MANAGED BLOCK — DO NOT EDIT
 
@@ -172,3 +223,13 @@ Run `ah check` to verify spec-test correspondence before committing.
 
 - **Never use `git add -A`** — always stage specific files with explicit paths
 - **Per-ticket pipeline**: always follow `TDD → ro5u → fix → commit → next ticket`
+
+---
+
+> **PRIMARY OBJECTIVE (repeat): Testimonial is a Julia-native test impact
+> analysis engine. Given code changes (from a git diff), it selects the
+> minimal set of @testitems required to validate those changes — turning
+> a 30-minute CI suite into a 30-second feedback loop on most PRs.**
+>
+> Every action taken in this session must serve this objective. If a task
+> does not bring the project closer to this goal, stop and escalate.

@@ -15,6 +15,10 @@ test:
 test-quick:
     julia --project test/runtests_quick.jl
 
+# Run agent behavior eval suite (checks AGENTS.md alignment, not product tests)
+agent-check:
+    julia --project -e 'include("test/agent_eval.jl")'
+
 coverage:
     julia --project -e 'using Testimonial; Testimonial.record_all()'
 
