@@ -1,58 +1,28 @@
-# Quick test runner — excludes slow subprocess tests (test_protocol.jl, test_subprocess_record.jl, test_runner.jl)
+# Quick test runner — excludes slow subprocess tests (test_protocol.jl,
+# test_subprocess_record.jl, test_inference_capture.jl,
+# test_inference_integration.jl, test_runner.jl).
+# Includes only :quick-classified test files from the canonical manifest.
 # Use via: just test-quick
 
 using Testimonial, Test, Dates
 
 include("helpers.jl")
+include("manifest.jl")
 
+# ── Assert manifest completeness ────
+result = check_manifest_completeness()
+if !isempty(result.unclassified)
+    error("""
+    Unclassified test files in test/:
+      $(join(result.unclassified, "\n  "))
+    Add each to TEST_MANIFEST in test/manifest.jl as :quick or :slow.
+    """)
+end
+@info "Test manifest: $(length(quick_tests())) quick (excluded: $(length(slow_tests())) slow)"
+
+# ── Run only quick tests ────
 @testset "Quick tests" begin
-    include("test_types.jl")
-    include("test_persistence.jl")
-    include("test_astparser.jl")
-    include("test_gitdiff.jl")
-    include("test_command.jl")
-    include("test_runner_types.jl")
-    include("test_indexbuilder.jl")
-    include("test_mockrunner.jl")
-    include("test_cov_sidecar.jl")
-    include("test_timeout.jl")
-    include("test_changed_detection.jl")
-    include("test_query.jl")
-    include("test_driver.jl")
-    include("test_record_all.jl")
-    include("test_build_index_integration.jl")
-    include("test_cli.jl")
-    include("test_lcov_tracefile.jl")
-    include("test_always_run.jl")
-    include("test_environment_fingerprint.jl")
-    include("test_must_run_config.jl")
-    include("test_must_run_query.jl")
-    include("test_scoped_fallback.jl")
-    include("test_must_run_priority.jl")
-    include("test_seeded_fault.jl")
-    include("test_seeded_fault_verify.jl")
-    include("test_must_run_integration.jl")
-    include("test_component_discovery.jl")
-    include("test_component_directory.jl")
-    include("test_record_all_components.jl")
-    include("test_load_index_components.jl")
-    include("test_migrate_index.jl")
-    include("test_inter_component_edges.jl")
-    include("test_component_graph.jl")
-    include("test_component_graph_persistence.jl")
-include("test_run_history.jl")
-include("test_shard_balance.jl")
-    include("test_shard_files.jl")
-    include("test_shadow_mode.jl")
-    include("test_cli_entry.jl")
-    include("test_manual_edges.jl")
-    include("test_incident_lifecycle.jl")
-    include("test_reconcile.jl")
-    include("test_reconciliation_report.jl")
-    include("test_flaky_detector.jl")
-    include("test_confidence.jl")
-    include("test_inference_edges.jl")
-    include("test_format_reason.jl")
-    include("test_static_analysis.jl")
-    include("test_static_integration.jl")
+    for f in quick_tests()
+        include(f)
+    end
 end
