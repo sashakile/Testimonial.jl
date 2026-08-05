@@ -402,6 +402,7 @@ function record_all(
 
     # Build the CoverageIndex
     item_map = Dict{parent.TestItemRef, parent.ItemCoverage}()
+    failed_count = 0
 
     for (i, ref) in enumerate(items)
         # Check fresh results first, then cached
@@ -412,17 +413,20 @@ function record_all(
             ic = cached_results[i]
         end
 
-        if ic !== nothing
-            # For file-level recordings (record_file), use the result's
-            # own ref (line=0, name=basename(file)) as the key. This
-            # collapses multiple @testset items in the same file into a
-            # single file-level index entry, matching how record_file
-            # records the whole file as one unit.
-            if ic.item.line == 0
-                item_map[ic.item] = ic
-            else
-                item_map[ref] = ic
-            end
+        if ic === nothing
+            failed_count += 1
+            continue
+        end
+
+        # For file-level recordings (record_file), use the result's
+        # own ref (line=0, name=basename(file)) as the key. This
+        # collapses multiple @testset items in the same file into a
+        # single file-level index entry, matching how record_file
+        # records the whole file as one unit.
+        if ic.item.line == 0
+            item_map[ic.item] = ic
+        else
+            item_map[ref] = ic
         end
     end
 
@@ -440,7 +444,13 @@ function record_all(
         _save_per_component_indices(parent, item_map, String(project_dir), git_sha, env_fp)
     end
 
-    return parent.CoverageIndex(item_map, git_sha, string(VERSION), v"0.1.0", now(), env_fp)
+    return parent.CoverageIndex(
+        item_map, git_sha, string(VERSION), v"0.1.0", now(), env_fp,
+        Dict{String, Set{String}}(),
+        Dict{parent.TestItemRef, Vector{Tuple{String, Int}}}(),
+        failed_count,
+        length(items),
+    )
 end
 
 # ── Per-component index persistence ────────────

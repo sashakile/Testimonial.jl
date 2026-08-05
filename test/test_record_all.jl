@@ -413,3 +413,62 @@ end
         @test names == ["test_a"]
     end
 end
+
+# ── Deterministic partial-failure runner ──────
+
+"""A runner that returns ItemCoverage for the first item and nothing for the rest."""
+struct PartialFailRunner <: Testimonial.AbstractRunner end
+
+function Testimonial.record_item(runner::PartialFailRunner, ref::Testimonial.TestItemRef)
+    # Return ItemCoverage only for the first item, nothing for subsequent items
+    if ref.name == "test_a"
+        return Testimonial.ItemCoverage(ref, Int[], Int[], Dict())
+    end
+    return nothing
+end
+
+function Testimonial.record_file(runner::PartialFailRunner, test_file::String)
+    ref = Testimonial.TestItemRef(test_file, 0, basename(test_file))
+    return Testimonial.ItemCoverage(ref, Int[], Int[], Dict())
+end
+
+function Testimonial.record_batch(runner::PartialFailRunner, refs::Vector{Testimonial.TestItemRef})
+    return [Testimonial.record_item(runner, r) for r in refs]
+end
+
+@testset "record_all reports failed_item_count and total_discovered_items" begin
+    mktempdir() do dir
+        mkpath(joinpath(dir, "test"))
+        mkpath(joinpath(dir, "src"))
+
+        # Two test files
+        write(joinpath(dir, "test", "a_test.jl"), """
+        @testitem "test_a" begin
+            @test 1 == 1
+        end
+        """)
+        write(joinpath(dir, "test", "b_test.jl"), """
+        @testitem "test_b" begin
+            @test 1 == 1
+        end
+        """)
+
+        items = Testimonial.discover_testitems([joinpath(dir, "test")])
+
+        # Use PartialFailRunner: test_a succeeds, test_b fails
+        runner = PartialFailRunner()
+        index = Testimonial.record_all(items, runner; force=true, project_dir=dir)
+
+        @test index isa CoverageIndex
+        @test index.total_discovered_items == 2
+        @test index.failed_item_count == 1
+        @test length(index.items) == 1  # only test_a succeeded
+
+        # Verify persisted index also has correct metadata
+        save_path = joinpath(dir, ".testimonial", "index.jls")
+        Testimonial.save_index(index, save_path)
+        loaded = Testimonial.load_index(save_path)
+        @test loaded.total_discovered_items == 2
+        @test loaded.failed_item_count == 1
+    end
+end
