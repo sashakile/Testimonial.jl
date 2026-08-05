@@ -632,3 +632,77 @@ end
         end
     end
 end
+
+@testset "run merges duplicate selections with distinct reasons" begin
+    mktempdir() do dir
+        cd(dir) do
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+
+            mkpath("test")
+            mkpath("src")
+
+            # Test file with @testitem
+            write("test/test_a.jl", """
+            @testitem "test_a" begin
+                @test 1 == 1
+            end
+            """)
+
+            # Source file (will be modified)
+            write("src/lib.jl", """
+            function foo()
+                return 1
+            end
+            """)
+
+            run(`git add .`)
+            run(`git commit -m "initial"`)
+
+            # Build index: test_a covers lines 2-3 of src/lib.jl
+            ref_a = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
+            source_files = Dict{String, Tuple{Vector{Int}, Vector{Int}}}(
+                abspath("src/lib.jl") => ([2, 3], Int[]),
+            )
+            ic_a = ItemCoverage(ref_a, [1, 2], Int[], source_files)
+            current_fp = Testimonial.compute_environment_fingerprint(pwd())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref_a => ic_a),
+                readchomp(`git rev-parse HEAD`),
+                string(VERSION),
+                v"0.1.0",
+                now(),
+                current_fp,
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            # Create a manual edge linking src/lib.jl to test_a (same test as coverage provider selects)
+            edge = Testimonial.ManualEdge("src/lib.jl", ref_a, now())
+            Testimonial.save_manual_edges([edge])
+
+            # Modify a covered line in src/lib.jl
+            write("src/lib.jl", """
+            function foo()
+                return 2  # changed, but line is covered
+            end
+            """)
+
+            run(`git add .`)
+            run(`git commit -m "modify covered line in source"`)
+
+            # Coverage provider selects test_a (covered line changed)
+            # Manual edge provider also selects test_a (src/lib.jl changed)
+            # Merge should produce one ImpactResult with both reasons
+            result = Testimonial.CLI.run(; base_ref="HEAD~1", shadow=false)
+            @test result isa Vector
+            @test length(result) == 1
+            @test result[1].item.name == "test_a"
+
+            # Should have both DirectChange (from coverage) and AlwaysRun (from manual edge) reasons
+            reason_kinds = Set(rr.kind for rr in result[1].reasons)
+            @test Testimonial.DirectChange in reason_kinds
+            @test Testimonial.AlwaysRun in reason_kinds
+        end
+    end
+end

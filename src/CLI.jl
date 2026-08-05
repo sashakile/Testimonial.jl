@@ -570,7 +570,7 @@ function run(; base_ref::String="origin/main",
                 # Avoid duplicates: if already in filtered, merge reasons
                 existing_idx = findfirst(x -> x.item == r.item, filtered)
                 if existing_idx !== nothing
-                    merged = ImpactResult(
+                    merged = parent.ImpactResult(
                         filtered[existing_idx].item,
                         vcat(filtered[existing_idx].reasons, r.reasons),
                         true,
@@ -591,7 +591,7 @@ function run(; base_ref::String="origin/main",
                 # Avoid duplicates: if already in filtered, merge reasons
                 existing_idx = findfirst(x -> x.item == r.item, filtered)
                 if existing_idx !== nothing
-                    merged = ImpactResult(
+                    merged = parent.ImpactResult(
                         filtered[existing_idx].item,
                         vcat(filtered[existing_idx].reasons, r.reasons),
                         true,
@@ -611,7 +611,7 @@ function run(; base_ref::String="origin/main",
             if r.selected && any(startswith(r.item.file, d) for d in abs_test_dirs)
                 existing_idx = findfirst(x -> x.item == r.item, filtered)
                 if existing_idx !== nothing
-                    merged = ImpactResult(
+                    merged = parent.ImpactResult(
                         filtered[existing_idx].item,
                         vcat(filtered[existing_idx].reasons, r.reasons),
                         true,
@@ -631,7 +631,7 @@ function run(; base_ref::String="origin/main",
             if r.selected && any(startswith(r.item.file, d) for d in abs_test_dirs)
                 existing_idx = findfirst(x -> x.item == r.item, filtered)
                 if existing_idx !== nothing
-                    merged = ImpactResult(
+                    merged = parent.ImpactResult(
                         filtered[existing_idx].item,
                         vcat(filtered[existing_idx].reasons, r.reasons),
                         true,
