@@ -21,13 +21,16 @@ using Dates
 
             write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 1 end""")
             write("test/test_b.jl", """@testitem "test_b" begin @test 1 == 1 end""")
+            write("src/lib.jl", "# placeholder\n")
             run(`git add .`)
             run(`git commit -m "initial"`)
 
             # Build index with both items
             ref_a = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
             ref_b = TestItemRef(abspath("test/test_b.jl"), 1, "test_b", Symbol[], "def")
-            ic_a = ItemCoverage(ref_a, [1], Int[], Dict())
+            ic_a = ItemCoverage(ref_a, [1], Int[], Dict{String, Tuple{Vector{Int}, Vector{Int}}}(
+                abspath("src/lib.jl") => ([1], Int[]),
+            ))
             ic_b = ItemCoverage(ref_b, [1], Int[], Dict())
             current_fp = Testimonial.compute_environment_fingerprint(pwd())
             index = CoverageIndex(
@@ -172,13 +175,16 @@ end
 
             write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 1 end""")
             write("test/test_b.jl", """@testitem "test_b" begin @test 1 == 1 end""")
+            write("src/lib.jl", "# placeholder\n")
             run(`git add .`)
             run(`git commit -m "initial"`)
 
             # Build index with both items
             ref_a = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
             ref_b = TestItemRef(abspath("test/test_b.jl"), 1, "test_b", Symbol[], "def")
-            ic_a = ItemCoverage(ref_a, [1], Int[], Dict())
+            ic_a = ItemCoverage(ref_a, [1], Int[], Dict{String, Tuple{Vector{Int}, Vector{Int}}}(
+                abspath("src/lib.jl") => ([1], Int[]),
+            ))
             ic_b = ItemCoverage(ref_b, [1], Int[], Dict())
             fp = Testimonial.compute_environment_fingerprint(dir)
             index = CoverageIndex(

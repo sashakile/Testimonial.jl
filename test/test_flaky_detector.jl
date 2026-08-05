@@ -163,11 +163,14 @@ end
             mkpath("src")
 
             write("test/test_a.jl", """@testitem "test_a" begin @test 1 == 1 end""")
+            write("src/lib.jl", "# placeholder\n")
             run(`git add .`)
             run(`git commit -m "initial"`)
 
             ref_a = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
-            ic_a = ItemCoverage(ref_a, [1], Int[], Dict())
+            ic_a = ItemCoverage(ref_a, [1], Int[], Dict{String, Tuple{Vector{Int}, Vector{Int}}}(
+                abspath("src/lib.jl") => ([1], Int[]),
+            ))
             index = CoverageIndex(
                 Dict{TestItemRef, ItemCoverage}(ref_a => ic_a),
                 readchomp(`git rev-parse HEAD`),
@@ -190,10 +193,15 @@ end
             run(`git add .`)
             run(`git commit -m "modify src/lib.jl"`)
 
-            # Manual edge provider should exclude quarantined tests
+            # Manual edge provider should exclude quarantined tests.
+            # The coverage provider may still select test_a (covered line 1 changed),
+            # but the AlwaysRun reason from the manual edge must be absent.
             result = Testimonial.CLI.run(; base_ref="HEAD~1", shadow=false)
             @test result isa Vector
-            @test isempty(result)  # no tests selected (quarantined edge excluded)
+            @test !any(
+                any(rr.kind == AlwaysRun for rr in r.reasons)
+                for r in result if r.item.name == "test_a"
+            )
 
             Testimonial.unquarantine_test(ref_a)
         end

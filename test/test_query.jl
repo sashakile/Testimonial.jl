@@ -211,7 +211,7 @@ end
     @test isempty(gaps)
 end
 
-@testset "coverage_gaps ignores untracked files" begin
+@testset "coverage_gaps reports untracked source files as full gaps" begin
     index = make_test_index([
         ("/proj/test/foo_test.jl", "test_a", [1, 2, 3]),
     ])
@@ -221,7 +221,10 @@ end
     )
 
     gaps = Testimonial.coverage_gaps(index, changed)
-    @test isempty(gaps)
+
+    # Untracked source file should be reported as a gap covering all changed lines
+    @test length(gaps) == 1
+    @test gaps[1] == Testimonial.CoverageGap("/proj/src/untracked.jl", 1, 5)
 end
 
 @testset "coverage_gaps returns empty for empty changed map" begin

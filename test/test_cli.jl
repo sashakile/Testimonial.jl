@@ -441,3 +441,194 @@ end
         end
     end
 end
+
+@testset "run returns :full_suite for untracked source file change" begin
+    mktempdir() do dir
+        cd(dir) do
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+
+            mkpath("test")
+            mkpath("src")
+
+            # Test file that covers a source file via source_files
+            write("test/test_a.jl", """
+            @testitem "test_a" begin
+                @test 1 == 1
+            end
+            """)
+
+            # Source file (will be modified later)
+            write("src/lib.jl", """
+            function foo()
+                return 1
+            end
+            """)
+
+            run(`git add .`)
+            run(`git commit -m "initial"`)
+
+            # Build index with source_files linking test_a to src/lib.jl
+            ref_a = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
+            source_files = Dict{String, Tuple{Vector{Int}, Vector{Int}}}(
+                abspath("src/lib.jl") => ([2, 3], Int[]),
+            )
+            ic_a = ItemCoverage(ref_a, [1, 2], Int[], source_files)
+            current_fp = Testimonial.compute_environment_fingerprint(pwd())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref_a => ic_a),
+                readchomp(`git rev-parse HEAD`),
+                string(VERSION),
+                v"0.1.0",
+                now(),
+                current_fp,
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            # Modify an untracked source file (not in any item's source_files)
+            write("src/other.jl", """
+            function bar()
+                return 2
+            end
+            """)
+
+            run(`git add .`)
+            run(`git commit -m "add untracked source file"`)
+
+            # Untracked source change should return :full_suite
+            result = Testimonial.CLI.run(; base_ref="HEAD~1", shadow=false)
+            @test result == :full_suite
+        end
+    end
+end
+
+@testset "run returns :full_suite for partially covered source file with gaps" begin
+    mktempdir() do dir
+        cd(dir) do
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+
+            mkpath("test")
+            mkpath("src")
+
+            # Test file that covers a source file via source_files
+            write("test/test_a.jl", """
+            @testitem "test_a" begin
+                @test 1 == 1
+            end
+            """)
+
+            write("src/lib.jl", """
+            function foo()
+                return 1
+            end
+
+            function baz()
+                return 3
+            end
+            """)
+
+            run(`git add .`)
+            run(`git commit -m "initial"`)
+
+            # Build index: test_a covers lines 2-3 (foo body), but NOT lines 6-7 (baz body)
+            ref_a = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
+            source_files = Dict{String, Tuple{Vector{Int}, Vector{Int}}}(
+                abspath("src/lib.jl") => ([2, 3], [6, 7]),
+            )
+            ic_a = ItemCoverage(ref_a, [1, 2], Int[], source_files)
+            current_fp = Testimonial.compute_environment_fingerprint(pwd())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref_a => ic_a),
+                readchomp(`git rev-parse HEAD`),
+                string(VERSION),
+                v"0.1.0",
+                now(),
+                current_fp,
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            # Modify uncovered lines in the source file (introduces gaps)
+            write("src/lib.jl", """
+            function foo()
+                return 1
+            end
+
+            function baz()
+                return 99  # changed
+            end
+            """)
+
+            run(`git add .`)
+            run(`git commit -m "modify uncovered lines in source"`)
+
+            # Partially covered source with gaps should return :full_suite
+            result = Testimonial.CLI.run(; base_ref="HEAD~1", shadow=false)
+            @test result == :full_suite
+        end
+    end
+end
+
+@testset "run selects covering test for fully covered source file change" begin
+    mktempdir() do dir
+        cd(dir) do
+            run(`git init`)
+            run(`git config user.email test@test.com`)
+            run(`git config user.name test`)
+
+            mkpath("test")
+            mkpath("src")
+
+            # Test file that covers a source file via source_files
+            write("test/test_a.jl", """
+            @testitem "test_a" begin
+                @test 1 == 1
+            end
+            """)
+
+            write("src/lib.jl", """
+            function foo()
+                return 1
+            end
+            """)
+
+            run(`git add .`)
+            run(`git commit -m "initial"`)
+
+            # Build index: test_a covers lines 2-3 of src/lib.jl
+            ref_a = TestItemRef(abspath("test/test_a.jl"), 1, "test_a", Symbol[], "abc")
+            source_files = Dict{String, Tuple{Vector{Int}, Vector{Int}}}(
+                abspath("src/lib.jl") => ([2, 3], Int[]),
+            )
+            ic_a = ItemCoverage(ref_a, [1, 2], Int[], source_files)
+            current_fp = Testimonial.compute_environment_fingerprint(pwd())
+            index = CoverageIndex(
+                Dict{TestItemRef, ItemCoverage}(ref_a => ic_a),
+                readchomp(`git rev-parse HEAD`),
+                string(VERSION),
+                v"0.1.0",
+                now(),
+                current_fp,
+            )
+            save_index(index, ".testimonial/index.jls")
+
+            # Modify a covered line in the source file
+            write("src/lib.jl", """
+            function foo()
+                return 2  # changed, but line is covered
+            end
+            """)
+
+            run(`git add .`)
+            run(`git commit -m "modify covered line in source"`)
+
+            # Fully covered change should select the covering test, not :full_suite
+            result = Testimonial.CLI.run(; base_ref="HEAD~1", shadow=false)
+            @test result isa Vector
+            @test !isempty(result)
+            @test any(r.item.name == "test_a" for r in result if isa(r, Testimonial.ImpactResult))
+        end
+    end
+end

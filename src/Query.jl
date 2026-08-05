@@ -112,7 +112,9 @@ For each changed file that has coverage data in the `CoverageIndex`
 not. Contiguous regions of uncovered lines within the changed regions
 are returned as `CoverageGap`s.
 
-Files not tracked in any item's `source_files` are excluded from the result.
+Files not tracked in any item's `source_files` (untracked) are reported
+as a single gap covering all changed lines — guaranteeing that the
+caller can detect the untracked change and fail closed.
 """
 function coverage_gaps(index, changed::Dict{String, Set{Int}})::Vector
     parent = _parent()
@@ -135,38 +137,36 @@ function coverage_gaps(index, changed::Dict{String, Set{Int}})::Vector
 
     for (file_path, changed_lines) in changed
         if !haskey(file_coverage, file_path)
+            # Untracked source file — report all changed lines as a gap
+            # so the caller can detect the untracked change and fail closed.
+            append!(gaps, _contiguous_gaps(parent, file_path, changed_lines))
             continue
         end
 
         covered = file_coverage[file_path]
-        sorted_changed = sort!(collect(changed_lines))
-        i = 1
-        while i <= length(sorted_changed)
-            line = sorted_changed[i]
-            if line in covered
-                i += 1
-                continue
-            end
-
-            gap_start = line
-            gap_end = line
-
-            j = i + 1
-            while j <= length(sorted_changed)
-                next_line = sorted_changed[j]
-                if next_line == gap_end + 1 && !(next_line in covered)
-                    gap_end = next_line
-                    j += 1
-                else
-                    break
-                end
-            end
-
-            push!(gaps, parent.CoverageGap(file_path, gap_start, gap_end))
-            i = j
-        end
+        uncovered_changed = filter(l -> !(l in covered), changed_lines)
+        append!(gaps, _contiguous_gaps(parent, file_path, uncovered_changed))
     end
 
+    return gaps
+end
+
+# Merge a set of line numbers into contiguous CoverageGap regions.
+function _contiguous_gaps(parent, file_path::String, lines)
+    gaps = parent.CoverageGap[]
+    sorted_lines = sort!(collect(lines))
+    i = 1
+    while i <= length(sorted_lines)
+        gap_start = sorted_lines[i]
+        gap_end = sorted_lines[i]
+        j = i + 1
+        while j <= length(sorted_lines) && sorted_lines[j] == gap_end + 1
+            gap_end = sorted_lines[j]
+            j += 1
+        end
+        push!(gaps, parent.CoverageGap(file_path, gap_start, gap_end))
+        i = j
+    end
     return gaps
 end
 
