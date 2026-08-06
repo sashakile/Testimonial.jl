@@ -219,10 +219,24 @@ end
     end
 end
 
-@testset "_recording_succeeded accepts present tracefile in artifact_dir" begin
+@testset "_recording_succeeded accepts valid tracefile in artifact_dir" begin
+    mktempdir() do dir
+        write(joinpath(dir, "tracefile.info"), "SF:/proj/src/lib.jl\nDA:1,1\nend_of_record\n")
+        @test Testimonial.CoverageLayer._recording_succeeded(0, dir)
+    end
+end
+
+@testset "_recording_succeeded rejects empty tracefile in artifact_dir" begin
     mktempdir() do dir
         touch(joinpath(dir, "tracefile.info"))
-        @test Testimonial.CoverageLayer._recording_succeeded(0, dir)
+        @test !Testimonial.CoverageLayer._recording_succeeded(0, dir)
+    end
+end
+
+@testset "_recording_succeeded rejects garbage-only tracefile in artifact_dir" begin
+    mktempdir() do dir
+        write(joinpath(dir, "tracefile.info"), "not an lcov file at all\n")
+        @test !Testimonial.CoverageLayer._recording_succeeded(0, dir)
     end
 end
 

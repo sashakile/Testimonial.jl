@@ -371,7 +371,18 @@ are classified failures and must never be cached (testimonial-in3s.3).
 function _recording_succeeded(exitcode::Union{Int,Nothing}, artifact_dir::Union{String,Nothing})::Bool
     exitcode === 0 || return false
     if artifact_dir !== nothing && _is_julia_12_or_later()
-        return isfile(joinpath(artifact_dir, "tracefile.info"))
+        tracefile = joinpath(artifact_dir, "tracefile.info")
+        # Reject missing, empty, or garbage-only tracefiles — only a
+        # non-empty tracefile with at least one SF: entry (source file
+        # declaration) is a valid artifact (testimonial-in3s.3).
+        if !isfile(tracefile) || filesize(tracefile) == 0
+            return false
+        end
+        # Quick content validation: the tracefile must contain at least
+        # one "SF:" line (source file declaration). This rejects
+        # malformed files that pass the empty check.
+        first_line = readline(tracefile)
+        return startswith(first_line, "SF:")
     end
     # Legacy path: no artifact isolation or pre-1.12 — trust exit 0
     return true
