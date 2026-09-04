@@ -32,8 +32,22 @@ jobs:
           restore-keys: |
             testimonial-index-
 
-      - name: Instantiate runner project
-        run: julia --project=scripts/TestimonialRunner -e 'import Pkg; Pkg.instantiate()'
+      - name: Instantiate root project
+        run: julia --project -e 'import Pkg; Pkg.instantiate()'
+
+      # Testimonial is unregistered; the runner project needs it as a path
+      # (develop) dependency so the driver subprocess can load its deps.
+      # Manifests are git-ignored, so this must run on CI. Mirrors the
+      # "Set up runner project" step in ci-e2e.yml.
+      - name: Set up runner project
+        run: |
+          cd scripts/TestimonialRunner
+          julia --project=. -e '
+            import Pkg
+            Pkg.develop(Pkg.PackageSpec(path=joinpath(pwd(), "..", "..")))
+            Pkg.resolve()
+            Pkg.instantiate()
+          '
 
       - name: Record all test items
         run: julia --project -e 'using Testimonial; Testimonial.record_all()'

@@ -36,8 +36,10 @@ jobs:
           version: ${{ matrix.version }}
       - uses: julia-actions/cache@v2
       - run: julia --project -e 'import Pkg; Pkg.instantiate()'
-      - name: Set up runner project for inference capture (Julia 1.12+)
-        if: ${{ matrix.version == '1.12' }}
+      # Testimonial is unregistered; the runner project needs it as a path
+      # (develop) dependency for the driver subprocess on every Julia version.
+      # Inference capture (1.12+ vs older) is runtime-detected in driver.jl.
+      - name: Set up runner project
         run: |
           cd scripts/TestimonialRunner
           julia --project=. -e '
