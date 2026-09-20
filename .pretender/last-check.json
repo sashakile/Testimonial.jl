@@ -47,7 +47,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 863.0,
+          "actual": 801.0,
           "limit": 400.0
         }
       ],
@@ -55,7 +55,7 @@
         {
           "name": "_find_tracefile",
           "kind": "Function",
-          "start_line": 176,
+          "start_line": 175,
           "metrics": {
             "cyclomatic": 4,
             "cognitive": 3,
@@ -70,7 +70,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 353,
+          "start_line": 351,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -85,7 +85,7 @@
         {
           "name": "record_item",
           "kind": "Function",
-          "start_line": 390,
+          "start_line": 399,
           "metrics": {
             "cyclomatic": 5,
             "cognitive": 4,
@@ -100,7 +100,7 @@
         {
           "name": "record_batch",
           "kind": "Function",
-          "start_line": 442,
+          "start_line": 451,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -115,7 +115,7 @@
         {
           "name": "record_batch",
           "kind": "Function",
-          "start_line": 459,
+          "start_line": 468,
           "metrics": {
             "cyclomatic": 6,
             "cognitive": 5,
@@ -130,7 +130,7 @@
         {
           "name": "record_file",
           "kind": "Function",
-          "start_line": 532,
+          "start_line": 541,
           "metrics": {
             "cyclomatic": 5,
             "cognitive": 4,
@@ -145,43 +145,28 @@
         {
           "name": "_collect_coverage",
           "kind": "Function",
-          "start_line": 587,
+          "start_line": 597,
           "metrics": {
-            "cyclomatic": 22,
-            "cognitive": 21,
+            "cyclomatic": 7,
+            "cognitive": 6,
             "assertions": 0,
-            "function_lines": 122,
+            "function_lines": 50,
             "params": 0,
             "nesting_max": 0,
-            "abc": 69.03622237637282
+            "abc": 23.0
           },
           "violations": [
             {
-              "metric": "cyclomatic",
-              "actual": 22.0,
-              "limit": 10.0
-            },
-            {
-              "metric": "cognitive",
-              "actual": 21.0,
-              "limit": 15.0
-            },
-            {
               "metric": "function_lines",
-              "actual": 122.0,
+              "actual": 50.0,
               "limit": 40.0
-            },
-            {
-              "metric": "abc",
-              "actual": 69.03622237637282,
-              "limit": 30.0
             }
           ]
         },
         {
           "name": "with_retry",
           "kind": "Function",
-          "start_line": 789,
+          "start_line": 727,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -246,7 +231,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 1252.0,
+          "actual": 1262.0,
           "limit": 400.0
         }
       ],
@@ -305,7 +290,7 @@
         {
           "name": "load_index",
           "kind": "Function",
-          "start_line": 714,
+          "start_line": 724,
           "metrics": {
             "cyclomatic": 5,
             "cognitive": 4,
@@ -320,7 +305,7 @@
         {
           "name": "_cleanup_inference_trace",
           "kind": "Function",
-          "start_line": 1239,
+          "start_line": 1249,
           "metrics": {
             "cyclomatic": 3,
             "cognitive": 2,
@@ -763,6 +748,21 @@
         }
       ],
       "units": [
+        {
+          "name": "_contiguous_gaps",
+          "kind": "Function",
+          "start_line": 155,
+          "metrics": {
+            "cyclomatic": 4,
+            "cognitive": 3,
+            "assertions": 0,
+            "function_lines": 17,
+            "params": 2,
+            "nesting_max": 0,
+            "abc": 11.789826122551595
+          },
+          "violations": []
+        },
         {
           "name": "nearest_covered_lines",
           "kind": "Function",
@@ -1438,7 +1438,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 443.0,
+          "actual": 708.0,
           "limit": 400.0
         }
       ],
@@ -1917,7 +1917,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 1128.0,
+          "actual": 1131.0,
           "limit": 400.0
         }
       ],
@@ -1955,7 +1955,7 @@
         {
           "name": "make_index_with_source_files",
           "kind": "Function",
-          "start_line": 889,
+          "start_line": 892,
           "metrics": {
             "cyclomatic": 1,
             "cognitive": 0,
@@ -2013,7 +2013,7 @@
       "file_violations": [
         {
           "metric": "file_lines",
-          "actual": 415.0,
+          "actual": 474.0,
           "limit": 400.0
         }
       ],
@@ -2214,53 +2214,53 @@
     "top_hotspots": [
       {
         "fingerprint": "src/GitDiff.jl::_parse_diff_section::cognitive_max",
-        "count": 167,
-        "distinct_days": 11
+        "count": 173,
+        "distinct_days": 14
       },
       {
         "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cognitive_max",
-        "count": 133,
-        "distinct_days": 9
+        "count": 138,
+        "distinct_days": 12
       },
       {
-        "fingerprint": "src/CoverageLayer.jl::_collect_coverage::cyclomatic_max",
-        "count": 131,
-        "distinct_days": 8
+        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::abc_max",
+        "count": 137,
+        "distinct_days": 11
       },
       {
-        "fingerprint": "src/Protocol.jl::handle_run_args::function_lines_max",
-        "count": 131,
-        "distinct_days": 8
-      },
-      {
-        "fingerprint": "src/IndexBuilder.jl::_record_single_item::function_lines_max",
-        "count": 131,
-        "distinct_days": 8
-      },
-      {
-        "fingerprint": "src/Protocol.jl::_append_runtime_edges::function_lines_max",
-        "count": 131,
-        "distinct_days": 8
-      },
-      {
-        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::function_lines_max",
-        "count": 131,
-        "distinct_days": 8
-      },
-      {
-        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::cyclomatic_max",
-        "count": 131,
-        "distinct_days": 8
-      },
-      {
-        "fingerprint": "src/GitDiff.jl::_parse_diff_section::abc_max",
-        "count": 131,
-        "distinct_days": 8
+        "fingerprint": "src/Protocol.jl::_build_static_edges::function_lines_max",
+        "count": 137,
+        "distinct_days": 11
       },
       {
         "fingerprint": "src/Protocol.jl::_ingest_one_item::function_lines_max",
-        "count": 131,
-        "distinct_days": 8
+        "count": 137,
+        "distinct_days": 11
+      },
+      {
+        "fingerprint": "src/Protocol.jl::_append_runtime_edges::function_lines_max",
+        "count": 137,
+        "distinct_days": 11
+      },
+      {
+        "fingerprint": "src/Protocol.jl::handle_ingest::function_lines_max",
+        "count": 137,
+        "distinct_days": 11
+      },
+      {
+        "fingerprint": "src/Protocol.jl::_handle_ingest_run_output::cyclomatic_max",
+        "count": 137,
+        "distinct_days": 11
+      },
+      {
+        "fingerprint": "src/GitDiff.jl::_parse_diff_section::cyclomatic_max",
+        "count": 137,
+        "distinct_days": 11
+      },
+      {
+        "fingerprint": "src/IndexBuilder.jl::_record_single_item::function_lines_max",
+        "count": 137,
+        "distinct_days": 11
       }
     ],
     "top_patterns": [
@@ -2268,33 +2268,33 @@
         "rule_key": "function_lines_max",
         "role": "app",
         "area": "src",
-        "count": 1459,
+        "count": 1537,
         "distinct_files": 6,
-        "distinct_days": 8
+        "distinct_days": 11
       },
       {
         "rule_key": "cyclomatic_max",
         "role": "app",
         "area": "src",
-        "count": 831,
+        "count": 884,
         "distinct_files": 5,
-        "distinct_days": 8
+        "distinct_days": 11
       },
       {
         "rule_key": "abc_max",
         "role": "app",
         "area": "src",
-        "count": 556,
+        "count": 585,
         "distinct_files": 4,
-        "distinct_days": 8
+        "distinct_days": 11
       },
       {
         "rule_key": "cognitive_max",
         "role": "app",
         "area": "src",
-        "count": 398,
+        "count": 427,
         "distinct_files": 4,
-        "distinct_days": 11
+        "distinct_days": 14
       }
     ]
   }
