@@ -65,15 +65,14 @@ function _base_driver_cmd(;
     abs_runner_dir = isabspath(runner_dir) ? runner_dir : joinpath(pkg_root, runner_dir)
     driver_path = joinpath(abs_runner_dir, "driver.jl")
 
-    # When artifact_dir is provided, write the LCOV tracefile into the
-    # isolated artifact directory so parallel subprocesses don't share
-    # the default pwd/tracefile.info (testimonial-in3s.2).
-    coverage_flag = if artifact_dir !== nothing && _is_julia_12_or_later()
+    # Coverage artifact is an LCOV tracefile written into the isolated
+    # artifact directory on ALL Julia versions (the --code-coverage=<path>
+    # tracefile form predates 1.12), so parallel subprocesses never share
+    # .jl.cov output next to the real source files (testimonial-in3s.2).
+    coverage_flag = if artifact_dir !== nothing
         "--code-coverage=$(joinpath(artifact_dir, "tracefile.info"))"
-    elseif _is_julia_12_or_later()
-        "--code-coverage=tracefile.info"
     else
-        "--code-coverage=user"
+        "--code-coverage=tracefile.info"
     end
 
     return [
@@ -362,14 +361,14 @@ Check whether a subprocess recording attempt produced a valid artifact.
 A recording is valid only when:
 1. The driver exited with code 0 (success)
 2. The LCOV tracefile was actually written to the isolated artifact directory
-   (on Julia 1.12+, where tracefile isolation is active)
+   (tracefile isolation is active on all Julia versions)
 
 All other outcomes (timeout, setup error, internal error, missing artifact)
 are classified failures and must never be cached (testimonial-in3s.3).
 """
 function _recording_succeeded(exitcode::Union{Int,Nothing}, artifact_dir::Union{String,Nothing})::Bool
     exitcode === 0 || return false
-    if artifact_dir !== nothing && _is_julia_12_or_later()
+    if artifact_dir !== nothing
         tracefile = joinpath(artifact_dir, "tracefile.info")
         # Reject missing, empty, or garbage-only tracefiles — only a
         # non-empty tracefile with at least one SF: entry (source file
@@ -587,9 +586,10 @@ compiled and executed (e.g., `src/foo.jl`), not the test file itself (which is
 loaded via `eval` by ReTestItems). The `source_files` dict captures this
 per-source-file coverage data for edge building.
 
-On Julia < 1.12, `.jl.cov` sidecar files are generated next to each source file.
-The test file's coverage is parsed directly, and additional source files are
-scanned from the project's src/ directory.
+On Julia < 1.12, the driver is invoked with
+`--code-coverage=<artifact_dir>/tracefile.info` so the LCOV tracefile is
+produced in the isolated artifact directory on every Julia version —
+parallel recordings never share coverage artifacts.
 
 After parsing, all coverage artifacts are cleaned up to prevent interference
 with subsequent recordings.
@@ -599,119 +599,47 @@ function _collect_coverage(test_file::String, parent::Module; artifact_dir::Unio
     uncovered_lines = Int[]
     source_files = Dict{String, Tuple{Vector{Int}, Vector{Int}}}()
 
-    if _is_julia_12_or_later()
-        # ── LCOV tracefile path (Julia 1.12+) ──
-        tracefile = _find_tracefile(; artifact_dir=artifact_dir)
-        if tracefile === nothing
-            # No tracefile found — return empty coverage (testimonial-in3s.3).
-            # The caller (record_item/record_batch/record_file) should have
-            # already checked _recording_succeeded, so this is a defensive
-            # guard against uncaught nothing passed to the parser.
-            return (covered_lines, uncovered_lines, source_files)
-        end
-        lcov_result = _parse_lcov_tracefile(tracefile)
+    # ── LCOV tracefile path (all Julia versions) ──
+    tracefile = _find_tracefile(; artifact_dir=artifact_dir)
+    if tracefile === nothing
+        # No tracefile found — return empty coverage (testimonial-in3s.3).
+        # The caller (record_item/record_batch/record_file) should have
+        # already checked _recording_succeeded, so this is a defensive
+        # guard against uncaught nothing passed to the parser.
+        return (covered_lines, uncovered_lines, source_files)
+    end
+    lcov_result = _parse_lcov_tracefile(tracefile)
 
-        # Build per-source-file coverage dict
-        for (src, covered_set) in lcov_result
-            sorted_covered = sort!(collect(covered_set))
-            # Read the source file to compute total lines for uncovered set
-            content = try
-                read(src, String)
-            catch
-                continue
-            end
-            total_lines = count(==('\n'), content)
-            sorted_uncovered = sort!(collect(setdiff(Set(1:total_lines), covered_set)))
-            source_files[src] = (sorted_covered, sorted_uncovered)
-
-            # If this is the test file, also set the top-level return values
-            if src == test_file
-                covered_lines = sorted_covered
-                uncovered_lines = sorted_uncovered
-            end
-        end
-
-        # Clean up tracefile (in artifact_dir if isolated, else pwd)
-        try
-            rm(tracefile; force=true)
+    # Build per-source-file coverage dict
+    for (src, covered_set) in lcov_result
+        sorted_covered = sort!(collect(covered_set))
+        # Read the source file to compute total lines for uncovered set
+        content = try
+            read(src, String)
         catch
+            continue
         end
-        # Clean up inference trace in the owning artifact directory
-        infer_trace_dir = something(artifact_dir, pwd())
-        try
-            rm(joinpath(infer_trace_dir, "inference_trace.jls"); force=true)
-        catch
-        end
-    else
-        # ── .jl.cov sidecar path (Julia < 1.12) ──
-        pkg_root = _project_root()
-        cov_files = String[]
+        total_lines = count(==('\n'), content)
+        sorted_uncovered = sort!(collect(setdiff(Set(1:total_lines), covered_set)))
+        source_files[src] = (sorted_covered, sorted_uncovered)
 
-        # Scan the test file's directory
-        test_dir = dirname(test_file)
-        for f in readdir(test_dir)
-            if endswith(f, ".cov")
-                push!(cov_files, joinpath(test_dir, f))
-            end
+        # If this is the test file, also set the top-level return values
+        if src == test_file
+            covered_lines = sorted_covered
+            uncovered_lines = sorted_uncovered
         end
+    end
 
-        # Also scan the project's src/ directory
-        src_dir = joinpath(pkg_root, "src")
-        if isdir(src_dir)
-            for f in readdir(src_dir)
-                if endswith(f, ".cov")
-                    push!(cov_files, joinpath(src_dir, f))
-                end
-            end
-        end
-
-        # Parse coverage for the test file
-        covered = parse_cov_sidecar(test_file)
-
-        if haskey(covered, test_file)
-            content = try
-                read(test_file, String)
-            catch
-                ""
-            end
-            total_lines = count(==('\n'), content)
-            covered_set = covered[test_file]
-            covered_lines = sort!(collect(covered_set))
-            uncovered_lines = sort!(collect(setdiff(Set(1:total_lines), covered_set)))
-        end
-
-        # Also scan parsed .jl.cov files for source-level coverage
-        for cov_file in cov_files
-            src_path = cov_file[1:end-4]  # strip .cov suffix
-            if isfile(src_path)
-                src_covered = parse_cov_sidecar(src_path)
-                if haskey(src_covered, src_path)
-                    content = try
-                        read(src_path, String)
-                    catch
-                        continue
-                    end
-                    total_lines = count(==('\n'), content)
-                    src_cov_set = src_covered[src_path]
-                    src_cov_lines = sort!(collect(src_cov_set))
-                    src_uncovered = sort!(collect(setdiff(Set(1:total_lines), src_cov_set)))
-                    source_files[src_path] = (src_cov_lines, src_uncovered)
-                end
-            end
-        end
-
-        # Clean up all discovered .jl.cov files
-        for cov_file in cov_files
-            try
-                rm(cov_file; force=true)
-            catch
-            end
-        end
-        # Clean up the inference trace sidecar (testimonial-1v4f).
-        try
-            rm(joinpath(pwd(), "inference_trace.jls"); force=true)
-        catch
-        end
+    # Clean up tracefile (in artifact_dir if isolated, else pwd)
+    try
+        rm(tracefile; force=true)
+    catch
+    end
+    # Clean up inference trace in the owning artifact directory
+    infer_trace_dir = something(artifact_dir, pwd())
+    try
+        rm(joinpath(infer_trace_dir, "inference_trace.jls"); force=true)
+    catch
     end
 
     return (covered_lines, uncovered_lines, source_files)
