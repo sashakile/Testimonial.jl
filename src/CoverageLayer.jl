@@ -278,8 +278,8 @@ and return a map of source file paths to sets of covered line numbers.
 Only lines with execution count > 0 are included (lines with count 0
 or non-executable lines marked with `-` are excluded).
 
-On Julia 1.12+, also attempts to parse an LCOV tracefile (`tracefile.info`)
-as a fallback if no `.jl.cov` sidecar is found.
+Also attempts to parse an LCOV tracefile (`tracefile.info`) as a fallback
+if no `.jl.cov` sidecar is found, regardless of Julia version.
 
 Returns an empty dict if no coverage data can be found or read.
 """
@@ -313,25 +313,24 @@ function parse_cov_sidecar(source_file::AbstractString)::Dict{String, Set{Int}}
         return result
     end
 
-    # Julia 1.12+: try LCOV tracefile as fallback
-    if _is_julia_12_or_later()
-        # Look for tracefile.info in the source file's directory
-        # and parent directories (up to 3 levels)
-        search_dir = dirname(src_path)
-        for _ in 1:3
-            tracefile = joinpath(search_dir, "tracefile.info")
-            if isfile(tracefile)
-                lcov_result = _parse_lcov_tracefile(tracefile)
-                if haskey(lcov_result, src_path) && !isempty(lcov_result[src_path])
-                    return Dict(src_path => lcov_result[src_path])
-                end
+    # LCOV tracefile fallback (version-independent — the parser is pure
+    # text parsing, so a tracefile present on any Julia version is parsed)
+    # Look for tracefile.info in the source file's directory
+    # and parent directories (up to 3 levels)
+    search_dir = dirname(src_path)
+    for _ in 1:3
+        tracefile = joinpath(search_dir, "tracefile.info")
+        if isfile(tracefile)
+            lcov_result = _parse_lcov_tracefile(tracefile)
+            if haskey(lcov_result, src_path) && !isempty(lcov_result[src_path])
+                return Dict(src_path => lcov_result[src_path])
             end
-            parent = dirname(search_dir)
-            if parent == search_dir
-                break
-            end
-            search_dir = parent
         end
+        parent = dirname(search_dir)
+        if parent == search_dir
+            break
+        end
+        search_dir = parent
     end
 
     return result
