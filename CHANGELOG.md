@@ -13,6 +13,18 @@ All notable changes to Testimonial.jl are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+**Bug fixes:**
+- `discover` (testaruda-pevk) — discovery now resolves ONLY within the invoking project (`<root>/test` or `<root>/tests`, root from a `project_root` param when provided, else the cwd). A project with no test directory returns an empty (valid) result instead of falling back to the adapter installation's own test directory and returning 818 foreign items. Explicit `test_directories` params are still honored verbatim and no longer short-circuited by the default-scope check, so package-consumer tests can be discovered from any cwd.
+- `run-args` (testaruda-ymzg) — the emitted runner is now invoked with a provisioned `Pkg.test`-style test environment so `[extras]`/`[targets.test]` dependencies (and `test/Project.toml` deps) are actually installed; `Pkg.instantiate` on the main env does not install them. The ReTestItems invocation now uses the signature the installed ReTestItems accepts — positional path filters plus a single anchored `name=` regex (resolved from each `file:line` node ID) — replacing the rejected `files=`/`names=` kwargs.
+- test-env provisioning activates a scratch environment; the previously active project is now restored in a `finally`, so in-process `Protocol.handle` callers (e.g. the test suite itself) no longer lose their own environment after a `run-args` call.
+
+**Infrastructure:**
+- `Protocol` now declares the `Pkg` stdlib dependency (required for test-env provisioning on Julia 1.12+).
+
+---
+
 ## [0.3.0] — 2026-07-30 — Highlights
 
 **For users:**

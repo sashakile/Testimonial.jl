@@ -10,6 +10,8 @@ module Protocol
 
 using JSON
 using SHA
+using Pkg
+using TOML
 
 export run_adapter_protocol
 
@@ -196,27 +198,46 @@ Returns a JSON response with a flat array of test items, each having:
 - `suite_kind`: always "ReTestItems.jl"
 - `file`: absolute, normalized test file path
 
+Without `params.test_directories`, discovery defaults to `<project>/test`
+then `<project>/tests`, where `<project>` is the project the adapter was
+invoked for — never a path outside that project (testaruda-pevk). When the
+project has no test directory at all, an empty result is returned (valid
+outcome, not an error).
+
 Errors on missing params, invalid directory, or non-existent path.
 """
 function handle_discover(cmd)
     params = get(cmd, "params", nothing)
 
-    # Default to the project's test directory when no params provided.
-    # First try pwd()/test/ which works in external adapter mode (testaruda sets
-    # cwd to the target project root) and in local dev (cwd = repo root).
-    # If pwd()/test/ doesn't exist, fall back to @__DIR__/../test/ which is
-    # correct under Pkg.test on Julia 1.12+ (cwd = test/ subdirectory).
-    _default_test_dir = joinpath(pwd(), "test")
+    # Resolve the root of the project the adapter was invoked for and only
+    # scan within that scope (testaruda-pevk). An explicit project-root param
+    # wins; otherwise the adapter is invoked with cwd set to the target
+    # project root, so pwd() IS the project scope. Falling back to the
+    # adapter package's own installation test directory would return foreign
+    # test items and is never acceptable.
+    _project_root = _invoking_project_root(params)
+    _default_test_dir = joinpath(_project_root, "test")
     if !isdir(_default_test_dir)
-        _default_test_dir = joinpath(dirname(@__DIR__), "test")
+        _default_test_dir = joinpath(_project_root, "tests")
     end
     if params === nothing
         dirs = [_default_test_dir]
+        explicit_dirs = false
     else
         dirs = get(params, "test_directories", nothing)
-        if dirs === nothing || !isa(dirs, Vector)
+        explicit_dirs = dirs isa Vector
+        if !explicit_dirs
             dirs = [_default_test_dir]
         end
+    end
+    if !explicit_dirs && !isdir(_default_test_dir)
+        # The invoking project has neither test/ nor tests/ and no explicit
+        # directory scope was given - an empty discovery result is a valid
+        # outcome, not an error.
+        return JSON.json(Dict(
+            "ok" => true,
+            "result" => Any[]
+        ))
     end
 
     # Validate and normalize directories to absolute paths
@@ -259,6 +280,39 @@ function handle_discover(cmd)
         "ok" => true,
         "result" => nodes
     ))
+end
+
+"""
+    _invoking_project_root(params) -> String
+
+Resolve the root directory of the project the adapter was invoked for
+(testaruda-pevk). Discovery must stay within this scope.
+
+Order of resolution:
+1. An explicit project-root param (`project_root`, `root`, or `project`)
+   when the caller provides one.
+2. `dirname(pwd())` when the cwd is itself a `test`/`tests` directory and
+   its parent holds a `Project.toml` — the `Pkg.test` layout on Julia 1.12+
+   runs the test suite with the cwd set to the project's test subdirectory.
+3. `pwd()` — in external adapter mode testaruda sets the cwd to the target
+   project root.
+
+Never returns a path outside the invoking project's tree.
+"""
+function _invoking_project_root(params)
+    if isa(params, Dict)
+        for key in ("project_root", "root", "project")
+            val = get(params, key, nothing)
+            if isa(val, String) && isdir(val)
+                return realpath(val)
+            end
+        end
+    end
+    cwd = pwd()
+    if basename(cwd) in ("test", "tests") && isfile(joinpath(dirname(cwd), "Project.toml"))
+        return realpath(dirname(cwd))
+    end
+    return realpath(cwd)
 end
 
 """
@@ -814,11 +868,154 @@ function _resolve_node_id(parent::Module, file::AbstractString, line::Int)
     return nothing
 end
 
+# ── Test environment provisioning (testaruda-ymzg) ───────────────
+
+"""
+    _test_env_path(project_root) -> String
+
+Stable, deterministic directory for the provisioned test environment of the
+given project, keyed by a SHA-1 of the resolved project root. Reusing the
+same directory lets repeated run-args calls skip re-resolving dependencies.
+"""
+function _test_env_path(project_root::String)::String
+    digest = bytes2hex(sha1(project_root))
+    return joinpath(tempdir(), "testimonial-testenvs", digest)
+end
+
+"""
+    _test_env_fingerprint(project_root) -> String
+
+Hash of every input that determines the test environment's contents: the
+project's `Project.toml` and `test/Project.toml` (when present). When the
+fingerprint changes, the cached environment is re-provisioned.
+"""
+function _test_env_fingerprint(project_root::String)::String
+    io = IOBuffer()
+    print(io, project_root, '\0')
+    for rel in ("Project.toml", joinpath("test", "Project.toml"))
+        p = joinpath(project_root, rel)
+        if isfile(p)
+            print(io, rel, '\0')
+            write(io, read(p))
+            print(io, '\0')
+        end
+    end
+    return bytes2hex(sha1(take!(io)))
+end
+
+"""
+    _target_test_deps(project_root) -> Vector{Pair{String, String}}
+
+Dependencies required by the project's `[targets.test]`, as declared in
+`[extras]` (Pkg.test semantics). Returns `name => uuid` pairs; entries not
+declared under `[extras]` are skipped.
+"""
+function _target_test_deps(project_root::String)::Vector{Pair{String, String}}
+    project_file = joinpath(project_root, "Project.toml")
+    isfile(project_file) || return Pair{String, String}[]
+    project = try
+        TOML.parsefile(project_file)
+    catch
+        return Pair{String, String}[]
+    end
+    extras = get(project, "extras", Dict{String, Any}())
+    targets = get(project, "targets", Dict{String, Any}())
+    target = get(targets, "test", nothing)
+    isa(target, Vector) || return Pair{String, String}[]
+    deps = Pair{String, String}[]
+    for entry in target
+        if isa(entry, String) && haskey(extras, entry)
+            uuid = extras[entry]
+            isa(uuid, String) && push!(deps, entry => uuid)
+        end
+    end
+    return deps
+end
+
+"""
+    _provision_test_env(project_root) -> String
+
+Provision a `Pkg.test`-style test environment for the invoking project and
+return the path the runner must be invoked with as `--project=` (testaruda-ymzg).
+
+Mirrors what `Pkg.test()` does before spawning a test runner:
+- If the project has a `test/Project.toml`, that file defines the test env;
+  it is activated and instantiated in place.
+- Otherwise a dedicated env is provisioned in which the package itself is
+  registered as a path dependency and every `[targets.test]` entry declared
+  in `[extras]` is added, so test-target dependencies are actually
+  installed — `Pkg.instantiate` on the main env does not install them.
+  `ReTestItems` is added so the emitted runner can load it.
+
+The provisioned env is cached on disk and reused until the fingerprint of
+its inputs changes.
+"""
+function _provision_test_env(project_root::String)::String
+    root = realpath(project_root)
+    test_project_file = joinpath(root, "test", "Project.toml")
+    # Provisioning activates a scratch environment; the invoking process may
+    # be long-lived (in-process Protocol.handle callers, e.g. the test
+    # suite), so the previously active project MUST be restored afterwards.
+    prev_project = Base.active_project()
+    if isfile(test_project_file)
+        # test/Project.toml defines the test env itself (Pkg.test semantics).
+        test_dir = joinpath(root, "test")
+        try
+            Pkg.activate(test_dir; io=devnull)
+            Pkg.instantiate(; io=devnull)
+            return test_dir
+        finally
+            Pkg.activate(prev_project; io=devnull)
+        end
+    end
+
+    env_dir = _test_env_path(root)
+    marker = joinpath(env_dir, ".testimonial-testenv")
+    fingerprint = _test_env_fingerprint(root)
+    if isfile(marker) && strip(read(marker, String)) == fingerprint
+        return env_dir
+    end
+
+    mkpath(env_dir)
+    try
+        Pkg.activate(env_dir; io=devnull)
+        project = try
+            TOML.parsefile(joinpath(root, "Project.toml"))
+        catch
+            nothing
+        end
+        pkg_name = project === nothing ? nothing : get(project, "name", nothing)
+        if isa(pkg_name, String) && isdir(joinpath(root, "src"))
+            # Make the package itself loadable in the test env, as Pkg.test does
+            # with a develop entry.
+            Pkg.develop(path=root; io=devnull)
+        end
+        for (dep, uuid) in _target_test_deps(root)
+            Pkg.add(Pkg.PackageSpec(name=dep, uuid=Base.UUID(uuid)); io=devnull)
+        end
+        # The runner loads ReTestItems; make sure the test env provides it even
+        # when the project declares it only under [extras] or not at all.
+        Pkg.add(Pkg.PackageSpec(name="ReTestItems"); io=devnull)
+        write(marker, fingerprint)
+    finally
+        Pkg.activate(prev_project; io=devnull)
+    end
+    return env_dir
+end
+
 """
     handle_run_args(cmd::Dict) -> String
 
 Emit `ReTestItems.runtests` invocation arguments for the selected
 test items per PROTO-007. Does NOT execute the tests.
+
+Before emitting, a `Pkg.test`-style test environment is provisioned for the
+invoking project (see `_provision_test_env`) so that `[extras]` /
+`[targets.test]` dependencies are installed; the runner is invoked with that
+environment active. The emitted ReTestItems invocation uses the signature
+accepted by the installed ReTestItems: positional path filter arguments
+plus `name=` / `tags=` kwargs (the `files=` / `names=` kwargs are not part
+of its API).
 """
 function handle_run_args(cmd)
     params = get(cmd, "params", nothing)
@@ -844,6 +1041,7 @@ function handle_run_args(cmd)
     has_testset = false
     has_testitem = false
     file_filter_pairs = []
+    parent = Base.parentmodule(@__MODULE__)
     for item in selected
         parts = split(item, ":", limit=2)
         if length(parts) == 2
@@ -854,14 +1052,21 @@ function handle_run_args(cmd)
             end
             if line_num >= 0 && _is_testitem_at_line(parts[1], line_num)
                 has_testitem = true
+                # node_ids carry the line number, not the item name; resolve
+                # the @testitem name at that line so the emitted `name=`
+                # filter matches actual test item names.
+                ref = _resolve_node_id(parent, parts[1], line_num)
+                name = (ref === nothing || isempty(ref.name)) ? nothing : ref.name
+                push!(file_filter_pairs, (parts[1], name))
             elseif line_num >= 0
                 # Line number but not a @testitem — could be @testset or file-level fallback
                 has_testset = true
+                push!(file_filter_pairs, (parts[1], parts[2]))
             else
                 # Not a line number (e.g., "test_file:test_name") — assume @testitem name
                 has_testitem = true
+                push!(file_filter_pairs, (parts[1], parts[2]))
             end
-            push!(file_filter_pairs, (parts[1], parts[2]))
         else
             # No colon — treat the whole string as a test file path
             has_testset = true  # assume Base.Test
@@ -882,6 +1087,18 @@ function handle_run_args(cmd)
 
     test_files = collect(keys(file_groups))
 
+    # Provision a Pkg.test-style test environment for the invoking project so
+    # that [extras]/[targets.test] dependencies (and test/Project.toml deps)
+    # are installed before the runner is spawned (testaruda-ymzg). The runner
+    # must run with that env active — Pkg.instantiate on the main env does
+    # not install test-target dependencies.
+    project_root = _invoking_project_root(params)
+    env_dir = try
+        _provision_test_env(project_root)
+    catch e
+        return json_error("failed to provision test environment: $(sprint(showerror, e))")
+    end
+
     if has_testset
         # Use include() for Base.Test files
         # Build a single Julia expression that includes all unique test files
@@ -890,30 +1107,34 @@ function handle_run_args(cmd)
 
         runner_args = [
             "julia",
-            "--project=.",
+            "--project=$(env_dir)",
             "-e",
             "using Test; $(combined)"
         ]
         collection_path = "test-results.xml"
     else
-        # All @testitem — use ReTestItems.runtests
+        # All @testitem — use ReTestItems.runtests with the signature accepted
+        # by the installed ReTestItems: positional path filter arguments, and
+        # a single `name=` kwarg (Regex) when specific test item names were
+        # selected. The previous `files=`/`names=` kwargs are rejected.
         test_names = filter(x -> x !== nothing, vcat(values(file_groups)...))
 
+        path_args = ["\"$(escape_string(f))\"" for f in test_files]
         filter_expr = "ReTestItems.runtests("
-        if !isempty(test_files)
-            filter_expr *= "files=" * JSON.json(test_files)
+        if !isempty(path_args)
+            filter_expr *= join(path_args, ", ")
         end
         if !isempty(test_names)
-            if !isempty(test_files)
+            if !isempty(path_args)
                 filter_expr *= ", "
             end
-            filter_expr *= "names=" * JSON.json(test_names)
+            filter_expr *= "name=" * _test_name_pattern(test_names)
         end
         filter_expr *= ")"
 
         runner_args = [
             "julia",
-            "--project=.",
+            "--project=$(env_dir)",
             "-e",
             "using ReTestItems; $(filter_expr)"
         ]
@@ -927,6 +1148,35 @@ function handle_run_args(cmd)
             "collection_path" => collection_path
         )
     ))
+end
+
+"""
+    _test_name_pattern(names) -> String
+
+Build a `runtests(name=...)` regex literal matching exactly the given test
+item names. The installed ReTestItems accepts a single
+`name::Union{Regex, AbstractString, Nothing}` (not a vector), so multiple
+selected names are combined into one anchored alternation regex.
+"""
+function _test_name_pattern(names)::String
+    escaped = [_regex_escape(String(n)) for n in names]
+    return "r\"^(" * join(escaped, "|") * ")\$\""
+end
+
+"""
+    _regex_escape(s) -> String
+
+Escape regex metacharacters so the string matches literally inside a regex
+literal.
+"""
+function _regex_escape(s::AbstractString)::String
+    metachars = "\\.^\$|()[]{}?*+"
+    out = IOBuffer()
+    for c in s
+        occursin(c, metachars) && print(out, '\\')
+        print(out, c)
+    end
+    return String(take!(out))
 end
 
 """
