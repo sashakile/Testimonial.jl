@@ -216,6 +216,11 @@ function handle_discover(cmd)
     # adapter package's own installation test directory would return foreign
     # test items and is never acceptable.
     _project_root = _invoking_project_root(params)
+    if _project_root === nothing
+        return json_error(
+            "params.project_root must name an existing directory when provided"
+        )
+    end
     _default_test_dir = joinpath(_project_root, "test")
     if !isdir(_default_test_dir)
         _default_test_dir = joinpath(_project_root, "tests")
@@ -283,7 +288,7 @@ function handle_discover(cmd)
 end
 
 """
-    _invoking_project_root(params) -> String
+    _invoking_project_root(params) -> Union{String, Nothing}
 
 Resolve the root directory of the project the adapter was invoked for
 (testaruda-pevk). Discovery must stay within this scope.
@@ -297,13 +302,24 @@ Order of resolution:
 3. `pwd()` — in external adapter mode testaruda sets the cwd to the target
    project root.
 
-Never returns a path outside the invoking project's tree.
+Returns `nothing` when an explicit project-root param is present but does
+not name an existing directory — callers must reject with `json_error`
+rather than silently resolving a different scope. A resolved root is never
+a path outside the invoking project's tree.
 """
 function _invoking_project_root(params)
-    if isa(params, Dict)
+    # params is a JSON.Object (AbstractDict), never a plain Dict — checking
+    # for Dict would silently skip the explicit-param branch.
+    if isa(params, AbstractDict)
         for key in ("project_root", "root", "project")
-            val = get(params, key, nothing)
-            if isa(val, String) && isdir(val)
+            if haskey(params, key)
+                val = params[key]
+                # An explicit scope the caller named must resolve: a typo'd
+                # path silently discovering the wrong scope is worse than a
+                # hard error (mirrors the test_directories guard below).
+                if !isa(val, String) || !isdir(val)
+                    return nothing
+                end
                 return realpath(val)
             end
         end
@@ -1093,6 +1109,11 @@ function handle_run_args(cmd)
     # must run with that env active — Pkg.instantiate on the main env does
     # not install test-target dependencies.
     project_root = _invoking_project_root(params)
+    if project_root === nothing
+        return json_error(
+            "params.project_root must name an existing directory when provided"
+        )
+    end
     env_dir = try
         _provision_test_env(project_root)
     catch e

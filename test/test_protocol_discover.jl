@@ -201,6 +201,17 @@ end
     @test parsed["ok"] == false
     @test occursin("not a directory", parsed["error"]["message"])
 end
+
+@testset "Discover rejects nonexistent explicit project_root" begin
+    # A present-but-invalid project_root must hard-error, never silently
+    # resolve to a different (pwd-based) scope — silent wrong-scope
+    # discovery with ok=true is the failure mode testaruda-pevk exists to
+    # prevent (review CORR-001).
+    resp = Protocol.handle("""{"command":"discover","params":{"project_root":"/nonexistent/project"}}""")
+    parsed = JSON.parse(resp)
+    @test parsed["ok"] == false
+    @test occursin("project_root", parsed["error"]["message"])
+end
 # ── @testset discovery (Base.Test support) ────
 
 @testset "Discover: @testset returns suite_kind Base.Test" begin
