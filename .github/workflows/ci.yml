@@ -33,8 +33,11 @@ jobs:
           version: ${{ matrix.version }}
       - uses: julia-actions/cache@v2
       - run: julia --project -e 'import Pkg; Pkg.instantiate()'
-      - name: Set up runner project for inference capture (Julia 1.12+)
-        if: ${{ matrix.version == '1.12' }}
+      # record_item/record_all spawn the TestimonialRunner subprocess on
+      # every Julia version (the coverage-recording tests fail with
+      # `nothing` results when it is missing); inference capture itself is
+      # 1.12+ and runtime-detected in driver.jl.
+      - name: Set up runner project
         run: |
           cd scripts/TestimonialRunner
           julia --project=. -e '
