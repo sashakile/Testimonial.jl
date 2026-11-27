@@ -124,8 +124,17 @@ const TEST_MANIFEST = Pair{String, Symbol}[
     "test_ingested_run_prune.jl" => :quick,
 
     # ── Slow tests (subprocess-heavy) ────────────────
-    # Protocol adapter: subprocess spawning under discover/ingest
-    "test_protocol.jl" => :slow,
+    # In-process protocol handler tests (dispatch → JSON response)
+    "test_protocol_basic.jl" => :slow,
+    "test_protocol_runargs.jl" => :slow,
+    "test_protocol_ingest.jl" => :slow,
+    "test_protocol_staticdeps.jl" => :slow,
+    # Spawns adapter subprocesses (stdin/stdout loop and discover scoping)
+    "test_protocol_loop.jl" => :slow,
+    "test_protocol_discover.jl" => :slow,
+
+    # Discover project-scope regression: spawns the adapter as a subprocess
+    "test_discover_scope.jl" => :slow,
 
     # Subprocess recording: record_item spawns real Julia subprocesses
     "test_subprocess_record.jl" => :slow,
